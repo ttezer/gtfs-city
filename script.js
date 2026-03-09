@@ -612,3 +612,67 @@ document.getElementById('route-result-close').onclick=()=>{document.getElementBy
 // ── BAŞLANGIÇ ─────────────────────────────────────────────
 buildRouteList();
 window.onresize=()=>{const c=document.getElementById('deck-canvas');c.width=window.innerWidth;c.height=window.innerHeight;};
+// ═══════════════════════════════════════════════════════════
+// ── FAZ 4: ELECTRON KÖPRÜSÜ (YENİ EKLENDİ) ─────────────────
+// Masaüstü uygulamasından (main.js) gelen menü tetiklemelerini 
+// ve native dosya yükleme olaylarını dinler.
+// ═══════════════════════════════════════════════════════════
+
+window.IS_ELECTRON = typeof window !== 'undefined' && !!window.electronAPI;
+
+if (window.IS_ELECTRON) {
+  // 1. Üst Menü Kısayolları (Oynat/Durdur, Hızlandır, Başa Sar)
+ // 1. Üst Menü Kısayolları (Oynat/Durdur, Hızlandır, Başa Sar)
+  window.electronAPI.onSimControl((ch, data) => {
+    switch(ch) {
+      case 'sim:toggle-play': 
+        const btnPlay = document.getElementById('btn-play');
+        if(btnPlay) btnPlay.click(); 
+        break;
+      case 'sim:speed-up': 
+        const speedUp = document.getElementById('sim-speed');
+        if(speedUp) speedUp.value = Math.min(300, parseInt(speedUp.value) + 10);
+        break;
+      case 'sim:speed-down': 
+        const speedDown = document.getElementById('sim-speed');
+        if(speedDown) speedDown.value = Math.max(1, parseInt(speedDown.value) - 10);
+        break;
+      case 'sim:reset': 
+        const slider = document.getElementById('time-slider');
+        if(slider) { slider.value = 0; slider.dispatchEvent(new Event('input')); }
+        break;
+      case 'sim:replay': 
+        const btnReplay = document.getElementById('btn-replay');
+        if(btnReplay) btnReplay.click();
+        break;
+    }
+  });
+
+  // 2. Kullanıcı Menüden GTFS (ZIP) Seçtiğinde
+  window.electronAPI.onGTFSFileOpened(data => {
+    console.log('Electron üzerinden GTFS yüklendi:', data.name);
+    const file = new File([data.buffer], data.name, {type: 'application/zip'});
+    if(typeof handleGTFSFile === 'function') handleGTFSFile(file);
+  });
+
+  // 3. Şehir Klasörü Tarandığında
+  window.electronAPI.onCityScanResult(cities => {
+    console.log('Klasör taraması sonucu bulunan şehirler:', cities);
+    if(typeof handleNativeCityScan === 'function') handleNativeCityScan(cities);
+  });
+  
+  // 4. Konsola Güvenlik / Platform Bilgisi Yazdır
+  window.electronAPI.getAppInfo().then(info => {
+     console.log(`[Electron Köprüsü Aktif] v${info.version} - Platform: ${info.platform}`);
+  });
+}
+
+// ── FAZ 3 STUB FONKSİYONLARI (Uygulamanın Çökmesini Önler) ─
+window.handleGTFSFile = async function(file) {
+  console.log('GTFS ZIP okuma işlemi tetiklendi:', file.name);
+  alert("Electron Köprüsü Kusursuz Çalışıyor! Dosya başarıyla arayüze ulaştı. \n(Sırada Web Worker ile bu veriyi parçalamak var!)");
+};
+
+window.handleNativeCityScan = async function(cities) {
+  console.log('Yerel şehir veritabanı okundu, toplam:', cities.length);
+};
