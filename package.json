@@ -1,0 +1,124 @@
+{
+  "name": "istanbul-transit-3d",
+  "version": "1.0.0",
+  "description": "İstanbul Toplu Taşıma 3D Simülasyon Platformu — GTFS · deck.gl · MapLibre GL",
+  "author": {
+    "name": "İstanbul Transit 3D",
+    "email": "transit3d@istanbul.dev"
+  },
+  "license": "MIT",
+  "main": "electron/main.js",
+  "scripts": {
+    "start":   "electron .",
+    "dev":     "NODE_ENV=development electron .",
+    "build":   "electron-builder",
+    "build:win":   "electron-builder --win",
+    "build:mac":   "electron-builder --mac",
+    "build:linux": "electron-builder --linux",
+    "build:all":   "electron-builder --win --mac --linux",
+    "postinstall": "electron-builder install-app-deps"
+  },
+  "devDependencies": {
+    "electron":         "^30.0.0",
+    "electron-builder": "^24.13.0"
+  },
+  "build": {
+    "appId": "dev.istanbul.transit3d",
+    "productName": "İstanbul Transit 3D",
+    "copyright": "Copyright © 2026 İstanbul Transit 3D",
+
+    "directories": {
+      "output": "dist",
+      "buildResources": "assets"
+    },
+
+    "files": [
+      "index.html",
+      "script.js",
+      "style.css",
+      "electron/**/*",
+      "assets/**/*",
+      "models/**/*",
+      "trips_data.js",
+      "shapes_data.js",
+      "lookup_data.js",
+      "Data/**/*",
+      "!Data/**/*.tmp",
+      "!node_modules/**/*",
+      "!dist/**/*",
+      "!.git/**/*"
+    ],
+
+    "extraResources": [
+      {
+        "from": "Data/",
+        "to":   "Data/",
+        "filter": ["**/*.zip", "**/*.js"]
+      }
+    ],
+
+    "win": {
+      "target": [
+        { "target": "nsis",   "arch": ["x64"] },
+        { "target": "portable","arch": ["x64"] }
+      ],
+      "icon": "assets/icon.ico",
+      "publisherName": "İstanbul Transit 3D",
+      "verifyUpdateCodeSignature": false
+    },
+
+    "nsis": {
+      "oneClick":           false,
+      "allowToChangeInstallationDirectory": true,
+      "installerIcon":      "assets/icon.ico",
+      "uninstallerIcon":    "assets/icon.ico",
+      "installerHeaderIcon":"assets/icon.ico",
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "İstanbul Transit 3D",
+      "license": "LICENSE"
+    },
+
+    "mac": {
+      "target": [
+        { "target": "dmg",   "arch": ["x64", "arm64"] },
+        { "target": "zip",   "arch": ["x64", "arm64"] }
+      ],
+      "icon": "assets/icon.icns",
+      "category": "public.app-category.utilities",
+      "darkModeSupport": true,
+      "hardenedRuntime": true,
+      "gatekeeperAssess": false,
+      "entitlements":            "assets/entitlements.mac.plist",
+      "entitlementsInherit":     "assets/entitlements.mac.plist"
+    },
+
+    "dmg": {
+      "title":   "${productName} ${version}",
+      "icon":    "assets/icon.icns",
+      "background": "assets/dmg-background.png",
+      "contents": [
+        { "x": 130, "y": 220 },
+        { "x": 410, "y": 220, "type": "link", "path": "/Applications" }
+      ]
+    },
+
+    "linux": {
+      "target": [
+        { "target": "AppImage", "arch": ["x64"] },
+        { "target": "deb",      "arch": ["x64"] },
+        { "target": "rpm",      "arch": ["x64"] }
+      ],
+      "icon":     "assets/icons/",
+      "category": "Utility",
+      "synopsis": "İstanbul GTFS 3D Transit Simülasyonu"
+    },
+
+    "publish": {
+      "provider": "github",
+      "owner":    "istanbul-transit-3d",
+      "repo":     "istanbul-transit-3d",
+      "releaseType": "release"
+    }
+  }
+}

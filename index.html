@@ -1,0 +1,366 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>İstanbul Transit 3D</title>
+<link rel="stylesheet" href="https://unpkg.com/maplibre-gl@4.1.2/dist/maplibre-gl.css"/>
+<script src="https://unpkg.com/maplibre-gl@4.1.2/dist/maplibre-gl.js"></script>
+<script src="https://unpkg.com/deck.gl@9.0.3/dist.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<link rel="stylesheet" href="style.css">
+
+<!-- İŞ-15: Platform Detection Bridge ──────────────────── -->
+<!-- Electron ortamında window.electronAPI contextBridge ile inject edilir. -->
+<!-- Web ortamında yoktur — tüm özellikler web-compat fallback kullanır.  -->
+<script>
+// Platform shim — script.js'de window.IS_ELECTRON ve window.PLATFORM kullanılır
+window.IS_ELECTRON = typeof window !== 'undefined' && !!window.electronAPI;
+window.PLATFORM    = window.IS_ELECTRON
+  ? (window.electronAPI?.platform || 'unknown')
+  : 'web';
+
+// Electron menü kısayollarını script.js olaylarına bağla (DOM hazır olunca)
+if (window.IS_ELECTRON) {
+  document.addEventListener('DOMContentLoaded', () => {
+    window.electronAPI.onSimControl((channel) => {
+      // Menü → renderer event map
+      const actions = {
+        'sim:toggle-play':  () => document.getElementById('btn-play')?.click(),
+        'sim:speed-up':     () => document.getElementById('btn-faster')?.click(),
+        'sim:speed-down':   () => document.getElementById('btn-slower')?.click(),
+        'sim:reset':        () => document.getElementById('btn-reset')?.click(),
+        'sim:replay':       () => document.getElementById('btn-replay')?.click(),
+        'sim:cinematic':    () => document.getElementById('btn-cinematic')?.click(),
+      };
+      actions[channel]?.();
+    });
+
+    // Native file dialog'dan açılan GTFS dosyasını yakala
+    window.electronAPI.onGTFSFileOpened((data) => {
+      // data: { name, buffer: ArrayBuffer }
+      const file = new File([data.buffer], data.name, { type: 'application/zip' });
+      if (typeof handleGTFSFile === 'function') handleGTFSFile(file);
+      else openGTFSModal?.();
+    });
+
+    // City scan sonucu (native Data/ klasörü tarama)
+    window.electronAPI.onCityScanResult((cities) => {
+      if (typeof handleNativeCityScan === 'function') handleNativeCityScan(cities);
+    });
+
+    // Rapor kaydetme isteği (Dosya > Raporu Kaydet menüsü)
+    window.electronAPI.onReportRequested(({ savePath }) => {
+      if (typeof gtfsValidationReport !== 'undefined' && gtfsValidationReport) {
+        window.electronAPI.sendReport(savePath, gtfsValidationReport);
+      }
+    });
+  });
+}
+</script>
+</head>
+<body>
+<div id="map"></div>
+<canvas id="deck-canvas"></canvas>
+
+<!-- ══ SIDEBAR ══════════════════════════════════════════ -->
+<div id="sidebar">
+
+  <!-- LOGO -->
+  <div id="logo-block">
+    <span class="logo-hex">⬡</span>
+    <div>
+      <div class="logo-title">İSTANBUL</div>
+      <div class="logo-sub">3D TRANSİT · SİMÜLASYON</div>
+    </div>
+    <!-- FPS HUD (İş-02) -->
+    <div id="fps-hud">
+      <span id="fps-val">--</span>
+      <span class="fps-label">FPS</span>
+    </div>
+    <!-- Platform Badge (İş-15) -->
+    <div id="platform-badge" class="platform-badge"></div>
+  </div>
+
+  <!-- CLOCK + TIME CONTROLS -->
+  <div id="time-block">
+    <div id="clock-row">
+      <div id="clock">06:00</div>
+      <div id="daynight-badge">🌙 GECE</div>
+    </div>
+
+    <!-- Sparkline histogram (İş-01) -->
+    <div id="sparkline-wrap">
+      <canvas id="sparkline" height="28"></canvas>
+      <div id="peak-labels">
+        <span class="peak-label sabah" style="left:29%">SABAH PİK</span>
+        <span class="peak-label aksam" style="left:71%">AKŞAM PİK</span>
+      </div>
+    </div>
+
+    <!-- Slider with peak bands (İş-01) -->
+    <div id="slider-wrap">
+      <svg id="slider-bands" preserveAspectRatio="none"></svg>
+      <input type="range" id="time-slider" min="0" max="86399" value="21600" step="60">
+    </div>
+
+    <div id="controls">
+      <button class="cbtn" id="btn-slower">◀◀</button>
+      <button class="cbtn primary" id="btn-play">⏸</button>
+      <button class="cbtn" id="btn-faster">▶▶</button>
+      <button class="cbtn" id="btn-reset">↺</button>
+      <button class="cbtn accent" id="btn-replay" title="Replay — 06:00'dan oynat">▶ 24H</button>
+    </div>
+    <div id="speed-row">
+      Hız: <span id="speed-lbl">60×</span>
+      <span id="active-badge"><span id="s-active">0</span> aktif araç</span>
+    </div>
+  </div>
+
+  <!-- REPLAY PROGRESS (İş-05) -->
+  <div id="replay-bar" class="hidden">
+    <div id="replay-track"><div id="replay-fill"></div></div>
+    <div id="replay-info">
+      <span id="replay-time-lbl">06:00</span>
+      <label class="small-check"><input type="checkbox" id="replay-loop"> Döngü</label>
+      <button id="replay-stop">■ Durdur</button>
+    </div>
+  </div>
+
+  <!-- LAYER TOGGLES -->
+  <div class="panel-section" id="section-layers">
+    <div class="section-hdr">
+      <span class="section-label">KATMANLAR</span>
+    </div>
+    <label class="tog-row"><input type="checkbox" id="tog-anim" checked><span class="tog-track"><span class="tog-thumb"></span></span>Araç Animasyonu</label>
+    <label class="tog-row"><input type="checkbox" id="tog-paths" checked><span class="tog-track"><span class="tog-thumb"></span></span>Güzergâh Hatları</label>
+    <label class="tog-row"><input type="checkbox" id="tog-density" checked><span class="tog-track"><span class="tog-thumb"></span></span>Durak Yoğunluğu 3D</label>
+    <label class="tog-row"><input type="checkbox" id="tog-stops" checked><span class="tog-track"><span class="tog-thumb"></span></span>Duraklar</label>
+    <label class="tog-row"><input type="checkbox" id="tog-buildings" checked><span class="tog-track"><span class="tog-thumb"></span></span>3D Binalar</label>
+    <label class="tog-row"><input type="checkbox" id="tog-rendezvous" checked><span class="tog-track"><span class="tog-thumb"></span></span>Aktarma Noktaları</label>
+    <!-- Heatmap toggle (İş-06) -->
+    <label class="tog-row"><input type="checkbox" id="tog-heatmap"><span class="tog-track"><span class="tog-thumb"></span></span>Yoğunluk Heatmap</label>
+    <!-- FAZ 2 toggles -->
+    <label class="tog-row faz2"><input type="checkbox" id="tog-headway"><span class="tog-track"><span class="tog-thumb"></span></span>Headway Çizgileri</label>
+    <label class="tog-row faz2"><input type="checkbox" id="tog-bunching"><span class="tog-track"><span class="tog-thumb"></span></span>Bunching Alarmı</label>
+    <label class="tog-row faz2"><input type="checkbox" id="tog-waiting"><span class="tog-track"><span class="tog-thumb"></span></span>Bekleme Süresi 3D</label>
+    <label class="tog-row faz2"><input type="checkbox" id="tog-transfer"><span class="tog-track"><span class="tog-thumb"></span></span>Transfer Bağlantıları</label>
+    <!-- FAZ 3 toggles -->
+    <label class="tog-row faz3"><input type="checkbox" id="tog-3d"><span class="tog-track"><span class="tog-thumb"></span></span>3D Araç Modelleri <span id="lod-badge" class="lod-badge off">LOD: NOKTA</span></label>
+  </div>
+
+  <!-- TYPE FILTER -->
+  <div class="panel-section">
+    <div class="section-label">HAT TİPİ</div>
+    <div id="type-btns">
+      <button class="tbtn active" data-t="all">Tümü</button>
+      <button class="tbtn" data-t="1">Metro</button>
+      <button class="tbtn" data-t="0">Tramvay</button>
+      <button class="tbtn" data-t="4">Feribot</button>
+      <button class="tbtn" data-t="7">Funicular</button>
+      <button class="tbtn" data-t="9">Minibüs</button>
+      <button class="tbtn" data-t="10">Dolmuş</button>
+    </div>
+  </div>
+
+  <!-- ŞEHİR SEÇİCİ (İş-14) -->
+  <div class="panel-section" id="section-cities">
+    <div class="section-hdr collapsible" id="city-section-hdr" data-target="city-list-wrap">
+      <span class="section-label">ŞEHİR</span>
+      <span class="section-toggle">▾</span>
+    </div>
+    <div id="city-list-wrap" class="collapsible-body open">
+      <div id="city-list"></div>
+      <button id="btn-gtfs-upload" class="gtfs-upload-btn">📂 GTFS ZIP Yükle</button>
+    </div>
+  </div>
+
+  <!-- HAT LİSTESİ (İş-04) -->
+  <div class="panel-section" id="section-routes">
+    <div class="section-hdr collapsible" data-target="route-list-wrap">
+      <span class="section-label">HATLAR</span>
+      <span class="section-toggle">▾</span>
+    </div>
+    <div id="route-list-wrap" class="collapsible-body">
+      <div id="route-search-box">
+        <input type="text" id="route-filter-inp" placeholder="Hat ara...">
+      </div>
+      <div id="route-list"></div>
+    </div>
+  </div>
+
+  <!-- ROTA PLANLAMA -->
+  <div class="panel-section">
+    <div class="section-hdr collapsible" data-target="routing-wrap">
+      <span class="section-label">ROTA PLANLAMA</span>
+      <span class="section-toggle">▾</span>
+    </div>
+    <div id="routing-wrap" class="collapsible-body">
+      <input type="text" id="stop-from" placeholder="Başlangıç durağı..." autocomplete="off">
+      <div id="from-suggestions" class="suggestions"></div>
+      <input type="text" id="stop-to" placeholder="Bitiş durağı..." autocomplete="off">
+      <div id="to-suggestions" class="suggestions"></div>
+      <button id="btn-route" class="route-btn">Rota Bul →</button>
+    </div>
+  </div>
+
+  <!-- FOLLOW MODE -->
+  <div id="follow-bar" class="hidden">
+    <span id="follow-label">📍 Takip Modu</span>
+    <button id="btn-unfollow">✕</button>
+  </div>
+
+</div>
+<!-- ══ END SIDEBAR ════════════════════════════════════════ -->
+
+<!-- ARAÇ DETAY PANELİ (İş-03) -->
+<div id="vehicle-panel" class="hidden">
+  <div id="vp-header">
+    <span id="vp-icon">🚌</span>
+    <div id="vp-title-block">
+      <div id="vp-title">—</div>
+      <div id="vp-subtitle">—</div>
+    </div>
+    <button id="vp-close">✕</button>
+  </div>
+  <div id="vp-body">
+    <div class="vp-stat-row">
+      <div class="vp-stat"><span class="vp-val" id="vp-speed">—</span><span class="vp-lbl">km/h</span></div>
+      <div class="vp-stat"><span class="vp-val" id="vp-headway">—</span><span class="vp-lbl">Headway (m)</span></div>
+      <div class="vp-stat"><span class="vp-val" id="vp-progress">—</span><span class="vp-lbl">İlerleme</span></div>
+    </div>
+    <div class="vp-next-stop">
+      <span class="vp-ns-label">→ Sonraki Durak</span>
+      <span id="vp-next-stop">—</span>
+    </div>
+    <div class="vp-next-stop">
+      <span class="vp-ns-label">⏱ Tahmini Varış</span>
+      <span id="vp-eta">—</span>
+    </div>
+    <div id="vp-stops-list"></div>
+  </div>
+  <div id="vp-footer">
+    <button id="vp-follow-btn" class="vp-btn">📍 Takip Et</button>
+    <button id="vp-route-btn" class="vp-btn">🗺 Hattı Odakla</button>
+  </div>
+</div>
+
+<!-- DEPARTURE BOARD -->
+<div id="dep-board" class="hidden">
+  <div id="dep-header">
+    <span id="dep-stop-name">Durak</span>
+    <button id="dep-close">✕</button>
+  </div>
+  <div id="dep-list"></div>
+</div>
+
+<!-- ROUTE RESULT -->
+<div id="route-result" class="hidden">
+  <div id="route-result-header">
+    <span>Rota Sonucu</span>
+    <button id="route-result-close">✕</button>
+  </div>
+  <div id="route-steps"></div>
+</div>
+
+<!-- HEATMAP HOUR SELECTOR (İş-06) -->
+<div id="heatmap-ctrl" class="hidden">
+  <span class="section-label">HEATMAP SAATİ</span>
+  <input type="range" id="heatmap-hour" min="0" max="23" value="8" step="1">
+  <span id="heatmap-hour-lbl">08:00</span>
+  <label class="small-check" style="margin-left:8px">
+    <input type="checkbox" id="heatmap-follow-sim"> Simle takip et
+  </label>
+</div>
+
+<!-- İŞ-08: BUNCHING PANEL -->
+<div id="bunching-panel" class="hidden">
+  <div id="bunching-header">
+    <span>⚠️ Bunching Uyarıları</span>
+    <span id="bunching-count" class="bunch-count">0</span>
+    <div id="threshold-row">
+      <span>Eşik:</span>
+      <input type="range" id="bunching-threshold" min="50" max="500" value="200" step="10">
+      <span id="threshold-lbl">200m</span>
+    </div>
+  </div>
+  <div id="bunching-list"></div>
+</div>
+
+<!-- İŞ-09: WORST STOPS PANEL -->
+<div id="worst-stops-panel" class="hidden">
+  <div id="worst-header">
+    <span>⏱ En Uzun Bekleme</span>
+    <span class="worst-sub">İlk 10 Durak</span>
+  </div>
+  <div id="worst-stops-list"></div>
+</div>
+
+<!-- İŞ-11: SİNEMATİK LABEL -->
+<div id="cinematic-label"></div>
+
+<!-- İŞ-11: SİNEMATİK BUTTON -->
+<button id="btn-cinematic">🎬 Sinematik</button>
+
+<!-- İŞ-13: GTFS UPLOAD MODAL -->
+<div id="gtfs-modal" class="hidden">
+  <div id="gtfs-modal-box">
+    <div id="gtfs-modal-header">
+      <span>📂 GTFS ZIP Yükle</span>
+      <button id="gtfs-modal-close">✕</button>
+    </div>
+    <div id="gtfs-modal-body">
+      <div id="gtfs-drop-zone">
+        <div class="drop-icon">📦</div>
+        <div class="drop-title">GTFS .zip dosyasını buraya sürükle</div>
+        <div class="drop-sub">veya tıkla seç</div>
+        <input type="file" id="gtfs-file-input" accept=".zip" style="display:none">
+      </div>
+      <div id="gtfs-progress-wrap" class="hidden">
+        <div id="gtfs-progress-track"><div id="gtfs-progress-bar"></div></div>
+        <div id="gtfs-progress-msg">Hazırlanıyor...</div>
+      </div>
+      <div id="gtfs-validation-wrap" class="hidden"></div>
+      <div id="gtfs-info-box">
+        <div class="gtfs-info-title">Beklenen GTFS Dosyaları</div>
+        <div class="gtfs-file-list">
+          <span class="req">stops.txt</span>
+          <span class="req">routes.txt</span>
+          <span class="req">trips.txt</span>
+          <span class="req">stop_times.txt</span>
+          <span class="opt">shapes.txt</span>
+          <span class="opt">calendar.txt</span>
+        </div>
+        <div class="gtfs-note">Simülasyon Python pipeline ile preprocess gerektirir. Bu araç validasyon + istatistik sağlar.</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- İŞ-14: ŞEHİR LOADING OVERLAY -->
+<div id="city-loading" class="hidden">
+  <div id="city-loading-inner">
+    <div class="city-load-spinner"></div>
+    <div id="city-loading-name">Yükleniyor...</div>
+  </div>
+</div>
+
+<!-- TOOLTIP -->
+<div id="tooltip"></div>
+
+<!-- LEGEND -->
+<div id="legend">
+  <div class="li"><span class="ld" style="background:#8E44AD"></span>Metro</div>
+  <div class="li"><span class="ld" style="background:#E74C3C"></span>Tramvay</div>
+  <div class="li"><span class="ld" style="background:#1ABC9C"></span>Feribot</div>
+  <div class="li"><span class="ld" style="background:#D35400"></span>Funicular</div>
+  <div class="li"><span class="ld" style="background:#7F8C8D"></span>Minibüs</div>
+  <div class="li"><span class="ld" style="background:#95A5A6"></span>Dolmuş</div>
+</div>
+
+<script src="trips_data.js"></script>
+<script src="shapes_data.js"></script>
+<script src="lookup_data.js"></script>
+<script src="script.js"></script>
+</body>
+</html>

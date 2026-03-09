@@ -1,0 +1,149 @@
+name: Build & Release
+
+on:
+  push:
+    tags:
+      - 'v*'          # v1.0.0, v1.2.3 gibi tag'lerde tetikle
+  workflow_dispatch:  # Manuel tetikleme
+
+permissions:
+  contents: write     # Release oluşturmak için gerekli
+
+jobs:
+  # ── WINDOWS BUILD ────────────────────────────────────────
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build Windows (NSIS + Portable)
+        run: npm run build:win
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Windows code signing (opsiyonel)
+          # WIN_CSC_LINK: ${{ secrets.WIN_CSC_LINK }}
+          # WIN_CSC_KEY_PASSWORD: ${{ secrets.WIN_CSC_KEY_PASSWORD }}
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-build
+          path: dist/*.exe
+          retention-days: 7
+
+  # ── MACOS BUILD ──────────────────────────────────────────
+  build-macos:
+    runs-on: macos-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build macOS (DMG — x64 + arm64)
+        run: npm run build:mac
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # macOS notarization (opsiyonel)
+          # APPLE_ID: ${{ secrets.APPLE_ID }}
+          # APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          # APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: macos-build
+          path: dist/*.dmg
+          retention-days: 7
+
+  # ── LINUX BUILD ──────────────────────────────────────────
+  build-linux:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build Linux (AppImage + deb)
+        run: npm run build:linux
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-build
+          path: |
+            dist/*.AppImage
+            dist/*.deb
+          retention-days: 7
+
+  # ── GITHUB RELEASE ───────────────────────────────────────
+  release:
+    needs: [build-windows, build-macos, build-linux]
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/')
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts/
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: "İstanbul Transit 3D ${{ github.ref_name }}"
+          body: |
+            ## 🚌 İstanbul Transit 3D ${{ github.ref_name }}
+
+            **14.380+ gerçek GTFS seferi · deck.gl 3D · MapLibre GL**
+
+            ### İndirme
+            | Platform | Dosya |
+            |----------|-------|
+            | Windows (Installer) | `*-Setup.exe` |
+            | Windows (Portable)  | `*-Portable.exe` |
+            | macOS (Intel)       | `*-x64.dmg` |
+            | macOS (Apple Silicon)| `*-arm64.dmg` |
+            | Linux (AppImage)    | `*.AppImage` |
+            | Linux (deb)         | `*.deb` |
+
+            ### Yenilikler
+            - FAZ 1: Peak marker, FPS HUD, Araç detay paneli, Route focus, Replay, Heatmap
+            - FAZ 2: Headway görselleştirme, Bunching tespiti, Bekleme süresi, Transfer arcs, Sinematik kamera
+            - FAZ 3: 3D araç modelleri (LOD), GTFS ZIP upload + validasyon, Multi-city profilleri
+            - FAZ 4: Electron wrapper — Windows / macOS / Linux native binary
+          files: |
+            artifacts/**/*.exe
+            artifacts/**/*.dmg
+            artifacts/**/*.AppImage
+            artifacts/**/*.deb
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

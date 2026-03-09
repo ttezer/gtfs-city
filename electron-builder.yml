@@ -1,0 +1,26 @@
+# electron-builder.yml
+# package.json "build" bloğunu tamamlayan ek ayarlar
+# Code signing için environment variable'lar CI'da set edilmeli
+
+# macOS code signing (opsiyonel — Gatekeeper için gerekli)
+# APPLE_ID, APPLE_APP_SPECIFIC_PASSWORD, APPLE_TEAM_ID env vars
+mac:
+  notarize:
+    teamId: ${APPLE_TEAM_ID}    # CI'da env var olarak set et
+
+# Windows code signing (opsiyonel)
+# WIN_CSC_LINK, WIN_CSC_KEY_PASSWORD env vars
+win:
+  signingHashAlgorithms:
+    - sha256
+  signDlls: false
+
+# Electron download mirror (China/VPN sorunları için)
+# electronDownload:
+#   mirror: https://npmmirror.com/mirrors/electron/
+
+# Auto-update feed (GitHub Releases)
+publish:
+  provider: github
+  private: false
+  releaseType: release
