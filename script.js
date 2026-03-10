@@ -17,7 +17,7 @@
    İş-15: Electron platform bridge (tamamlandı)
    ═══════════════════════════════════════════════════════════ */
 
-const { DeckGL, TripsLayer, PathLayer, ScatterplotLayer, ColumnLayer, HeatmapLayer, PathStyleExtension, LineLayer, ArcLayer } = deck;
+const { DeckGL, MapboxOverlay, TripsLayer, PathLayer, ScatterplotLayer, ColumnLayer, HeatmapLayer, PathStyleExtension, LineLayer, ArcLayer } = deck;
 const _pathDashExt = new PathStyleExtension({dash: true});
 
 // ── ADAPTİF KALİTE SİSTEMİ ──────────────────────────────
@@ -275,51 +275,25 @@ function updateBuildingStyle(){
 
 // ── DECK.GL ───────────────────────────────────────────────
 let deckgl;
+
 function startDeck(){
-  const canvas=document.getElementById('deck-canvas');
-  canvas.width=window.innerWidth;canvas.height=window.innerHeight;
-  deckgl=new DeckGL({
-    canvas,width:'100%',height:'100%',
-    
-    // 1. initialViewState YERİNE viewState KULLANILMALI
-    viewState:{longitude:28.9784,latitude:41.0082,zoom:11.5,pitch:52,bearing:-14},
-    
-    // 2. CONTROLLER AKTİF EDİLMELİ
-    controller:true, 
-    
-    onViewStateChange(e){
-      if(followTripIdx!==null)return;
-      
-      // 3. DECKGL GÖRÜNÜMÜNÜ KONTROLLÜ OLARAK GÜNCELLE
-      deckgl.setProps({ viewState: e.viewState });
-      
-      // Deck zoom/pan → MapLibre güncelle
-      mapgl.jumpTo({
-        center:[e.viewState.longitude,e.viewState.latitude],
-        zoom:e.viewState.zoom,
-        bearing:e.viewState.bearing,
-        pitch:e.viewState.pitch
-      });
-    },
-    onHover:handleHover,
-    onClick:handleClick,
-    layers:[]
+  // 1. Mouse eventlerini bloke eden eski canvas'ı devre dışı bırakıyoruz
+  const canvas = document.getElementById('deck-canvas');
+  if(canvas) canvas.style.display = 'none';
+
+  // 2. Deck.gl'i bağımsız bir canvas yerine MapLibre eklentisi olarak kuruyoruz
+  deckgl = new MapboxOverlay({
+    interleaved: true, // Bu ayar Deck.gl araçları ile 3D binaların derinlik uyumunu (iç içe geçmesini) kusursuz sağlar
+    onHover: handleHover,
+    onClick: handleClick,
+    layers: []
   });
   
-  // MapLibre zoom/pan (navbar butonları, touch vs) → Deck güncelle
-  mapgl.on('move',()=>{
-    if(followTripIdx!==null)return;
-    const c=mapgl.getCenter();
-    
-    // 4. BURADA DA initialViewState YERİNE viewState KULLANILMALI
-    deckgl.setProps({viewState:{
-      longitude:c.lng,latitude:c.lat,
-      zoom:mapgl.getZoom(),
-      bearing:mapgl.getBearing(),
-      pitch:mapgl.getPitch(),
-      transitionDuration:0
-    }});
-  });
+  // 3. Eklentiyi MapLibre haritasına ekliyoruz
+  mapgl.addControl(deckgl);
+
+  // NOT: Artık onViewStateChange veya mapgl.on('move') senkronizasyonlarına gerek YOKTUR.
+  // Deck.gl'in setProps metodu arka planda aynı şekilde çalışmaya devam edecektir.
 }
 
 // ── TOOLTIP ───────────────────────────────────────────────
