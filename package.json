@@ -11,6 +11,7 @@
   "scripts": {
     "start":   "electron .",
     "dev":     "NODE_ENV=development electron .",
+    "test":    "node --test",
     "build":   "electron-builder",
     "build:win":   "electron-builder --win",
     "build:mac":   "electron-builder --mac",

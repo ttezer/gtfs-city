@@ -58,20 +58,19 @@ const TYPE_META = {
   '4':{n:'Feribot',   c:'#1ABC9C',rgb:[26,188,156], i:'⛴️',w:3},
   '5':{n:'Teleferik', c:'#F39C12',rgb:[243,156,18], i:'🚡',w:3},
   '6':{n:'Gondol',    c:'#E67E22',rgb:[230,126,34], i:'🚡',w:3},
-  '7':{n:'Funicular', c:'#D35400',rgb:[211,84,0],   i:'🚠',w:3},
+  '7':{n:'Füniküler', c:'#D35400',rgb:[211,84,0],   i:'🚠',w:3},
   '9':{n:'Minibüs',  c:'#7F8C8D',rgb:[127,140,141],i:'🚐',w:2},
  '10':{n:'Dolmuş',   c:'#95A5A6',rgb:[149,165,166],i:'🚖',w:2},
 };
 // ── OFFLİNE / ONLİNE TİLE SEÇİCİ (İş-15 mbtiles) ────────
-// Electron + localhost:3731 tile sunucusu aktifse offline stil kullan
+// Electron + localhost:3731 tile sunucusu hazır olduğunda offline stile geçilecek.
 const TILE_PORT = 3731;
 const _offlineBase = `http://localhost:${TILE_PORT}`;
 function _tileStyle(onlineUrl) {
-  // Electron + offline sunucu aktif değilse direkt online URL
-  // Offline sunucu aktif hâle geldiğinde (main.js güncellendikten sonra)
-  // bu fonksiyon otomatik olarak local tile'ları kullanır.
+  // Şu an tüm platformlarda online style kullanılıyor.
+  // _offlineBase değişkeni, offline style endpoint'i eklendiğinde kullanılacak.
   if (!window.IS_ELECTRON) return onlineUrl;
-  // Şimdilik online fallback — mbtiles kurulunca local style döner
+  // Şimdilik online fallback.
   return onlineUrl;
 }
 
@@ -144,19 +143,21 @@ function haversineM([lon1,lat1],[lon2,lat2]){
   const a=Math.sin(dLat/2)**2+Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLon/2)**2;
   return R*2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));
 }
-function secsToHHMM(s){const h=Math.floor(s/3600)%24,m=Math.floor((s%3600)/60);return(h<10?'0':'')+h+':'+(m<10?'0':'')+m;}
-function getPhase(secs){const h=(secs/3600)%24;if(h<5||h>=22)return'night';if(h<7)return'dawn';if(h<19)return'day';return'dusk';}
-function getVehiclePos(trip,time){
-  const off=time%Math.max(trip.d,1),ts=trip.ts,p=trip.p;
-  if(off<ts[0]||off>ts[ts.length-1])return null;
-  for(let i=0;i<ts.length-1;i++){
-    if(off>=ts[i]&&off<=ts[i+1]){
-      const f=ts[i+1]>ts[i]?(off-ts[i])/(ts[i+1]-ts[i]):0;
-      return[p[i][0]+f*(p[i+1][0]-p[i][0]),p[i][1]+f*(p[i+1][1]-p[i][1])];
+const {
+  secsToHHMM = (s)=>{const h=Math.floor(s/3600)%24,m=Math.floor((s%3600)/60);return(h<10?'0':'')+h+':'+(m<10?'0':'')+m;},
+  getPhase = (secs)=>{const h=(secs/3600)%24;if(h<5||h>=22)return'night';if(h<7)return'dawn';if(h<19)return'day';return'dusk';},
+  getVehiclePos = (trip,time)=>{
+    const off=time%Math.max(trip.d,1),ts=trip.ts,p=trip.p;
+    if(off<ts[0]||off>ts[ts.length-1])return null;
+    for(let i=0;i<ts.length-1;i++){
+      if(off>=ts[i]&&off<=ts[i+1]){
+        const f=ts[i+1]>ts[i]?(off-ts[i])/(ts[i+1]-ts[i]):0;
+        return[p[i][0]+f*(p[i+1][0]-p[i][0]),p[i][1]+f*(p[i+1][1]-p[i][1])];
+      }
     }
+    return null;
   }
-  return null;
-}
+} = window.SimUtils || {};
 function isUnderground(lon,lat){return UNDERGROUND.some(z=>lat>=z.minLat&&lat<=z.maxLat&&lon>=z.minLon&&lon<=z.maxLon);}
 
 // ── SPARKLINE (İş-01) ─────────────────────────────────────
@@ -248,10 +249,10 @@ mapgl.on('styledata',()=>{if(showBuildings)add3DBuildings();updateBuildingStyle(
 function add3DBuildings() {
   try {
     // Haritada 3D bina kaynağı var mı kontrol et
-    const sourceName = map.getSource('openmaptiles') ? 'openmaptiles' : (map.getSource('composite') ? 'composite' : null);
+    const sourceName = mapgl.getSource('openmaptiles') ? 'openmaptiles' : (mapgl.getSource('composite') ? 'composite' : null);
     if (!sourceName) return; // Kaynak yoksa sessizce çık, çökmeyi engelle
     
-    map.addLayer({
+    mapgl.addLayer({
       'id': '3d-buildings',
       'source': sourceName,
       'source-layer': 'building',
