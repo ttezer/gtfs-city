@@ -10,6 +10,167 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 <link rel="stylesheet" href="style.css">
 
+<!-- FAZ 2 STİLLERİ ─────────────────────────────────────── -->
+<style>
+/* ── DECK CANVAS — scroll MapLibre'ye geçsin ── */
+#deck-canvas {
+  position: absolute; top: 0; left: 0;
+  width: 100%; height: 100%;
+  pointer-events: auto; /* click/hover deck alır */
+  touch-action: none;
+}
+.section-label {
+  color: #c9d1d9 !important;
+  font-weight: 400 !important;
+  font-size: 11px;
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+}
+.section-hdr .section-label {
+  color: #c9d1d9 !important;
+  font-weight: 400 !important;
+}
+/* ── SORUN #9: Durak Canlı Sefer Tablosu ── */
+#stop-panel {
+  position: fixed;
+  top: 12px; left: 50%; transform: translateX(-50%);
+  width: min(520px, 94vw);
+  background: rgba(13,17,23,0.97);
+  border: 1px solid rgba(88,166,255,0.35);
+  border-radius: 12px;
+  z-index: 500;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.6);
+  max-height: 80vh;
+  display: flex; flex-direction: column;
+}
+#stop-panel.hidden { display: none; }
+#stop-panel-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 12px 16px; border-bottom: 1px solid rgba(48,54,61,0.8);
+}
+#stop-panel-name {
+  font-size: 15px; font-weight: 600; color: #e6edf3;
+}
+#stop-panel-meta {
+  font-size: 11px; color: #8b949e; margin-top: 2px;
+}
+#stop-panel-close {
+  background: none; border: none; color: #8b949e; font-size: 18px; cursor: pointer; padding: 0 4px;
+}
+#stop-panel-close:hover { color: #e6edf3; }
+#stop-arrivals-table {
+  overflow-y: auto;
+  max-height: calc(80vh - 80px);
+}
+.sa-row {
+  display: grid;
+  grid-template-columns: 2fr 1fr 1fr;
+  padding: 7px 16px;
+  border-bottom: 1px solid rgba(48,54,61,0.4);
+  align-items: center;
+  font-size: 12px;
+  gap: 6px;
+}
+.sa-row:hover { background: rgba(88,166,255,0.05); }
+.sa-head {
+  font-size: 10px; color: #58a6ff; font-weight: 600;
+  letter-spacing: 0.5px; padding: 6px 16px 4px;
+  background: rgba(88,166,255,0.06);
+  display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 6px;
+}
+.sa-route-name { color: #e6edf3; display: flex; align-items: center; gap: 6px; }
+.sa-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+.sa-time { color: #3fb950; font-weight: 700; text-align: center; }
+.sa-time2 { color: #8b949e; text-align: center; }
+.sa-time.soon { color: #f85149; }
+.sa-time.coming { color: #d29922; }
+.sa-empty { padding: 16px; text-align: center; color: #8b949e; font-size: 12px; }
+.cinematic-hide { opacity:0 !important; pointer-events:none !important; transition:opacity 0.6s; }
+#cinematic-label {
+  position:fixed; bottom:80px; left:50%; transform:translateX(-50%);
+  background:rgba(0,0,0,0.7); color:#fff; font-size:18px; font-weight:700;
+  padding:10px 24px; border-radius:8px; letter-spacing:1px;
+  pointer-events:none; opacity:0; transition:opacity 0.5s;
+  text-shadow:0 0 12px rgba(88,166,255,0.8);
+  z-index:200;
+}
+/* Bunching Paneli */
+#bunching-panel {
+  position:fixed; right:16px; top:300px; width:240px;
+  background:rgba(18,22,28,0.95); border:1px solid rgba(248,81,73,0.4);
+  border-radius:10px; padding:10px 12px; z-index:150;
+  box-shadow:0 0 20px rgba(248,81,73,0.15);
+}
+#bunching-header { display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-bottom:6px; }
+#bunching-header span:first-child { font-size:13px; font-weight:700; color:#f85149; }
+.bunch-count { background:#f85149; color:#fff; border-radius:12px; padding:1px 8px; font-size:11px; font-weight:700; }
+#threshold-row { display:flex; align-items:center; gap:6px; width:100%; margin-top:4px; font-size:10px; color:#8b949e; }
+#threshold-row input { flex:1; }
+.bunch-item { display:flex; align-items:center; gap:8px; padding:4px 0; border-bottom:1px solid rgba(255,255,255,0.05); font-size:11px; }
+.bunch-route { color:#f85149; font-weight:700; min-width:60px; }
+.bunch-dist { color:#ff7b72; }
+.bunch-time { color:#8b949e; margin-left:auto; }
+.bunch-empty { color:#3fb950; font-size:11px; padding:8px 0; }
+/* Worst Stops Paneli */
+#worst-stops-panel {
+  position:fixed; right:16px; top:540px; width:240px;
+  background:rgba(18,22,28,0.95); border:1px solid rgba(88,166,255,0.3);
+  border-radius:10px; padding:10px 12px; z-index:150;
+}
+#worst-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:6px; }
+#worst-header span:first-child { font-size:13px; font-weight:700; color:#58a6ff; }
+.worst-sub { font-size:10px; color:#8b949e; }
+.worst-item { display:flex; align-items:center; gap:6px; padding:4px 0; border-bottom:1px solid rgba(255,255,255,0.05); font-size:11px; cursor:pointer; }
+.worst-item:hover { background:rgba(88,166,255,0.06); border-radius:4px; }
+.worst-rank { color:#8b949e; min-width:16px; font-size:10px; }
+.worst-name { flex:1; color:#e6edf3; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.worst-hw { color:#f85149; font-weight:700; min-width:32px; text-align:right; }
+
+/* ── FAZ 3 STİLLERİ ─────────────────────────────────────── */
+/* GTFS Modal */
+#gtfs-drop-zone.drag-over { border-color:#58a6ff; background:rgba(88,166,255,0.08); }
+#gtfs-progress-track { background:rgba(48,54,61,0.8); border-radius:4px; height:6px; margin:8px 0; overflow:hidden; }
+#gtfs-progress-bar  { height:6px; background:linear-gradient(90deg,#58a6ff,#3fb950); border-radius:4px; transition:width 0.3s; width:0%; }
+#gtfs-progress-msg  { font-size:11px; color:#8b949e; text-align:center; }
+/* Validasyon Raporu */
+.gtfs-report-header { display:flex; justify-content:space-between; align-items:center; padding:8px 12px; border-radius:6px 6px 0 0; font-weight:700; font-size:13px; }
+.gtfs-report-header[data-status="ok"]   { background:rgba(63,185,80,0.15);  color:#3fb950; border:1px solid rgba(63,185,80,0.3); }
+.gtfs-report-header[data-status="warn"] { background:rgba(210,153,34,0.15); color:#d29922; border:1px solid rgba(210,153,34,0.3); }
+.gtfs-report-header[data-status="error"]{ background:rgba(248,81,73,0.15);  color:#f85149; border:1px solid rgba(248,81,73,0.3); }
+.gtfs-file-name { font-size:10px; color:#8b949e; font-weight:400; }
+.gtfs-report-body { max-height:200px; overflow-y:auto; border:1px solid rgba(48,54,61,0.8); border-top:0; }
+.gr-row { display:flex; align-items:center; gap:8px; padding:5px 10px; border-bottom:1px solid rgba(48,54,61,0.5); font-size:11px; }
+.gr-sev  { min-width:54px; font-weight:700; border-radius:3px; padding:1px 5px; text-align:center; }
+.gr-error  .gr-sev { background:rgba(248,81,73,0.2);  color:#f85149; }
+.gr-warning .gr-sev { background:rgba(210,153,34,0.2); color:#d29922; }
+.gr-info   .gr-sev { background:rgba(88,166,255,0.15); color:#58a6ff; }
+.gr-file { color:#8b949e; min-width:120px; font-family:monospace; }
+.gr-msg  { color:#e6edf3; flex:1; }
+.gtfs-report-footer { display:flex; justify-content:space-between; align-items:center; padding:6px 10px; font-size:10px; color:#8b949e; background:rgba(22,27,34,0.9); border:1px solid rgba(48,54,61,0.8); border-top:0; border-radius:0 0 6px 6px; }
+.gtfs-export-btn { background:rgba(88,166,255,0.15); color:#58a6ff; border:1px solid rgba(88,166,255,0.3); border-radius:4px; padding:3px 10px; font-size:11px; cursor:pointer; }
+.gtfs-export-btn:hover { background:rgba(88,166,255,0.25); }
+.gtfs-notice { background:rgba(210,153,34,0.1); border:1px solid rgba(210,153,34,0.3); border-radius:4px; padding:8px 10px; font-size:11px; color:#d29922; margin-bottom:6px; }
+/* Şehir Listesi */
+.city-item { display:flex; align-items:center; gap:10px; padding:8px 10px; border-radius:8px; cursor:pointer; margin-bottom:4px; border:1px solid transparent; transition:all 0.18s; }
+.city-item:hover { background:rgba(88,166,255,0.08); border-color:rgba(88,166,255,0.2); }
+.city-item.active { background:rgba(88,166,255,0.12); border-color:rgba(88,166,255,0.4); }
+.city-flag { font-size:20px; }
+.city-info { flex:1; }
+.city-name { font-size:13px; font-weight:700; color:#e6edf3; }
+.city-note { font-size:10px; color:#8b949e; margin-top:2px; }
+.city-check { color:#3fb950; font-weight:700; font-size:14px; }
+/* City loading overlay */
+#city-loading { position:fixed; inset:0; background:rgba(13,21,32,0.85); display:flex; align-items:center; justify-content:center; z-index:900; }
+#city-loading.hidden { display:none; }
+#city-loading-inner { text-align:center; }
+.city-load-spinner { width:40px; height:40px; border:3px solid rgba(88,166,255,0.2); border-top-color:#58a6ff; border-radius:50%; animation:spin 0.8s linear infinite; margin:0 auto 12px; }
+@keyframes spin { to { transform:rotate(360deg); } }
+#city-loading-name { color:#e6edf3; font-size:14px; font-weight:700; }
+/* LOD badge güncelleme */
+.lod-badge.on  { background:rgba(63,185,80,0.2);  color:#3fb950; border-color:rgba(63,185,80,0.4); }
+.lod-badge.mid { background:rgba(210,153,34,0.2); color:#d29922; border-color:rgba(210,153,34,0.4); }
+</style>
+
 <!-- İŞ-15: Platform Detection Bridge ──────────────────── -->
 <!-- Electron ortamında window.electronAPI contextBridge ile inject edilir. -->
 <!-- Web ortamında yoktur — tüm özellikler web-compat fallback kullanır.  -->
@@ -153,8 +314,8 @@ if (window.IS_ELECTRON) {
   <div class="panel-section">
     <div class="section-label">HAT TİPİ</div>
     <div id="type-btns">
-      <button class="tbtn active" data-t="all">Tümü</button>
-      <button class="tbtn" data-t="1">Metro</button>
+      <button class="tbtn" data-t="all">Tümü</button>
+      <button class="tbtn active" data-t="1">Metro</button>
       <button class="tbtn" data-t="0">Tramvay</button>
       <button class="tbtn" data-t="4">Feribot</button>
       <button class="tbtn" data-t="7">Funicular</button>
@@ -181,7 +342,7 @@ if (window.IS_ELECTRON) {
       <span class="section-label">HATLAR</span>
       <span class="section-toggle">▾</span>
     </div>
-    <div id="route-list-wrap" class="collapsible-body">
+    <div id="route-list-wrap" class="collapsible-body open">
       <div id="route-search-box">
         <input type="text" id="route-filter-inp" placeholder="Hat ara...">
       </div>
@@ -245,7 +406,22 @@ if (window.IS_ELECTRON) {
   </div>
 </div>
 
-<!-- DEPARTURE BOARD -->
+<!-- İŞ-09 YENİ: DURAK SEFER PANELİ -->
+<div id="stop-panel" class="hidden">
+  <div id="stop-panel-header">
+    <div>
+      <div id="stop-panel-name">—</div>
+      <div id="stop-panel-meta">—</div>
+    </div>
+    <button id="stop-panel-close">✕</button>
+  </div>
+  <div class="sa-head">
+    <span>Hat</span><span style="text-align:center">İlk Sefer</span><span style="text-align:center">Sonraki</span>
+  </div>
+  <div id="stop-arrivals-table"></div>
+</div>
+
+<!-- DEPARTURE BOARD (eski - artık stop-panel kullanıyor) -->
 <div id="dep-board" class="hidden">
   <div id="dep-header">
     <span id="dep-stop-name">Durak</span>
@@ -321,6 +497,11 @@ if (window.IS_ELECTRON) {
         <div id="gtfs-progress-msg">Hazırlanıyor...</div>
       </div>
       <div id="gtfs-validation-wrap" class="hidden"></div>
+      <!-- #8: Validasyondan sonra "Sisteme Al" butonu -->
+      <div id="gtfs-confirm-row" class="hidden" style="display:flex;gap:8px;margin-top:10px;">
+        <button id="btn-gtfs-confirm" style="flex:1;background:rgba(63,185,80,0.15);color:#3fb950;border:1px solid rgba(63,185,80,0.4);border-radius:6px;padding:8px 0;font-size:13px;font-weight:700;cursor:pointer;">✓ Sisteme Al</button>
+        <button id="btn-gtfs-cancel" style="flex:1;background:rgba(248,81,73,0.1);color:#f85149;border:1px solid rgba(248,81,73,0.3);border-radius:6px;padding:8px 0;font-size:13px;cursor:pointer;">✕ İptal</button>
+      </div>
       <div id="gtfs-info-box">
         <div class="gtfs-info-title">Beklenen GTFS Dosyaları</div>
         <div class="gtfs-file-list">

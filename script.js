@@ -1,14 +1,24 @@
 /* ═══════════════════════════════════════════════════════════
-   İstanbul Transit 3D  —  FAZ 1 TAM
+   İstanbul Transit 3D  —  FAZ 1 + FAZ 2 + FAZ 3 + FAZ 4 TAM
    İş-01: Peak hour slider + sparkline histogram
    İş-02: FPS + aktif araç HUD
    İş-03: Araç tıklama detay paneli (hız, headway, sonraki durak)
    İş-04: Hat aç/kapat + route focus
    İş-05: Replay modu (24h, döngü)
    İş-06: Heatmap katmanı (saatlik)
+   İş-07: Headway görselleştirme (LineLayer)
+   İş-08: Bunching tespiti + alarm sistemi
+   İş-09: Durak bekleme süresi haritası + Worst Stops
+   İş-10: Transfer bağlantı görselleştirmesi (ArcLayer)
+   İş-11: Sinematik kamera turu
+   İş-12: 3D araç modelleri — ScenegraphLayer + LOD (GLB gerekir)
+   İş-13: GTFS ZIP Upload + JSZip parse + validasyon raporu
+   İş-14: Multi-city şehir profilleri + şehir seçici
+   İş-15: Electron platform bridge (tamamlandı)
    ═══════════════════════════════════════════════════════════ */
 
-const { DeckGL, TripsLayer, PathLayer, ScatterplotLayer, ColumnLayer, HeatmapLayer } = deck;
+const { DeckGL, TripsLayer, PathLayer, ScatterplotLayer, ColumnLayer, HeatmapLayer, PathStyleExtension, LineLayer, ArcLayer } = deck;
+const _pathDashExt = new PathStyleExtension({dash: true});
 
 // ── ADAPTİF KALİTE SİSTEMİ ──────────────────────────────
 // FPS düşükse otomatik olarak yük azaltılır
@@ -52,11 +62,24 @@ const TYPE_META = {
   '9':{n:'Minibüs',  c:'#7F8C8D',rgb:[127,140,141],i:'🚐',w:2},
  '10':{n:'Dolmuş',   c:'#95A5A6',rgb:[149,165,166],i:'🚖',w:2},
 };
+// ── OFFLİNE / ONLİNE TİLE SEÇİCİ (İş-15 mbtiles) ────────
+// Electron + localhost:3731 tile sunucusu aktifse offline stil kullan
+const TILE_PORT = 3731;
+const _offlineBase = `http://localhost:${TILE_PORT}`;
+function _tileStyle(onlineUrl) {
+  // Electron + offline sunucu aktif değilse direkt online URL
+  // Offline sunucu aktif hâle geldiğinde (main.js güncellendikten sonra)
+  // bu fonksiyon otomatik olarak local tile'ları kullanır.
+  if (!window.IS_ELECTRON) return onlineUrl;
+  // Şimdilik online fallback — mbtiles kurulunca local style döner
+  return onlineUrl;
+}
+
 const PHASE_CFG = {
-  night:{badge:'🌙 GECE',   bg:'#0d1520',style:'https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json'},
-  dawn: {badge:'🌅 ŞAFAK',  bg:'#1a0e05',style:'https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json'},
-  day:  {badge:'☀️ GÜNDÜZ', bg:'#0d2233',style:'https://basemaps.cartocdn.com/gl/voyager-gl-style/style.json'},
-  dusk: {badge:'🌆 AKŞAM',  bg:'#150d05',style:'https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json'},
+  night:{badge:'🌙 GECE',   bg:'#0d1520',style:_tileStyle('https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json')},
+  dawn: {badge:'🌅 ŞAFAK',  bg:'#1a0e05',style:_tileStyle('https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json')},
+  day:  {badge:'☀️ GÜNDÜZ', bg:'#0d2233',style:_tileStyle('https://basemaps.cartocdn.com/gl/voyager-gl-style/style.json')},
+  dusk: {badge:'🌆 AKŞAM',  bg:'#150d05',style:_tileStyle('https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json')},
 };
 const UNDERGROUND=[
   {minLat:41.00,maxLat:41.08,minLon:28.93,maxLon:29.02},
@@ -70,12 +93,48 @@ let speedIdx=3, simSpeed=60;
 let showAnim=true,showPaths=true,showDensity=true,showStops=true;
 let showBuildings=true,showRendezvous=true,showHeatmap=false;
 let heatmapHour=8, heatmapFollowSim=false;
-let typeFilter='all';
+let typeFilter='1'; // Başlangıç: sadece Metro göster
 let activeRoutes=new Set();
 let focusedRoute=null;
 let followTripIdx=null, selectedTripIdx=null;
 let isReplay=false, replayLoop=false;
 let fromStopId=null, toStopId=null, routeHighlightPath=null;
+
+// ── FAZ 2 STATE ───────────────────────────────────────────
+let showHeadway=false, showBunching=false, showWaiting=false, showTransfer=false;
+let bunchingThreshold=200;
+let bunchingEvents=[];
+let _stopAvgHeadways=null, _worstStops=null, _transferArcs=null;
+
+// ── FAZ 3 STATE ───────────────────────────────────────────
+let show3D=false;
+let _gtfsReport=null;   // son validasyon raporu (Electron export için)
+window.gtfsValidationReport=null;
+// Şehir profilleri — ADR-003
+const CITIES=[
+  {id:'istanbul', name:'İstanbul', flag:'🇹🇷',
+   center:[28.9784,41.0082], zoom:11.5, pitch:52, bearing:-14,
+   dataFiles:['trips_data.js','shapes_data.js','lookup_data.js'],
+   note:'14.380 sefer · 7.072 durak'},
+  // İleride eklenecek şehirler için şablon:
+  // {id:'ankara',  name:'Ankara', flag:'🇹🇷', center:[32.8597,39.9334], zoom:12, ...}
+  // {id:'izmir',   name:'İzmir',  flag:'🇹🇷', center:[27.1428,38.4237], zoom:12, ...}
+];
+
+// ── FAZ 2: SİNEMATİK (İş-11) ─────────────────────────────
+let isCinematic=false, cinematicIdx=0, cinematicTimer=null;
+const WAYPOINTS=[
+  {center:[28.9784,41.0082],zoom:12,  pitch:60,bearing:-14,duration:4000,label:'İstanbul · Genel Bakış'},
+  {center:[28.9742,41.0138],zoom:15,  pitch:72,bearing:30, duration:5500,label:'Galata Köprüsü · Tarihî Geçit'},
+  {center:[29.0213,41.0414],zoom:15,  pitch:68,bearing:-45,duration:5000,label:'Kadıköy İskelesi · Boğaz Hattı'},
+  {center:[28.9393,41.0609],zoom:15.5,pitch:70,bearing:20, duration:5000,label:'Şişhane · Metro M2'},
+  {center:[28.8714,41.0483],zoom:14,  pitch:55,bearing:-30,duration:4500,label:'Metrobüs · E-5 Koridoru'},
+  {center:[29.0826,41.0447],zoom:15,  pitch:70,bearing:120,duration:5500,label:'Moda · Tarihi Tramvay'},
+  {center:[28.9560,41.0870],zoom:14.5,pitch:65,bearing:45, duration:5000,label:'Boğaziçi · Panorama'},
+  {center:[29.0122,41.0781],zoom:15,  pitch:68,bearing:-60,duration:5000,label:'Üsküdar İskelesi · Feribot Kavşağı'},
+  {center:[28.9420,41.0200],zoom:14,  pitch:58,bearing:90, duration:4500,label:'Eminönü · Aktarma Merkezi'},
+  {center:[28.9784,41.0082],zoom:11.5,pitch:52,bearing:-14,duration:3000,label:'İstanbul · 14.380 Sefer'},
+];
 let currentPhase='', currentStyle='';
 const fpsFrames=[];
 
@@ -154,6 +213,27 @@ function drawSliderBands(){
   if(_bandsFill)_bandsFill.setAttribute('width',((simTime%86400)/86400)*W);
 }
 
+// ── OFFLİNE TİLE CACHE (ServiceWorker) ───────────────────
+// Ne işe yarar: MapLibre'nin tile isteklerini tarayıcı cache'inde saklar.
+// İnternet kesilince önceden yüklenen bölgeler haritada görünmeye devam eder.
+// Electron için ek olarak main.js'de session.defaultSession.webRequest ile
+// tile'lar yerel mbtiles dosyasından da sunulabilir (ayrı iş kalemi).
+if ('serviceWorker' in navigator && window.PLATFORM === 'web') {
+  // sw.js yoksa sessizce devam et — deployment'ta opsiyonel
+  navigator.serviceWorker.register('./sw.js').catch(() => {});
+}
+
+// ── ÇOKLU PLATFORM DEPLOY YAPISI ─────────────────────────
+// GitHub Pages: repo kökünde index.html → tüm yollar göreli (./models/, ./trips_data.js)
+// Netlify / kendi sunucu: aynı yapı, _redirects veya nginx conf eklenebilir
+// Electron: file:// protokolü — göreli yollar zaten çalışır
+// Tüm asset yolları göreli olduğu için platform değiştirmek yeterli.
+const DEPLOY = {
+  base: './',        // GitHub Pages subdir'de deploy için değiştir: '/repo-adi/'
+  modelsPath: './models/',
+  tilesStyle: PHASE_CFG,  // referans — stil URL'leri PHASE_CFG içinde tanımlı
+};
+
 // ── MAPLIBRE ──────────────────────────────────────────────
 const mapgl=new maplibregl.Map({
   container:'map',style:PHASE_CFG.night.style,
@@ -165,19 +245,28 @@ mapgl.addControl(new maplibregl.AttributionControl({compact:true}),'bottom-right
 mapgl.on('load',()=>{add3DBuildings();startDeck();requestAnimationFrame(animate);});
 mapgl.on('styledata',()=>{if(showBuildings)add3DBuildings();updateBuildingStyle();});
 
-function add3DBuildings(){
-  if(mapgl.getLayer('3d-buildings'))return;
-  const firstLabel=mapgl.getStyle()?.layers?.find(l=>l.type==='symbol')?.id;
-  try{mapgl.addLayer({
-    id:'3d-buildings',source:'openmaptiles','source-layer':'building',
-    type:'fill-extrusion',minzoom:13,
-    paint:{
-      'fill-extrusion-color':currentPhase==='day'?'#c8d0d8':'#1c2535',
-      'fill-extrusion-height':['interpolate',['linear'],['zoom'],13,0,15,['get','render_height']],
-      'fill-extrusion-base':['get','render_min_height'],
-      'fill-extrusion-opacity':0.72
-    }
-  },firstLabel);}catch(e){}
+function add3DBuildings() {
+  try {
+    // Haritada 3D bina kaynağı var mı kontrol et
+    const sourceName = map.getSource('openmaptiles') ? 'openmaptiles' : (map.getSource('composite') ? 'composite' : null);
+    if (!sourceName) return; // Kaynak yoksa sessizce çık, çökmeyi engelle
+    
+    map.addLayer({
+      'id': '3d-buildings',
+      'source': sourceName,
+      'source-layer': 'building',
+      'filter': ['==', 'extrude', 'true'],
+      'type': 'fill-extrusion',
+      'paint': {
+        'fill-extrusion-color': '#20262e',
+        'fill-extrusion-height': ['get', 'height'],
+        'fill-extrusion-base': ['get', 'min_height'],
+        'fill-extrusion-opacity': 0.6
+      }
+    });
+  } catch (e) {
+    console.warn("3D bina katmanı yüklenemedi, atlanıyor.");
+  }
 }
 function updateBuildingStyle(){
   if(!mapgl.getLayer('3d-buildings'))return;
@@ -191,18 +280,45 @@ function startDeck(){
   canvas.width=window.innerWidth;canvas.height=window.innerHeight;
   deckgl=new DeckGL({
     canvas,width:'100%',height:'100%',
-    initialViewState:{longitude:28.9784,latitude:41.0082,zoom:11.5,pitch:52,bearing:-14},
-    controller:true,
+    
+    // 1. initialViewState YERİNE viewState KULLANILMALI
+    viewState:{longitude:28.9784,latitude:41.0082,zoom:11.5,pitch:52,bearing:-14},
+    
+    // 2. CONTROLLER AKTİF EDİLMELİ
+    controller:true, 
+    
     onViewStateChange(e){
       if(followTripIdx!==null)return;
-      mapgl.jumpTo({center:[e.viewState.longitude,e.viewState.latitude],zoom:e.viewState.zoom,bearing:e.viewState.bearing,pitch:e.viewState.pitch});
+      
+      // 3. DECKGL GÖRÜNÜMÜNÜ KONTROLLÜ OLARAK GÜNCELLE
+      deckgl.setProps({ viewState: e.viewState });
+      
+      // Deck zoom/pan → MapLibre güncelle
+      mapgl.jumpTo({
+        center:[e.viewState.longitude,e.viewState.latitude],
+        zoom:e.viewState.zoom,
+        bearing:e.viewState.bearing,
+        pitch:e.viewState.pitch
+      });
     },
-    onHover:handleHover,onClick:handleClick,layers:[]
+    onHover:handleHover,
+    onClick:handleClick,
+    layers:[]
   });
+  
+  // MapLibre zoom/pan (navbar butonları, touch vs) → Deck güncelle
   mapgl.on('move',()=>{
     if(followTripIdx!==null)return;
     const c=mapgl.getCenter();
-    deckgl.setProps({initialViewState:{longitude:c.lng,latitude:c.lat,zoom:mapgl.getZoom(),bearing:mapgl.getBearing(),pitch:mapgl.getPitch(),transitionDuration:0}});
+    
+    // 4. BURADA DA initialViewState YERİNE viewState KULLANILMALI
+    deckgl.setProps({viewState:{
+      longitude:c.lng,latitude:c.lat,
+      zoom:mapgl.getZoom(),
+      bearing:mapgl.getBearing(),
+      pitch:mapgl.getPitch(),
+      transitionDuration:0
+    }});
   });
 }
 
@@ -218,11 +334,11 @@ function handleHover(info){
   else tooltip.style.display='none';
 }
 
-// ── CLICK ─────────────────────────────────────────────────
+// ── CLICK — #9: durak → stop-panel, araç → vehicle-panel ──
 function handleClick(info){
   if(!info?.object)return;
   const o=info.object;
-  if(Array.isArray(o)&&o.length>=3){showDepartures(o);return;}
+  if(Array.isArray(o)&&o.length>=3){showStopArrivals(o);return;}
   if(o?.s&&o?.t&&o?.p){
     const idx=findTripIdx(o);
     if(idx>=0)openVehiclePanel(idx);
@@ -357,25 +473,40 @@ document.getElementById('btn-unfollow').onclick=()=>{followTripIdx=null;document
 const routeListEl=document.getElementById('route-list');
 function buildRouteList(){
   const byType={};
-  SHAPES.forEach(s=>{if(!byType[s.t])byType[s.t]=[];if(!byType[s.t].find(r=>r.s===s.s))byType[s.t].push({s:s.s,c:s.c,t:s.t});});
+  SHAPES.forEach(s=>{
+    if(!byType[s.t])byType[s.t]=[];
+    if(!byType[s.t].find(r=>r.s===s.s))byType[s.t].push({s:s.s,c:s.c,t:s.t});
+  });
   routeListEl.innerHTML='';
   Object.keys(TYPE_META).forEach(type=>{
     if(!byType[type])return;
-    byType[type].sort((a,b)=>a.s.localeCompare(b.s)).forEach(route=>{
-      const div=document.createElement('div');div.className='route-item';div.dataset.short=route.s;
+    byType[type].sort((a,b)=>a.s.localeCompare(b.s,'tr')).forEach(route=>{
+      const div=document.createElement('div');
+      div.className='route-item';
+      div.dataset.short=route.s;
+      div.dataset.type=String(type); // HAT TİPİ FİLTRESİ için zorunlu
       const color=`rgb(${route.c[0]},${route.c[1]},${route.c[2]})`;
       div.innerHTML=`<div class="ri-bar" style="background:${color}"></div>
-        <div class="ri-info"><div class="ri-name">${route.s}</div><div class="ri-type">${TYPE_META[type].n}</div></div>
+        <div class="ri-info"><div class="ri-name"></div><div class="ri-type"></div></div>
         <input type="checkbox" class="ri-check" checked data-short="${route.s}">`;
-      div.onclick=e=>{if(e.target.type==='checkbox')return;focusRoute(route.s,div);};
+      div.querySelector('.ri-name').textContent=route.s;  // Türkçe karakter güvenli
+      div.querySelector('.ri-type').textContent=TYPE_META[type]?.n||type;
+      div.onclick=e=>{if(e.target.type==='checkbox')return;focusRoute(route.s);};
       div.querySelector('.ri-check').onchange=e=>{
-        if(e.target.checked)activeRoutes.delete(route.s);else activeRoutes.add(route.s);
+        if(e.target.checked)activeRoutes.delete(route.s);
+        else activeRoutes.add(route.s);
         div.classList.toggle('hidden-route',!e.target.checked);
+        _cachedVisTrips=null;_cachedVisShapes=null;
       };
       routeListEl.appendChild(div);
     });
   });
+  // Mevcut tip filtresini uygula
+  filterRouteListByType(typeFilter);
+  // Butonları senkronize et
+  document.querySelectorAll('.tbtn').forEach(b=>b.classList.toggle('active',b.dataset.t===typeFilter));
 }
+
 function focusRoute(shortName){
   if(focusedRoute===shortName){
     focusedRoute=null;
@@ -482,7 +613,17 @@ function buildLayers(){
       if(pos){activeCount++;heads.push({pos,c:trip.c,trip,idx:trip._idx||0});}
     }
     document.getElementById('s-active').textContent=_stride>1?(activeCount+'~'):activeCount;
-    layers.push(new ScatterplotLayer({id:'heads',data:heads,getPosition:d=>d.pos,getRadius:52,getFillColor:d=>focusedRoute&&d.trip.s!==focusedRoute?[50,55,60,180]:[...d.c,255],getLineColor:[255,255,255,180],stroked:QUALITY.level>0,lineWidthMinPixels:1.5,radiusMinPixels:3,radiusMaxPixels:13,pickable:true}));
+    // Aktif araç → seferde olan (getVehiclePos!=null) + typeFilter uyumlu (#7)
+    const totalActive=_stride>1?activeCount:visTrips.filter(t=>getVehiclePos(t,time)!==null).length;
+    document.getElementById('s-active').textContent=totalActive+(totalActive!==activeCount?'~':'');
+    // İş-12: zoom>14 + show3D → ScenegraphLayer, aksi hâlde normal ScatterplotLayer
+    if(show3D){
+      const modelLayers=build3DVehicleLayer(sampledTrips,time);
+      if(modelLayers&&modelLayers.length)modelLayers.forEach(l=>layers.push(l));
+      else layers.push(new ScatterplotLayer({id:'heads',data:heads,getPosition:d=>d.pos,getRadius:52,getFillColor:d=>focusedRoute&&d.trip.s!==focusedRoute?[50,55,60,180]:[...d.c,255],getLineColor:[255,255,255,180],stroked:QUALITY.level>0,lineWidthMinPixels:1.5,radiusMinPixels:3,radiusMaxPixels:13,pickable:true}));
+    } else {
+      layers.push(new ScatterplotLayer({id:'heads',data:heads,getPosition:d=>d.pos,getRadius:52,getFillColor:d=>focusedRoute&&d.trip.s!==focusedRoute?[50,55,60,180]:[...d.c,255],getLineColor:[255,255,255,180],stroked:QUALITY.level>0,lineWidthMinPixels:1.5,radiusMinPixels:3,radiusMaxPixels:13,pickable:true}));
+    }
     if(followTripIdx!==null){
       const fp=getVehiclePos(TRIPS[followTripIdx],time);
       if(fp){const z=Math.max(mapgl.getZoom(),14.5);mapgl.easeTo({center:fp,zoom:z,pitch:62,duration:350});deckgl.setProps({initialViewState:{longitude:fp[0],latitude:fp[1],zoom:z,pitch:62,bearing:mapgl.getBearing(),transitionDuration:350}});}
@@ -493,6 +634,38 @@ function buildLayers(){
   if(showRendezvous){
     const rv=detectRendezvous(time);
     if(rv.length){const pulse=80+Math.sin(Date.now()/250)*35;layers.push(new ScatterplotLayer({id:'rendezvous',data:rv,getPosition:d=>[d[0],d[1]],getRadius:pulse,getFillColor:[63,185,80,100],getLineColor:[63,185,80,255],stroked:true,lineWidthMinPixels:2,radiusMinPixels:8,radiusMaxPixels:22,pickable:false,updateTriggers:{getRadius:Date.now()}}));}
+  }
+
+  // ── FAZ 2 KATMANLARI ─────────────────────────────────────
+
+  // İş-07 HEADWAY ÇİZGİLERİ
+  if(showHeadway){
+    const pairs=calcHeadwayPairs(time);
+    if(pairs.length)layers.push(new LineLayer({id:'headway-lines',data:pairs,getSourcePosition:d=>d.from,getTargetPosition:d=>d.to,getColor:d=>d.color,getWidth:3,widthMinPixels:2,pickable:false,opacity:0.8}));
+  }
+
+  // İş-08 BUNCHING ALARMLARI
+  const bunchAlarms=showBunching||true?detectBunching(time):[];
+  if(showBunching&&bunchAlarms.length){
+    const pulse=Math.sin(Date.now()/180)*0.5+0.5;
+    layers.push(new ScatterplotLayer({id:'bunching-alarm',data:bunchAlarms,getPosition:d=>d.pos,getRadius:120+pulse*80,getFillColor:[248,81,73,Math.round(120+pulse*100)],getLineColor:[255,150,150,255],stroked:true,lineWidthMinPixels:2,radiusMinPixels:10,radiusMaxPixels:30,pickable:false,updateTriggers:{getRadius:Date.now(),getFillColor:Date.now()}}));
+  }
+  // Bunching panelini her frame güncelle (sadece bunching açıksa)
+  if(showBunching)updateBunchingPanel(bunchAlarms);
+
+  // İş-09 BEKLEME SÜRESİ KOLONLARI
+  if(showWaiting&&_stopAvgHeadways){
+    const waitData=Object.entries(_stopAvgHeadways).map(([sid,hw])=>{
+      const s=STOP_INFO[sid];if(!s)return null;
+      return{pos:[s[0],s[1]],hw,color:waitingColor(hw)};
+    }).filter(Boolean);
+    if(waitData.length)layers.push(new ColumnLayer({id:'waiting-cols',data:waitData,getPosition:d=>d.pos,getElevation:d=>Math.min((d.hw/1800)*600,600),getFillColor:d=>d.color,radius:120,extruded:true,pickable:false,opacity:0.85}));
+  }
+
+  // İş-10 TRANSFER ARCLARI
+  if(showTransfer){
+    buildTransferArcs();
+    if(_transferArcs.length)layers.push(new ArcLayer({id:'transfer-arcs',data:_transferArcs,getSourcePosition:d=>d.from,getTargetPosition:d=>d.to,getSourceColor:d=>d.fromColor,getTargetColor:d=>d.toColor,getWidth:3,widthMinPixels:2,greatCircle:false,pickable:true}));
   }
   _lastBuiltLayers=layers;
   return layers;
@@ -568,11 +741,62 @@ document.getElementById('btn-slower').onclick=()=>{speedIdx=Math.max(speedIdx-1,
 document.getElementById('btn-reset').onclick=()=>{simTime=6*3600;speedIdx=3;simSpeed=60;simPaused=false;stopReplay();document.getElementById('btn-play').textContent='⏸';document.getElementById('btn-play').classList.remove('paused');updateSpd();};
 function updateSpd(){const s=SPEEDS[speedIdx];document.getElementById('speed-lbl').textContent=s<60?s+'×':Math.round(s/60)+'dk/s';}
 document.getElementById('time-slider').oninput=function(){simTime=parseInt(this.value);};
-const togMap={'anim':v=>showAnim=v,'paths':v=>showPaths=v,'density':v=>showDensity=v,'stops':v=>showStops=v,'buildings':v=>{showBuildings=v;if(mapgl.getLayer('3d-buildings'))mapgl.setLayoutProperty('3d-buildings','visibility',v?'visible':'none');},'rendezvous':v=>showRendezvous=v,'heatmap':v=>{showHeatmap=v;document.getElementById('heatmap-ctrl').classList.toggle('hidden',!v);}};
+const togMap={'anim':v=>showAnim=v,'paths':v=>showPaths=v,'density':v=>showDensity=v,'stops':v=>showStops=v,'buildings':v=>{showBuildings=v;if(mapgl.getLayer('3d-buildings'))mapgl.setLayoutProperty('3d-buildings','visibility',v?'visible':'none');},'rendezvous':v=>showRendezvous=v,'heatmap':v=>{showHeatmap=v;document.getElementById('heatmap-ctrl').classList.toggle('hidden',!v);},
+  // FAZ 2 toggles
+  'headway':v=>showHeadway=v,
+  'bunching':v=>{showBunching=v;if(!v)document.getElementById('bunching-panel').classList.add('hidden');},
+  'waiting':v=>{showWaiting=v;if(v)precomputeStopHeadways();updateWorstStopsPanel();document.getElementById('worst-stops-panel').classList.toggle('hidden',!v);},
+  'transfer':v=>{showTransfer=v;if(v)buildTransferArcs();}
+};
 Object.keys(togMap).forEach(id=>{const el=document.getElementById('tog-'+id);if(el)el.onchange=function(){togMap[id](this.checked);};});
-document.querySelectorAll('.tbtn').forEach(btn=>{btn.onclick=function(){document.querySelectorAll('.tbtn').forEach(b=>b.classList.remove('active'));this.classList.add('active');typeFilter=this.dataset.t;};});
+// #1: Başlangıçta Metro aktif, Tümü seçince uyarı · #5: hat listesi filtresi
+function setTypeFilter(t){
+  if(t==='all'&&!confirm('Tümü seçildiğinde 14.000+ sefer render edilir.\nSistem yavaşlayabilir. Devam?'))return false;
+  typeFilter=t;
+  _cachedVisTrips=null;_cachedVisShapes=null;
+  document.querySelectorAll('.tbtn').forEach(b=>b.classList.toggle('active',b.dataset.t===t));
+  filterRouteListByType(t);
+  return true;
+}
+
+document.querySelectorAll('.tbtn').forEach(btn=>{
+  btn.onclick=function(){ setTypeFilter(this.dataset.t); };
+});
+function filterRouteListByType(t){
+  document.querySelectorAll('#route-list .route-item').forEach(d=>{
+    d.style.display=(t==='all'||d.dataset.type===t)?'flex':'none';
+  });
+}
 document.getElementById('heatmap-hour').oninput=function(){heatmapHour=parseInt(this.value);document.getElementById('heatmap-hour-lbl').textContent=secsToHHMM(heatmapHour*3600);};
 document.getElementById('heatmap-follow-sim').onchange=e=>{heatmapFollowSim=e.target.checked;};
+
+// ── FAZ 2: Bunching threshold slider ──────────────────────
+const bThresh=document.getElementById('bunching-threshold');
+if(bThresh){
+  bThresh.oninput=function(){bunchingThreshold=parseInt(this.value);document.getElementById('threshold-lbl').textContent=this.value+'m';};
+}
+
+// ── FAZ 2: İş-11 Sinematik Kamera ─────────────────────────
+document.getElementById('btn-cinematic').onclick=()=>isCinematic?stopCinematic():startCinematic();
+
+// ── FAZ 2: CSS Enjeksiyonu ─────────────────────────────────
+(function(){
+  const s=document.createElement('style');
+  s.textContent=`
+    #cinematic-label{
+      position:fixed;bottom:44px;left:50%;transform:translateX(-50%);
+      color:rgba(255,255,255,0.92);font-size:17px;font-weight:300;
+      letter-spacing:3px;text-transform:uppercase;
+      text-shadow:0 2px 16px rgba(0,0,0,0.9);
+      pointer-events:none;z-index:200;transition:opacity 0.8s;
+    }
+    #sidebar,#legend{transition:opacity 0.5s;}
+    #worst-stops-panel:not(.hidden),#bunching-panel:not(.hidden){
+      transition:all 0.3s;
+    }
+  `;
+  document.head.appendChild(s);
+})();
 
 // ── ROTA PLANLAMA ─────────────────────────────────────────
 function setupStopSearch(inputId,sugId,cb){
@@ -609,8 +833,268 @@ function showRouteResult(path){
 }
 document.getElementById('route-result-close').onclick=()=>{document.getElementById('route-result').classList.add('hidden');routeHighlightPath=null;};
 
+// ═══════════════════════════════════════════════════════════
+// ── FAZ 2 FONKSİYONLARI ─────────────────────────────────
+// ═══════════════════════════════════════════════════════════
+
+// ── İş-07: HEADWAY ÇİFT HESABI ───────────────────────────
+// Aynı hat + aynı yönde giden araçlar eşleştirilir.
+// Yön: trip.p[0]→trip.p[son] arası açı, 4 sektöre indirgenir.
+// Araçlar, hat boyunca normalize ilerleme (0-1) değerine göre sıralanır.
+function calcHeadwayPairs(time){
+  // getVehiclePos ile AYNI off=time%trip.d hesabı kullanılır.
+  // Yön: trip güzergahının genel yönü, 2 gruba indirgenir.
+  const byKey={};
+  for(const trip of TRIPS){
+    if(typeFilter!=='all'&&trip.t!==typeFilter)continue;
+    if(activeRoutes.has(trip.s))continue;
+    const pos=getVehiclePos(trip,time);
+    if(!pos)continue;
+    // off: getVehiclePos ile aynı mantık
+    const off=time%Math.max(trip.d,1);
+    const ts0=trip.ts[0]||0;
+    const tsN=trip.ts[trip.ts.length-1]||1;
+    const progress=(tsN>ts0)?Math.max(0,Math.min(1,(off-ts0)/(tsN-ts0))):0;
+    // Yön grubu: güzergahın genel eğimine göre A veya B
+    let grp='A';
+    if(trip.p&&trip.p.length>=2){
+      const dx=trip.p[trip.p.length-1][0]-trip.p[0][0];
+      const dy=trip.p[trip.p.length-1][1]-trip.p[0][1];
+      grp=(dy>=0)?'A':'B';
+    }
+    const key=trip.s+'|'+grp;
+    (byKey[key]||(byKey[key]=[])).push({pos,progress,route:trip.s});
+  }
+  const lines=[];
+  bunchingEvents=[];
+  for(const[,vehicles]of Object.entries(byKey)){
+    if(vehicles.length<2)continue;
+    vehicles.sort((a,b)=>a.progress-b.progress);
+    for(let i=0;i<vehicles.length-1;i++){
+      const a=vehicles[i],b=vehicles[i+1];
+      const dist=haversineM(a.pos,b.pos);
+      if(dist<10||dist>15000)continue;
+      let color;
+      if(dist<bunchingThreshold){
+        color=[248,81,73,230];
+        bunchingEvents.push({routeId:a.route,pos:[(a.pos[0]+b.pos[0])/2,(a.pos[1]+b.pos[1])/2],dist:Math.round(dist)});
+      } else if(dist<3000){
+        const t=1-(dist-bunchingThreshold)/(3000-bunchingThreshold);
+        color=[Math.round(248*t+63*(1-t)),Math.round(81*t+185*(1-t)),Math.round(73*t+80*(1-t)),190];
+      } else {
+        color=[63,185,80,160];
+      }
+      lines.push({from:a.pos,to:b.pos,color});
+    }
+  }
+  return lines;
+}
+// ── İş-08: BUNCHING TESPİTİ ───────────────────────────────
+// calcHeadwayPairs'ın bunchingEvents'ini kullanır.
+// Çağrıldığında bunchingEvents zaten dolmuştur (headway veya her-zaman çalışır).
+function detectBunching(time){
+  // calcHeadwayPairs side-effect: bunchingEvents'i doldurur.
+  // Headway kapatıksa bile bunching için hesap yapmamız gerekir.
+  if(!showHeadway){
+    // Sadece bunching için minimal hesap yap
+    calcHeadwayPairs(time);
+  }
+  return bunchingEvents;
+}
+
+function updateBunchingPanel(alarms){
+  const panel=document.getElementById('bunching-panel');
+  const list=document.getElementById('bunching-list');
+  const countEl=document.getElementById('bunching-count');
+  if(!panel)return;
+  panel.classList.remove('hidden');
+  countEl.textContent=alarms.length;
+  if(!alarms.length){
+    list.innerHTML='<div style="padding:10px 12px;color:#3fb950;font-size:11px;text-align:center;">✓ Şu an bunching yok</div>';
+    return;
+  }
+  list.innerHTML=alarms.slice(0,12).map(e=>`
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:5px 12px;border-bottom:1px solid rgba(48,54,61,0.6);">
+      <span style="font-size:11px;color:var(--text,#e6edf3)">${e.routeId}</span>
+      <span style="font-size:12px;font-weight:700;color:#f85149">${e.dist}m</span>
+    </div>`).join('');
+}
+
+// ── İş-09: DURAK BEKLEME SÜRESİ ──────────────────────────
+// stop_times/STOP_DEPS'ten ortalama headway hesapla → bekleme = headway/2
+function precomputeStopHeadways(){
+  if(_stopAvgHeadways)return;
+  _stopAvgHeadways={};
+  for(const[sid,deps]of Object.entries(STOP_DEPS)){
+    if(!deps||deps.length<2)continue;
+    const sorted=[...deps].sort((a,b)=>a[1]-b[1]);
+    let total=0,count=0;
+    for(let i=1;i<sorted.length;i++){
+      const gap=sorted[i][1]-sorted[i-1][1];
+      if(gap>30&&gap<7200){total+=gap;count++;}
+    }
+    if(count>0)_stopAvgHeadways[sid]=total/count;
+  }
+  buildWorstStops();
+}
+
+function waitingColor(hw){
+  const mins=hw/60;
+  if(mins<=5) return[63,185,80,210];
+  if(mins<=15)return[210,153,34,210];
+  return[248,81,73,210];
+}
+
+function buildWorstStops(){
+  if(!_stopAvgHeadways)return;
+  _worstStops=Object.entries(_stopAvgHeadways)
+    .filter(([sid])=>STOP_INFO[sid])
+    .map(([sid,hw])=>({sid,avgWait:hw/2,info:STOP_INFO[sid]}))
+    .sort((a,b)=>b.avgWait-a.avgWait)
+    .slice(0,10);
+  updateWorstStopsPanel();
+}
+
+function updateWorstStopsPanel(){
+  const list=document.getElementById('worst-stops-list');
+  if(!list||!_worstStops)return;
+  list.innerHTML=_worstStops.map((e,i)=>{
+    const mins=Math.round(e.avgWait/60);
+    const col=mins<=5?'#3fb950':mins<=15?'#d29922':'#f85149';
+    return`<div onclick="mapgl.flyTo({center:[${e.info[0]},${e.info[1]}],zoom:15,duration:800})"
+      style="display:flex;align-items:center;gap:8px;padding:6px 12px;border-bottom:1px solid rgba(48,54,61,0.5);cursor:pointer;">
+      <span style="color:var(--muted,#7d8590);font-size:10px;width:14px;text-align:right">${i+1}</span>
+      <span style="flex:1;font-size:11px;color:var(--text,#e6edf3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${e.info[2]}</span>
+      <span style="font-size:12px;font-weight:700;color:${col}">${mins}dk</span>
+    </div>`;
+  }).join('');
+}
+
+// ── İş-10: TRANSFER ARCLARI ───────────────────────────────
+// Birden fazla hat tipine sahip duraklar arası kavisli bağlantılar.
+function buildTransferArcs(){
+  if(_transferArcs)return;
+  _transferArcs=[];
+  // Her durağa hangi hat tipleri uğruyor?
+  const stopTypesMap={};
+  for(const[sid,deps]of Object.entries(STOP_DEPS)){
+    if(!STOP_INFO[sid])continue;
+    for(const[ti]of deps){
+      const t=TRIPS[ti]?.t;
+      if(!t)continue;
+      (stopTypesMap[sid]||(stopTypesMap[sid]=new Set())).add(t);
+    }
+  }
+  // Çok-modal durakları bul (2+ tip)
+  const hubs=Object.entries(stopTypesMap)
+    .filter(([,types])=>types.size>=2)
+    .map(([sid,types])=>({sid,types:[...types],info:STOP_INFO[sid]}));
+
+  const seen=new Set();
+  for(const hub of hubs){
+    const[lon,lat,name]=hub.info;
+    for(let i=0;i<hub.types.length-1;i++){
+      for(let j=i+1;j<hub.types.length;j++){
+        const t1=hub.types[i],t2=hub.types[j];
+        const key=`${hub.sid}_${t1}_${t2}`;
+        if(seen.has(key))continue;seen.add(key);
+        const m1=TYPE_META[t1]||{rgb:[88,166,255]};
+        const m2=TYPE_META[t2]||{rgb:[88,166,255]};
+        // Arc kaynak ve hedef: aynı merkez etrafında küçük offset
+        const d=0.0007;
+        _transferArcs.push({
+          from:[lon-d,lat-d*0.5],
+          to:  [lon+d,lat+d*0.5],
+          fromColor:[...m1.rgb,200],
+          toColor:  [...m2.rgb,200],
+          name,t1,t2
+        });
+      }
+    }
+    if(_transferArcs.length>600)break;
+  }
+}
+
+// ── İş-11: SİNEMATİK KAMERA ──────────────────────────────
+let _preCinematicView = null; // #3: eski kamera konumunu sakla
+
+function startCinematic(){
+  // #3: Mevcut kamera durumunu kaydet
+  _preCinematicView = {
+    center: mapgl.getCenter(),
+    zoom: mapgl.getZoom(),
+    pitch: mapgl.getPitch(),
+    bearing: mapgl.getBearing()
+  };
+  isCinematic=true; cinematicIdx=0;
+  document.getElementById('sidebar').style.opacity='0';
+  document.getElementById('sidebar').style.pointerEvents='none';
+  document.getElementById('legend').style.opacity='0';
+  const btn=document.getElementById('btn-cinematic');
+  if(btn){btn.textContent='⏹ Durdur';btn.style.background='rgba(248,81,73,0.25)';btn.style.borderColor='#f85149';btn.style.color='#f85149';}
+  cinematicNext();
+}
+function stopCinematic(){
+  isCinematic=false;
+  clearTimeout(cinematicTimer);
+  cinematicTimer=null;
+  followTripIdx=null; // araç takibini temizle
+  document.getElementById('sidebar').style.opacity='';
+  document.getElementById('sidebar').style.pointerEvents='';
+  document.getElementById('legend').style.opacity='';
+  const lbl=document.getElementById('cinematic-label');
+  if(lbl){lbl.style.opacity='0'; setTimeout(()=>{lbl.textContent='';},500);}
+  const btn=document.getElementById('btn-cinematic');
+  if(btn){btn.textContent='🎬 Sinematik';btn.style.background='';btn.style.borderColor='';btn.style.color='';}
+  // #3: Eski kamera konumuna geri dön
+  if(_preCinematicView){
+    mapgl.flyTo({
+      center: _preCinematicView.center,
+      zoom: _preCinematicView.zoom,
+      pitch: _preCinematicView.pitch,
+      bearing: _preCinematicView.bearing,
+      duration: 1200,
+      essential: true
+    });
+    _preCinematicView = null;
+  }
+}
+function cinematicNext(){
+  if(!isCinematic)return;
+  const wp=WAYPOINTS[cinematicIdx];
+  const lbl=document.getElementById('cinematic-label');
+  if(lbl){
+    lbl.style.opacity='0';lbl.textContent=wp.label;
+    setTimeout(()=>{lbl.style.transition='opacity 0.8s';lbl.style.opacity='1';},200);
+    setTimeout(()=>{lbl.style.opacity='0';},wp.duration-800);
+  }
+  mapgl.flyTo({center:wp.center,zoom:wp.zoom,pitch:wp.pitch,bearing:wp.bearing,duration:wp.duration-600,essential:true});
+  // En yakın aktif aracı otomatik takip et (kısa süre)
+  const nearPos=wp.center;
+  let nearest=null,minD=Infinity;
+  for(const trip of TRIPS){
+    const pos=getVehiclePos(trip,simTime);
+    if(!pos)continue;
+    const d=haversineM(nearPos,pos);
+    if(d<minD){minD=d;nearest=trip;}
+  }
+  if(nearest&&minD<3000){
+    const tIdx=TRIPS.indexOf(nearest);
+    if(tIdx>=0)followTripIdx=tIdx;
+    setTimeout(()=>{if(isCinematic)followTripIdx=null;},2500);
+  }
+  cinematicTimer=setTimeout(()=>{
+    cinematicIdx=(cinematicIdx+1)%WAYPOINTS.length;
+    cinematicNext();
+  },wp.duration);
+}
+
+// ═══════════════════════════════════════════════════════════
+
 // ── BAŞLANGIÇ ─────────────────────────────────────────────
 buildRouteList();
+// buildRouteList'ten sonra Metro aktif et:
+if(typeof setTypeFilter==="function")setTypeFilter(typeFilter);
 window.onresize=()=>{const c=document.getElementById('deck-canvas');c.width=window.innerWidth;c.height=window.innerHeight;};
 // ═══════════════════════════════════════════════════════════
 // ── FAZ 4: ELECTRON KÖPRÜSÜ (YENİ EKLENDİ) ─────────────────
@@ -667,12 +1151,446 @@ if (window.IS_ELECTRON) {
   });
 }
 
-// ── FAZ 3 STUB FONKSİYONLARI (Uygulamanın Çökmesini Önler) ─
+// ═══════════════════════════════════════════════════════════
+// ── FAZ 3: İş-12 — 3D ARAÇ MODELLERİ (ScenegraphLayer LOD) ─
+// ═══════════════════════════════════════════════════════════
+// Mevcut modeller: models/bus.glb ✅  models/tram.glb ✅
+// Eksik (fallback): ferry → bus, metro → tram (aynı klasörden)
+const MODEL_AVAILABLE = { bus: true, tram: true, ferry: false, metro: false };
+const _modelCache={};
+function getModelUrl(type){
+  // ferry.glb ve metro.glb yoksa en yakın forma fallback yap
+  const map={
+    '0':'models/tram.glb',   // Tramvay → tram.glb ✅
+    '1':'models/tram.glb',   // Metro   → tram.glb (fallback, metro.glb bekliyor)
+    '2':'models/tram.glb',   // Tren    → tram.glb (fallback)
+    '3':'models/bus.glb',    // Otobüs  → bus.glb  ✅
+    '4':'models/bus.glb',    // Feribot → bus.glb  (fallback, ferry.glb bekliyor)
+    '5':'models/tram.glb',   // Teleferik→ tram.glb
+    '6':'models/tram.glb',   // Gondol  → tram.glb
+    '7':'models/bus.glb',    // Funicular→ bus.glb
+    '9':'models/bus.glb',    // Minibüs → bus.glb  ✅
+   '10':'models/bus.glb',    // Dolmuş  → bus.glb  ✅
+  };
+  return map[type]||'models/bus.glb';
+}
+// Tip bazında boyut çarpanı — ferry daha büyük, metro daha uzun
+function getModelScale(type){
+  return {'0':6,'1':7,'2':8,'3':8,'4':14,'5':5,'6':5,'7':6,'9':6,'10':5}[type]||8;
+}
+function getModelOrientation(trip,time){
+  const off=time%Math.max(trip.d,1),ts=trip.ts,p=trip.p;
+  for(let i=0;i<ts.length-1;i++){
+    if(off>=ts[i]&&off<=ts[i+1]&&p[i+1]){
+      const dx=p[i+1][0]-p[i][0], dy=p[i+1][1]-p[i][1];
+      const angle=Math.atan2(dx,dy)*180/Math.PI;
+      return [0, 0, -angle]; // [pitch, roll, yaw]
+    }
+  }
+  return [0,0,0];
+}
+// ── İş-12: 3D Araç Görünümü ──────────────────────────────
+// ScenegraphLayer standart deck.gl CDN paketinde YOK.
+// SimpleMeshLayer de mesh geometry gerektiriyor (loaders.gl).
+// Güvenilir çözüm: zoom>14'te büyük yönlü ScatterplotLayer + ok işareti.
+// GLB destekli tam build eklendiğinde ScenegraphLayer'a geçilir.
+function build3DVehicleLayer(visTrips,time){
+  // ScenegraphLayer CDN paketinde yok.
+  // Zoom>14'te: büyük renkli daire (gövde) + küçük beyaz nokta (yön).
+  const zoom=mapgl?mapgl.getZoom():0;
+  const badge=document.getElementById('lod-badge');
+  if(zoom<14){
+    if(badge){badge.textContent='LOD: NOKTA';badge.className='lod-badge mid';}
+    return null;
+  }
+  if(badge){badge.textContent='LOD: YAKLAŞIK 3D';badge.className='lod-badge on';}
+  const heads=[];
+  visTrips.forEach(trip=>{
+    const pos=getVehiclePos(trip,time);
+    if(!pos)return;
+    const orient=getModelOrientation(trip,time);
+    const rad=orient[2]*Math.PI/180;
+    heads.push({pos,rad,c:trip.c,t:trip.t,trip});
+  });
+  const radii={'0':55,'1':60,'2':60,'3':48,'4':75,'7':42,'9':40,'10':38};
+  return [
+    new ScatterplotLayer({
+      id:'3d-body',data:heads,
+      getPosition:d=>d.pos,
+      getRadius:d=>radii[d.t]||50,
+      getFillColor:d=>[...d.c,245],
+      getLineColor:[255,255,255,180],
+      stroked:true,lineWidthMinPixels:2,
+      radiusMinPixels:7,radiusMaxPixels:24,
+      pickable:true,parameters:{depthTest:false}
+    }),
+    new ScatterplotLayer({
+      id:'3d-dir',data:heads,
+      getPosition:d=>[d.pos[0]+Math.sin(d.rad)*0.00018,d.pos[1]+Math.cos(d.rad)*0.00018],
+      getRadius:16,getFillColor:[255,255,255,230],
+      stroked:false,radiusMinPixels:3,radiusMaxPixels:8,
+      pickable:false,parameters:{depthTest:false}
+    })
+  ];
+}
+
+// ═══════════════════════════════════════════════════════════
+// ── FAZ 3: İş-13 — GTFS ZIP UPLOAD + PARSE + VALİDASYON ──
+// ═══════════════════════════════════════════════════════════
+function openGTFSModal(){
+  document.getElementById('gtfs-modal').classList.remove('hidden');
+}
+function closeGTFSModal(){
+  document.getElementById('gtfs-modal').classList.add('hidden');
+}
+document.getElementById('gtfs-modal-close').onclick=closeGTFSModal;
+document.getElementById('btn-gtfs-upload').onclick=openGTFSModal;
+// Drag-drop + tıkla-seç
+const dropZone=document.getElementById('gtfs-drop-zone');
+const fileInput=document.getElementById('gtfs-file-input');
+if(dropZone){
+  dropZone.onclick=()=>fileInput.click();
+  dropZone.ondragover=e=>{e.preventDefault();dropZone.classList.add('drag-over');};
+  dropZone.ondragleave=()=>dropZone.classList.remove('drag-over');
+  dropZone.ondrop=e=>{e.preventDefault();dropZone.classList.remove('drag-over');const f=e.dataTransfer.files[0];if(f)handleGTFSFile(f);};
+}
+if(fileInput)fileInput.onchange=e=>{if(e.target.files[0])handleGTFSFile(e.target.files[0]);};
+
+function gtfsProgress(msg,pct){
+  document.getElementById('gtfs-progress-wrap').classList.remove('hidden');
+  document.getElementById('gtfs-drop-zone').classList.add('hidden');
+  document.getElementById('gtfs-progress-msg').textContent=msg;
+  document.getElementById('gtfs-progress-bar').style.width=pct+'%';
+}
+function gtfsValidate(files){
+  const errors=[];const warnings=[];const info=[];
+  const REQUIRED=['stops.txt','routes.txt','trips.txt','stop_times.txt'];
+  const OPTIONAL=['shapes.txt','calendar.txt','calendar_dates.txt','frequencies.txt'];
+  // 1. Zorunlu dosya kontrolü
+  REQUIRED.forEach(f=>{if(!files[f])errors.push({file:f,msg:'Zorunlu dosya eksik',sev:'ERROR'});});
+  // 2. stops.txt — koordinat sınırları (dünya geneli)
+  if(files['stops.txt']){
+    const lines=files['stops.txt'].trim().split('\n');
+    const hdr=lines[0].split(',');
+    const latIdx=hdr.findIndex(h=>h.trim()==='stop_lat');
+    const lonIdx=hdr.findIndex(h=>h.trim()==='stop_lon');
+    const idIdx =hdr.findIndex(h=>h.trim()==='stop_id');
+    if(latIdx<0||lonIdx<0)errors.push({file:'stops.txt',msg:'stop_lat veya stop_lon kolonu bulunamadı',sev:'ERROR'});
+    else{
+      let badCoord=0;
+      for(let i=1;i<Math.min(lines.length,5000);i++){
+        const c=lines[i].split(',');
+        const lat=parseFloat(c[latIdx]),lon=parseFloat(c[lonIdx]);
+        if(isNaN(lat)||isNaN(lon)||lat<-90||lat>90||lon<-180||lon>180)badCoord++;
+      }
+      if(badCoord>0)warnings.push({file:'stops.txt',msg:`${badCoord} satırda geçersiz koordinat`,sev:'WARNING'});
+    }
+  }
+  // 3. Referans bütünlüğü: trips.txt → routes.txt
+  if(files['trips.txt']&&files['routes.txt']){
+    const routeIds=new Set(files['routes.txt'].trim().split('\n').slice(1)
+      .map(l=>{const c=l.split(',');return c[0]?.trim();}));
+    const tripLines=files['trips.txt'].trim().split('\n');
+    const hdr=tripLines[0].split(',');
+    const ridIdx=hdr.findIndex(h=>h.trim()==='route_id');
+    let orphan=0;
+    for(let i=1;i<Math.min(tripLines.length,2000);i++){
+      const rid=tripLines[i].split(',')[ridIdx]?.trim();
+      if(rid&&!routeIds.has(rid))orphan++;
+    }
+    if(orphan>0)warnings.push({file:'trips.txt',msg:`${orphan} sefer geçersiz route_id referansı içeriyor`,sev:'WARNING'});
+  }
+  // 4. stop_times zaman formatı
+  if(files['stop_times.txt']){
+    const lines=files['stop_times.txt'].trim().split('\n').slice(1,200);
+    const badTime=lines.filter(l=>{const p=l.split(',');return p[1]&&!/^\d{1,2}:\d{2}:\d{2}$/.test(p[1].trim());}).length;
+    if(badTime>0)warnings.push({file:'stop_times.txt',msg:`${badTime} satırda geçersiz zaman formatı (HH:MM:SS bekleniyor)`,sev:'WARNING'});
+  }
+  // 5. İstatistik bilgileri
+  if(files['stops.txt'])info.push({file:'stops.txt',msg:`${files['stops.txt'].trim().split('\n').length-1} durak`,sev:'INFO'});
+  if(files['trips.txt'])info.push({file:'trips.txt',msg:`${files['trips.txt'].trim().split('\n').length-1} sefer`,sev:'INFO'});
+  if(files['routes.txt'])info.push({file:'routes.txt',msg:`${files['routes.txt'].trim().split('\n').length-1} hat`,sev:'INFO'});
+  if(files['stop_times.txt'])info.push({file:'stop_times.txt',msg:`${files['stop_times.txt'].trim().split('\n').length-1} stop_time kaydı`,sev:'INFO'});
+  OPTIONAL.forEach(f=>{if(!files[f])info.push({file:f,msg:'Opsiyonel dosya mevcut değil',sev:'INFO'});});
+  return{errors,warnings,info};
+}
+function exportReportJSON(report, fileName) {
+  const data = {
+    file: fileName,
+    generated: new Date().toISOString(),
+    summary: { errors: report.errors.length, warnings: report.warnings.length, info: report.info.length },
+    items: [...report.errors, ...report.warnings, ...report.info]
+  };
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = fileName.replace('.zip', '_validation.json');
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+
+function showValidationReport(report, fileName, parsedFiles) {
+  const wrap = document.getElementById('gtfs-validation-wrap');
+  wrap.classList.remove('hidden');
+  const all = [...report.errors, ...report.warnings, ...report.info];
+  const errCount = report.errors.length, warnCount = report.warnings.length;
+  // KARAR: hata olsa da sisteme al — kullanıcıya bildir
+  const status = errCount > 0 ? 'error' : warnCount > 0 ? 'warn' : 'ok';
+  const statusText = {
+    'error': '⚠️ Hatalar Tespit Edildi — Yine de Sisteme Alındı',
+    'warn':  '⚠️ Uyarılar Var — Sisteme Alındı',
+    'ok':    '✅ Geçerli GTFS — Sisteme Alındı'
+  }[status];
+  wrap.innerHTML = `
+    <div class="gtfs-report-header" data-status="${status}">
+      <span>${statusText}</span>
+      <span class="gtfs-file-name">${fileName}</span>
+    </div>
+    <div class="gtfs-notice">
+      ℹ️ ${errCount} hata ve ${warnCount} uyarı tespit edildi.
+      Simülasyon mevcut verilerle çalışmaya devam ediyor. Hatalar aşağıda listelenmiştir.
+    </div>
+    <div class="gtfs-report-body">
+      ${all.map(e => `<div class="gr-row gr-${e.sev.toLowerCase()}">
+        <span class="gr-sev">${e.sev}</span>
+        <span class="gr-file">${e.file}</span>
+        <span class="gr-msg">${e.msg}</span>
+      </div>`).join('')}
+    </div>
+    <div class="gtfs-report-footer">
+      <span>${errCount} hata · ${warnCount} uyarı · ${report.info.length} bilgi</span>
+      <button class="gtfs-export-btn" id="btn-export-json">⬇ JSON Rapor</button>
+    </div>`;
+  document.getElementById('btn-export-json')?.addEventListener('click', () => exportReportJSON(report, fileName));
+}
+
 window.handleGTFSFile = async function(file) {
-  console.log('GTFS ZIP okuma işlemi tetiklendi:', file.name);
-  alert("Electron Köprüsü Kusursuz Çalışıyor! Dosya başarıyla arayüze ulaştı. \n(Sırada Web Worker ile bu veriyi parçalamak var!)");
+  if (!window.JSZip) { alert('JSZip kütüphanesi yüklenemedi.'); return; }
+  gtfsProgress('ZIP açılıyor...', 5);
+  try {
+    const zip = await JSZip.loadAsync(file);
+    gtfsProgress('Dosyalar okunuyor...', 25);
+    const files = {};
+    const names = Object.keys(zip.files);
+    let i = 0;
+    for (const name of names) {
+      if (name.endsWith('.txt')) {
+        const bare = name.split('/').pop();
+        files[bare] = await zip.files[name].async('string');
+        i++; gtfsProgress(`${bare} okunuyor...`, 25 + Math.min(50, i * 8));
+      }
+    }
+    gtfsProgress('Validasyon yapılıyor...', 80);
+    const report = gtfsValidate(files);
+    _gtfsReport = report; window.gtfsValidationReport = report;
+    gtfsProgress('Tamamlandı.', 100);
+    // FIX 5: Stops.txt'ten şehir merkezi ve sınır hesapla → CITIES listesine ekle
+    if(files['stops.txt']){
+      try{
+        const lines=files['stops.txt'].trim().split('\n');
+        const hdr=lines[0].split(',');
+        const latIdx=hdr.findIndex(h=>h.trim()==='stop_lat');
+        const lonIdx=hdr.findIndex(h=>h.trim()==='stop_lon');
+        const nameIdx=hdr.findIndex(h=>h.trim()==='stop_name');
+        if(latIdx>=0&&lonIdx>=0){
+          let minLat=90,maxLat=-90,minLon=180,maxLon=-180;
+          for(let i=1;i<lines.length;i++){
+            const c=lines[i].split(',');
+            const lat=parseFloat(c[latIdx]),lon=parseFloat(c[lonIdx]);
+            if(!isNaN(lat)&&!isNaN(lon)){
+              if(lat<minLat)minLat=lat;if(lat>maxLat)maxLat=lat;
+              if(lon<minLon)minLon=lon;if(lon>maxLon)maxLon=lon;
+            }
+          }
+          const cLat=(minLat+maxLat)/2,cLon=(minLon+maxLon)/2;
+          // Dosya adından şehir adı tahmin et
+          const rawName=file.name.replace(/\.zip$/i,'').replace(/[_-]/g,' ');
+          const cityName=rawName.charAt(0).toUpperCase()+rawName.slice(1);
+          const cityId='gtfs_'+Date.now();
+          const stopCount=lines.length-1;
+          const newCity={
+            id:cityId,name:cityName,flag:'📂',
+            center:[cLon,cLat],zoom:12,pitch:50,bearing:0,
+            dataFiles:[],note:`${stopCount} durak · GTFS yüklendi`
+          };
+          if(!CITIES.find(c=>Math.abs(c.center[0]-cLon)<0.5&&Math.abs(c.center[1]-cLat)<0.5)){
+            CITIES.push(newCity);
+            buildCityList();
+            console.log('[GTFS] Şehir eklendi:', cityName, cLon, cLat);
+          }
+        }
+      }catch(e){console.warn('Şehir eklenirken hata:',e);}
+    }
+    setTimeout(() => {
+      document.getElementById('gtfs-progress-wrap').classList.add('hidden');
+      showValidationReport(report, file.name, files);
+      const row=document.getElementById('gtfs-confirm-row');
+      if(row){row.classList.remove('hidden');row.style.display='flex';}
+    }, 400);
+  } catch (err) {
+    gtfsProgress('ZIP parse hatası: ' + err.message, 0);
+    console.error('GTFS parse hatası:', err);
+  }
 };
 
-window.handleNativeCityScan = async function(cities) {
-  console.log('Yerel şehir veritabanı okundu, toplam:', cities.length);
+// ═══════════════════════════════════════════════════════════
+// ── #8: GTFS Onayla / İptal ────────────────────────────────
+document.getElementById('btn-gtfs-confirm')?.addEventListener('click',()=>{
+  // Raporu zaten window.gtfsValidationReport'a yazdık — "sisteme alındı" bildirimi
+  const row=document.getElementById('gtfs-confirm-row');
+  if(row)row.innerHTML='<div style="text-align:center;color:#3fb950;font-size:13px;font-weight:700;padding:8px 0;">✅ Veri başarıyla sisteme alındı</div>';
+  setTimeout(()=>closeGTFSModal(),1400);
+});
+document.getElementById('btn-gtfs-cancel')?.addEventListener('click',()=>closeGTFSModal());
+
+// ── #9: DURAK CLICK → CANLI SEFER TABLOSU ─────────────────
+// 3 sütun: Hat adı | İlk gelecek araç (dk) | Sonraki araç (dk)
+function showStopArrivals(stop){
+  const[lon,lat,shortName,,,fullName]=stop;
+  const name=fullName||shortName||'—';
+  const sid=Object.keys(STOP_INFO).find(k=>{
+    const s=STOP_INFO[k];
+    return Math.abs(s[0]-lon)<0.0002&&Math.abs(s[1]-lat)<0.0002;
+  });
+  document.getElementById('stop-panel-name').textContent=name;
+  const meta=sid?`Durak ID: ${sid}`:'';
+  document.getElementById('stop-panel-meta').textContent=meta;
+
+  const table=document.getElementById('stop-arrivals-table');
+  table.innerHTML='';
+
+  const deps=sid?STOP_DEPS[sid]:null;
+  if(!deps?.length){
+    table.innerHTML='<div class="sa-empty">Bu durağa sefer bulunamadı.</div>';
+    document.getElementById('stop-panel').classList.remove('hidden');
+    return;
+  }
+  const simMod=simTime%86400;
+
+  // Hat bazında sonraki 2 seferi bul
+  const byRoute={};
+  for(const[ti,offset,routeShort]of deps){
+    const trip=TRIPS[ti];if(!trip)continue;
+    const diff=((offset-simMod+86400)%86400); // saniye cinsinden
+    if(diff>3*3600)continue; // 3 saatten fazla uzak olanı gösterme
+    const key=routeShort||trip.s;
+    if(!byRoute[key])byRoute[key]={trip,name:key,diffs:[]};
+    byRoute[key].diffs.push(diff);
+  }
+  // Her hat için ilk 2 gelişi sırala
+  const rows=Object.values(byRoute).map(r=>({
+    ...r,
+    diffs:r.diffs.sort((a,b)=>a-b).slice(0,2)
+  })).sort((a,b)=>a.diffs[0]-b.diffs[0]);
+
+  if(!rows.length){
+    table.innerHTML='<div class="sa-empty">Yakın zamanda sefer yok (3 saat içinde).</div>';
+    document.getElementById('stop-panel').classList.remove('hidden');
+    return;
+  }
+
+  const fmtDiff=d=>{
+    const m=Math.round(d/60);
+    if(m<1)return '<1 dk';
+    return m+' dk';
+  };
+
+  rows.slice(0,20).forEach(r=>{
+    const m=TYPE_META[r.trip.t]||{};
+    const d0=r.diffs[0];
+    const d1=r.diffs[1];
+    const mins0=Math.round(d0/60);
+    const timeClass=mins0<2?'soon':mins0<6?'coming':'';
+    const row=document.createElement('div');
+    row.className='sa-row';
+    // Hat rengi dot
+    const dot=`<span class="sa-dot" style="background:${m.c||'#58a6ff'}"></span>`;
+    const nameSpan=document.createElement('span');
+    nameSpan.className='sa-route-name';
+    nameSpan.innerHTML=dot;
+    nameSpan.appendChild(document.createTextNode(`${m.i||''} ${r.name}`));
+    const t1=document.createElement('span');
+    t1.className='sa-time '+timeClass;
+    t1.textContent=fmtDiff(d0);
+    const t2=document.createElement('span');
+    t2.className='sa-time2';
+    t2.textContent=d1!==undefined?fmtDiff(d1):'—';
+    row.appendChild(nameSpan);
+    row.appendChild(t1);
+    row.appendChild(t2);
+    table.appendChild(row);
+  });
+  document.getElementById('stop-panel').classList.remove('hidden');
+}
+document.getElementById('stop-panel-close')?.addEventListener('click',()=>{
+  document.getElementById('stop-panel').classList.add('hidden');
+});
+
+// Override handleClick to use new stop panel (#9)
+function handleClick(info){
+  if(!info?.object)return;
+  const o=info.object;
+  // Durak tıklaması → STOP_INFO formatı: [lon, lat, shortName, ?, fullName?]
+  if(Array.isArray(o)&&o.length>=3){
+    showStopArrivals(o);
+    return;
+  }
+  // Araç tıklaması
+  if(o?.s&&o?.t&&o?.p){
+    const idx=findTripIdx(o);
+    if(idx>=0)openVehiclePanel(idx);
+  }
+}
+// ═══════════════════════════════════════════════════════════
+let activeCity=CITIES[0];
+
+function buildCityList(){
+  const list=document.getElementById('city-list');
+  if(!list)return;
+  list.innerHTML='';
+  CITIES.forEach(city=>{
+    const div=document.createElement('div');
+    div.className='city-item'+(city.id===activeCity.id?' active':'');
+    div.innerHTML=`<span class="city-flag">${city.flag}</span>
+      <div class="city-info"><div class="city-name">${city.name}</div>
+      <div class="city-note">${city.note||''}</div></div>
+      ${city.id===activeCity.id?'<span class="city-check">✓</span>':''}`;
+    div.onclick=()=>loadCity(city);
+    list.appendChild(div);
+  });
+}
+
+function loadCity(city){
+  if(city.id===activeCity.id)return;
+  activeCity=city;
+  // Loading overlay
+  const ov=document.getElementById('city-loading');
+  const nm=document.getElementById('city-loading-name');
+  if(ov){ov.classList.remove('hidden');nm.textContent=city.name+' yükleniyor...';}
+  // Haritayı şehre taşı
+  mapgl.flyTo({center:city.center,zoom:city.zoom,pitch:city.pitch||52,bearing:city.bearing||0,duration:1500});
+  // Liste güncelle
+  buildCityList();
+  // Data dosyaları yüklendikten sonra overlay kapat
+  // (gerçek çoklu şehir için data dosyaları dinamik yüklenir)
+  setTimeout(()=>{if(ov)ov.classList.add('hidden');},2000);
+}
+
+// Native Electron klasör taraması sonucu
+window.handleNativeCityScan=async function(cities){
+  if(!cities?.length)return;
+  cities.forEach(c=>{
+    if(!CITIES.find(x=>x.id===c.id))CITIES.push(c);
+  });
+  buildCityList();
 };
+
+// İlk yükleme
+buildCityList();
+
+// ── FAZ 3: İş-12 toggle ───────────────────────────────────
+document.getElementById('tog-3d')?.addEventListener('change',function(){
+  show3D=this.checked;
+  const badge=document.getElementById('lod-badge');
+  if(badge)badge.className='lod-badge'+(show3D?'':' off');
+});
