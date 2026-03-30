@@ -48,6 +48,10 @@ window.CityManager = (function () {
       return;
     }
     ctx.clearRuntimeData();
+    clearServiceSelectionUi();
+    window.AppManager?.toggleUI?.(false);
+    window.AppManager?.updateLandingPageReports?.();
+    buildCityList();
   }
 
   function clearServiceSelectionUi() {
@@ -191,7 +195,7 @@ window.CityManager = (function () {
     buildCityList();
   }
 
-  function deleteUploadedCity(cityId) {
+  async function deleteUploadedCity(cityId) {
     const ctx = getCtx();
     if (!ctx) return;
     const idx = ctx.CITIES.findIndex((entry) => entry.id === cityId);
@@ -201,9 +205,11 @@ window.CityManager = (function () {
     ctx.hiddenCities.delete(cityId);
     ctx.CITIES.splice(idx, 1);
     if (ctx.getActiveCity()?.id === cityId) {
-      activateFallbackCity(ctx);
+      await activateFallbackCity(ctx);
+      return;
     }
     buildCityList();
+    window.AppManager?.updateLandingPageReports?.();
   }
 
   async function initializeBuiltinCity(city) {
