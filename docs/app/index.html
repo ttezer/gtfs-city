@@ -1,0 +1,484 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>GTFS City</title>
+<link rel="stylesheet" href="https://unpkg.com/maplibre-gl@4.1.2/dist/maplibre-gl.css"/>
+<script src="https://unpkg.com/maplibre-gl@4.1.2/dist/maplibre-gl.js"></script>
+<script src="https://unpkg.com/deck.gl@9.0.3/dist.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<link rel="stylesheet" href="./style.css">
+<link rel="icon" type="image/x-icon" href="./favicon.ico">
+
+</head>
+<body>
+<div id="map"></div>
+<canvas id="deck-canvas"></canvas>
+
+<!-- ══ GİRİŞ SAYFASI (LANDING PAGE) ═══════════════════════ -->
+<div id="landing-page">
+  <div class="lp-content">
+    <div class="lp-header">
+      <img src="./assets/logo-mark.png" alt="GTFS City logo" class="lp-logo">
+      <h1 class="lp-title">GTFS City</h1>
+      <p class="lp-subtitle">Transit veri analiz ve görselleştirme paneli</p>
+    </div>
+
+    <div class="lp-reports">
+      <div class="lp-card">
+        <span class="lp-card-icon">🗺️</span>
+        <span class="lp-card-val" id="lp-count-routes">--</span>
+        <span class="lp-card-lbl">Toplam Hat</span>
+      </div>
+      <div class="lp-card">
+        <span class="lp-card-icon">🚌</span>
+        <span class="lp-card-val" id="lp-count-trips">--</span>
+        <span class="lp-card-lbl">Bugünkü Seferler</span>
+      </div>
+      <div class="lp-card">
+        <span class="lp-card-icon">📍</span>
+        <span class="lp-card-val" id="lp-count-stops">--</span>
+        <span class="lp-card-lbl">Aktif Duraklar</span>
+      </div>
+    </div>
+
+    <div class="lp-actions">
+      <button class="lp-btn primary" id="lp-btn-upload">📂 GTFS ZIP YÜKLE</button>
+      <button class="lp-btn outline hidden" id="lp-btn-start" disabled>🗺️ HARİTAYI AÇ</button>
+    </div>
+    <div class="lp-link-row hidden" id="lp-link-row">
+      <input type="url" id="lp-gtfs-url" class="lp-url-input" placeholder="https://.../gtfs.zip">
+      <button class="lp-btn outline" id="lp-btn-url">🔗 LİNKTEN YÜKLE</button>
+    </div>
+    <div class="lp-link-note hidden" id="lp-link-note">Yalnızca HTTPS GTFS ZIP linkleri kabul edilir. Dış bağlantının güvenliği kullanıcı sorumluluğundadır.</div>
+  </div>
+</div>
+
+<!-- ══ YÜKLEME EKRANI (PROGRESS) ═══════════════════════════ -->
+<div id="loading-overlay" class="hidden">
+  <div class="loader-box">
+    <div class="loader-spinner"></div>
+    <div class="loader-text">Veriler Hazırlanıyor...</div>
+    <div class="loader-progress-bg">
+      <div id="loader-progress-bar"></div>
+    </div>
+    <div id="loader-percent">0%</div>
+    <div id="loader-file-list" class="file-list"></div>
+  </div>
+</div>
+
+<button id="home-toggle-btn" class="hidden" title="Giriş Sayfasına Dön">🏠</button>
+<div id="legend" style="display:none;"></div>
+
+<!-- ══ SIDEBAR ══════════════════════════════════════════ -->
+<div id="sidebar">
+
+  <!-- LOGO -->
+  <div id="logo-block">
+    <img src="./assets/logo-mark.png" alt="GTFS City logo" class="logo-mark">
+    <div>
+      <div class="logo-title">GTFS City</div>
+      <div class="logo-sub">Transit veri analiz paneli</div>
+    </div>
+    <!-- FPS HUD (İş-02) -->
+    <div id="fps-hud">
+      <span id="fps-val">--</span>
+      <span class="fps-label">FPS</span>
+    </div>
+    <!-- Platform Badge (İş-15) -->
+    <div id="platform-badge" class="platform-badge"></div>
+  </div>
+
+  <!-- CLOCK + TIME CONTROLS -->
+  <div id="time-block">
+    <div id="clock-row">
+      <div id="clock">06:00</div>
+      <div id="daynight-badge">🌙 GECE</div>
+    </div>
+
+    <!-- Sparkline histogram (İş-01) -->
+    <div id="sparkline-wrap">
+      <canvas id="sparkline" height="28"></canvas>
+      <canvas id="sparkline-needle" height="28" style="position:absolute;top:0;left:0;pointer-events:none;"></canvas>
+      <div id="peak-labels">
+        <span class="peak-label sabah" style="left:29%">SABAH PİK</span>
+        <span class="peak-label aksam" style="left:71%">AKŞAM PİK</span>
+      </div>
+    </div>
+
+    <!-- Slider with peak bands (İş-01) -->
+    <div id="slider-wrap">
+      <svg id="slider-bands" preserveAspectRatio="none"></svg>
+      <input type="range" id="time-slider" min="0" max="86399" value="21600" step="60">
+    </div>
+
+    <div id="controls">
+      <button class="cbtn" id="btn-slower">◀◀</button>
+      <button class="cbtn primary" id="btn-play">⏸</button>
+      <button class="cbtn" id="btn-faster">▶▶</button>
+      <button class="cbtn" id="btn-reset">↺</button>
+      <button class="cbtn accent" id="btn-replay" title="Replay — 06:00'dan oynat">▶ 24H</button>
+    </div>
+    <div id="speed-row">
+      Hız: <span id="speed-lbl">60×</span>
+      <span id="active-badge"><span id="s-active">0</span> aktif araç</span>
+    </div>
+  </div>
+
+  <!-- REPLAY PROGRESS (İş-05) -->
+  <div id="replay-bar" class="hidden">
+    <div id="replay-track"><div id="replay-fill"></div></div>
+    <div id="replay-info">
+      <span id="replay-time-lbl">06:00</span>
+      <label class="small-check"><input type="checkbox" id="replay-loop"> Döngü</label>
+      <button id="replay-stop">■ Durdur</button>
+    </div>
+  </div>
+
+  <!-- LAYER TOGGLES -->
+  <div class="panel-section" id="section-layers">
+    <div class="section-hdr">
+      <span class="section-label">KATMANLAR</span>
+    </div>
+    <label class="tog-row"><input type="checkbox" id="tog-anim" checked><span class="tog-track"><span class="tog-thumb"></span></span>Araç Animasyonu</label>
+    <label class="tog-row"><input type="checkbox" id="tog-paths" checked><span class="tog-track"><span class="tog-thumb"></span></span>Güzergâh Hatları</label>
+    <label class="tog-row"><input type="checkbox" id="tog-density" checked><span class="tog-track"><span class="tog-thumb"></span></span>Durak Yoğunluğu 3D</label>
+    <label class="tog-row"><input type="checkbox" id="tog-stops" checked><span class="tog-track"><span class="tog-thumb"></span></span>Duraklar</label>
+    <label class="tog-row"><input type="checkbox" id="tog-stop-coverage"><span class="tog-track"><span class="tog-thumb"></span></span>Durak 300 m</label>
+    <!-- Heatmap toggle (İş-06) -->
+    <label class="tog-row"><input type="checkbox" id="tog-heatmap"><span class="tog-track"><span class="tog-thumb"></span></span>Yoğunluk Heatmap</label>
+    <label class="tog-row"><input type="checkbox" id="tog-trail"><span class="tog-track"><span class="tog-thumb"></span></span>Araç İzleri (Fade)</label>
+    <!-- FAZ 2 toggles -->
+    <label class="tog-row faz2"><input type="checkbox" id="tog-headway"><span class="tog-track"><span class="tog-thumb"></span></span>Headway Çizgileri</label>
+    <label class="tog-row faz2"><input type="checkbox" id="tog-bunching"><span class="tog-track"><span class="tog-thumb"></span></span>Bunching Alarmı</label>
+    <label class="tog-row faz2"><input type="checkbox" id="tog-waiting"><span class="tog-track"><span class="tog-thumb"></span></span>Bekleme Süresi 3D</label>
+    <!-- İZOKRON -->
+    <label class="tog-row"><input type="checkbox" id="tog-isochron"><span class="tog-track"><span class="tog-thumb"></span></span>İzokron Analiz 🗺️</label>
+    <!-- FAZ 3 toggles -->
+    <label class="tog-row faz3"><input type="checkbox" id="tog-3d"><span class="tog-track"><span class="tog-thumb"></span></span>3D Araç Modelleri <span id="lod-badge" class="lod-badge off">LOD: NOKTA</span></label>
+    <div id="lod-note" class="lod-note hidden">3D durum bilgisi burada gösterilir.</div>
+  </div>
+
+  <!-- TYPE FILTER -->
+  <div class="panel-section">
+    <div class="section-label">HAT TİPİ</div>
+    <div id="type-btns">
+      <button class="tbtn active" data-t="all">Tümü</button>
+      <button class="tbtn" data-t="1">Metro</button>
+      <button class="tbtn" data-t="3">Otobüs</button>
+      <button class="tbtn" data-t="0">Tramvay</button>
+      <button class="tbtn" data-t="4">Feribot</button>
+      <button class="tbtn" data-t="7">Funicular</button>
+      <button class="tbtn" data-t="9">Minibüs</button>
+      <button class="tbtn" data-t="10">Dolmuş</button>
+    </div>
+  </div>
+
+  <!-- HARİTA STİLİ -->
+  <div class="panel-section">
+    <div class="section-label">HARİTA GÖRÜNÜMÜ</div>
+    <div id="map-style-btns" style="display:flex; gap:4px; margin-top:6px;">
+      <button class="cbtn sstyle active" data-s="auto">OTO</button>
+      <button class="cbtn sstyle" data-s="satellite">UYDU</button>
+      <button class="cbtn sstyle" data-s="dark">KOYU</button>
+      <button class="cbtn sstyle" data-s="light">AÇIK</button>
+    </div>
+  </div>
+
+  <!-- ŞEHİR SEÇİCİ (İş-14) -->
+  <div class="panel-section" id="section-cities">
+    <div class="section-hdr collapsible" id="city-section-hdr" data-target="city-list-wrap">
+      <span class="section-label">ŞEHİR</span>
+      <span class="section-toggle">▾</span>
+    </div>
+    <div id="city-list-wrap" class="collapsible-body open">
+      <div id="city-list"></div>
+      <div id="service-selector-wrap" class="service-selector-wrap hidden">
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+          <div class="service-selector-label">Çalışma Takvimi</div>
+          <span id="calendar-adapted-badge" class="lod-badge mid hidden" style="font-size:7px; padding:1px 3px;">⚠️ UYARLANDI</span>
+        </div>
+        <input type="date" id="service-date-picker" style="width:100%;margin-top:6px;padding:5px 8px;background:rgba(22,27,34,0.8);border:1px solid rgba(48,54,61,0.8);border-radius:6px;color:#e6edf3;font-size:12px;cursor:pointer;">
+        <div id="service-date-info" style="font-size:10px;color:var(--text-muted,#7d8590);margin-top:4px;"></div>
+        <div id="service-status-badges" class="service-status-badges"></div>
+      </div>
+      <button id="btn-gtfs-upload" class="gtfs-upload-btn">📂 GTFS ZIP Yükle</button>
+    </div>
+  </div>
+
+  <!-- HAT LİSTESİ (İş-04) -->
+  <div class="panel-section" id="section-routes">
+    <div class="section-hdr collapsible" data-target="route-list-wrap">
+      <span class="section-label">HATLAR</span>
+      <span class="section-toggle">▾</span>
+    </div>
+    <div id="route-list-wrap" class="collapsible-body open">
+      <div id="route-search-box">
+        <input type="text" id="route-filter-inp" placeholder="Hat ara...">
+      </div>
+      <div id="route-list"></div>
+    </div>
+  </div>
+
+  <div class="panel-section" id="section-stops-list">
+    <div class="section-hdr collapsible" data-target="stop-list-wrap">
+      <span class="section-label">DURAKLAR</span>
+      <span class="section-toggle">▾</span>
+    </div>
+    <div id="stop-list-wrap" class="collapsible-body">
+      <div id="stop-search-box">
+        <input type="text" id="stop-list-filter" placeholder="Durak ara...">
+      </div>
+      <div id="stop-list"></div>
+    </div>
+  </div>
+
+  <!-- ROTA PLANLAYAMA (Sağ üste taşındı - Faz G) -->
+
+  <!-- FOLLOW MODE -->
+  <div id="follow-bar" class="hidden">
+    <span id="follow-label">📍 Takip Modu</span>
+    <button id="btn-unfollow">✕</button>
+  </div>
+
+</div>
+<button id='sidebar-toggle' title='Menüyü Daralt/Aç'>◀</button>
+<!-- ══ END SIDEBAR ════════════════════════════════════════ -->
+
+<!-- ARAÇ DETAY PANELİ (Bölüm 2) -->
+<div id="vehicle-panel" class="drawer hidden">
+  <div id="vp-header" class="drawer-header">
+    <span id="vp-icon">🚌</span>
+    <div id="vp-title-block">
+      <div id="vp-title" class="drawer-title">—</div>
+      <div id="vp-subtitle" class="drawer-subtitle">—</div>
+    </div>
+    <button id="vp-close" class="drawer-close">✕</button>
+  </div>
+  <div id="vp-body" class="drawer-body">
+    <div class="vp-stat-grid">
+      <div class="vp-card"><span class="vp-v" id="vp-speed">0</span><span class="vp-l">km/h</span></div>
+      <div class="vp-card"><span class="vp-v" id="vp-headway">—</span><span class="vp-l">Headway</span></div>
+      <div class="vp-card"><span class="vp-v" id="vp-progress">0%</span><span class="vp-l">İlerleme</span></div>
+    </div>
+    <div class="vp-next-row">
+      <span class="vp-next-lbl">Sonraki Durak</span>
+      <span class="vp-next-val" id="vp-next-stop">—</span>
+    </div>
+    <div class="vp-next-row">
+      <span class="vp-next-lbl">⏱ Tahmini Varış</span>
+      <span class="vp-next-val" id="vp-eta">—</span>
+    </div>
+    <div id="vp-trip-details" class="drawer-details"></div>
+    <div id="vp-stops-list"></div>
+  </div>
+  <div id="vp-footer" class="drawer-footer">
+    <button id="vp-follow-btn" class="vp-btn">📍 Takip Et</button>
+    <button id="vp-route-btn" class="vp-btn">🗺 Hattı Odakla</button>
+  </div>
+</div>
+
+<!-- DURAK SEFER PANELİ (Bölüm 2) -->
+<div id="stop-panel" class="drawer hidden">
+  <div class="drawer-header stop-panel-hdr">
+    <span class="stop-icon">📍</span>
+    <div class="drawer-title-block">
+      <div id="stop-panel-name" class="drawer-title">—</div>
+      <div id="stop-panel-meta" class="drawer-subtitle">—</div>
+    </div>
+    <button id="stop-panel-close" class="drawer-close">✕</button>
+  </div>
+  <div class="drawer-body stop-panel-inner">
+    <div class="sa-head" style="background:rgba(0,0,0,0.2); font-size:10px; padding:6px 16px; color:var(--text-muted); text-transform:uppercase; letter-spacing:1px; display:flex;">
+    <span style="min-width:50px">Hat</span>
+    <span style="flex:1; padding:0 10px">Varış Yönü</span>
+    <span style="min-width:60px; text-align:right">Süre</span>
+  </div>
+  <div id="stop-arrivals-table"></div>
+  </div>
+</div>
+
+
+<!-- ROTA PLANLAYICI — Sağ Üst Floating Panel (Faz G) -->
+<button id="route-planner-toggle" title="Nasıl Giderim">🧭 Nasıl Giderim</button>
+<div id="route-planner-panel" class="hidden">
+  <div id="route-planner-header">
+    <div style="display:flex;flex-direction:column;gap:2px;">
+      <span>🧭 Nasıl Giderim</span>
+      <span id="route-planner-context" style="font-size:10px;color:var(--text-muted,#7d8590);font-weight:500;"></span>
+    </div>
+    <button id="route-planner-close">✕</button>
+  </div>
+  <div id="route-planner-body">
+    <input type="text" id="stop-from" placeholder="Nereden?" autocomplete="off">
+    <div id="from-suggestions" class="suggestions"></div>
+    <input type="text" id="stop-to" placeholder="Nereye?" autocomplete="off">
+    <div id="to-suggestions" class="suggestions"></div>
+    <button id="btn-route" class="route-btn">Yol Tarifi Oluştur →</button>
+  </div>
+  <!-- ROUTE RESULT (planlayıcı panelinin içine entegre) -->
+  <div id="route-result" class="hidden">
+    <div id="route-result-header">
+      <span>Rota Sonucu</span>
+      <button id="route-result-close">✕</button>
+    </div>
+    <div id="route-steps"></div>
+  </div>
+</div>
+
+<!-- HEATMAP HOUR SELECTOR (İş-06) -->
+<div id="heatmap-ctrl" class="hidden">
+  <span class="section-label">HEATMAP SAATİ</span>
+  <input type="range" id="heatmap-hour" min="0" max="23" value="8" step="1">
+  <span id="heatmap-hour-lbl">08:00</span>
+  <label class="small-check" style="margin-left:8px">
+    <input type="checkbox" id="heatmap-follow-sim"> Simle takip et
+  </label>
+</div>
+
+<!-- İŞ-08: BUNCHING PANEL -->
+<div id="bunching-panel" class="hidden">
+  <div id="bunching-header">
+    <span>⚠️ Bunching Uyarıları</span>
+    <span id="bunching-count" class="bunch-count">0</span>
+    <div id="threshold-row">
+      <span>Eşik:</span>
+      <input type="range" id="bunching-threshold" min="50" max="500" value="200" step="10">
+      <span id="threshold-lbl">200m</span>
+    </div>
+  </div>
+  <div id="bunching-list"></div>
+</div>
+
+<!-- İŞ-09: WORST STOPS PANEL -->
+<div id="worst-stops-panel" class="hidden">
+  <div id="worst-header">
+    <span>⏱ En Uzun Bekleme</span>
+    <span class="worst-sub">İlk 10 Durak</span>
+  </div>
+  <div id="worst-stops-list"></div>
+</div>
+
+<!-- İŞ-11: SİNEMATİK LABEL -->
+<div id="cinematic-label"></div>
+
+<!-- İŞ-11: SİNEMATİK BUTTON -->
+<button id="btn-cinematic">🎬 Sinematik</button>
+
+<!-- İŞ-13: GTFS UPLOAD MODAL -->
+<div id="gtfs-modal" class="hidden">
+  <div id="gtfs-modal-box">
+    <div id="gtfs-modal-header">
+      <span>📂 GTFS ZIP Yükle</span>
+      <button id="gtfs-modal-close">✕</button>
+    </div>
+    <div id="gtfs-modal-body">
+      <div id="gtfs-drop-zone">
+        <div class="drop-icon">📦</div>
+        <div class="drop-title">GTFS .zip dosyasını buraya sürükle</div>
+        <div class="drop-sub">veya tıkla seç</div>
+        <input type="file" id="gtfs-file-input" accept=".zip" style="display:none">
+      </div>
+      <div id="gtfs-progress-wrap" class="hidden">
+        <div id="gtfs-progress-track"><div id="gtfs-progress-bar"></div></div>
+        <div id="gtfs-progress-msg">Hazırlanıyor...</div>
+      </div>
+      <div id="gtfs-validation-wrap" class="hidden"></div>
+      <!-- #8: Validasyondan sonra "Sisteme Al" butonu — script.js tarafından dinamik oluşturulur -->
+      <div id="gtfs-confirm-row" class="hidden" style="display:flex;gap:8px;margin-top:10px;"></div>
+      <div id="gtfs-info-box">
+        <div class="gtfs-info-title">Beklenen GTFS Dosyaları</div>
+        <div class="gtfs-file-list">
+          <span class="req">stops.txt</span>
+          <span class="req">routes.txt</span>
+          <span class="req">trips.txt</span>
+          <span class="req">stop_times.txt</span>
+          <span class="opt">shapes.txt</span>
+          <span class="opt">calendar.txt</span>
+        </div>
+        <div class="gtfs-note">Simülasyon Python pipeline ile preprocess gerektirir. Bu araç validasyon + istatistik sağlar.</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- İŞ-14: ŞEHİR LOADING OVERLAY -->
+<div id="city-loading" class="hidden">
+  <div id="city-loading-inner">
+    <div class="city-load-spinner"></div>
+    <div id="city-loading-name">Yükleniyor...</div>
+  </div>
+</div>
+
+<!-- TOOLTIP -->
+<div id="tooltip"></div>
+
+<!-- HAT PANELİ -->
+<div id="route-panel" class="drawer hidden">
+  <div id="route-panel-header" class="drawer-header">
+    <div>
+      <div id="route-panel-name" class="drawer-title">—</div>
+      <div id="route-panel-meta" class="drawer-subtitle">—</div>
+    </div>
+    <button id="route-panel-close" class="drawer-close">✕</button>
+  </div>
+  <div id="route-panel-body" class="drawer-body">
+    <div id="route-panel-details">—</div>
+  </div>
+</div>
+
+<!-- LEGEND -->
+<!-- GTFS UYARI DASHBOARD (Bölüm 1) -->
+<div id="gtfs-warning-dash" class="hidden">
+  <div class="gwd-header">
+    <span class="gwd-icon">⚠️</span>
+    <span class="gwd-title">Veri Uyarıları</span>
+    <button id="gwd-close" type="button" class="gwd-close" title="Kapat">X</button>
+  </div>
+  <div id="gwd-content"></div>
+</div>
+
+<!-- VERİ YÖNETİM PANELİ — Faz D'de erişimden kaldırıldı, Faz E teknik borç turu kapsamında DOM'dan silindi -->
+
+
+<!-- İZOKRON PANELİ -->
+<div id="isochron-panel" style="display:none;position:fixed;bottom:24px;right:16px;z-index:300;background:rgba(22,27,34,0.95);border:1px solid rgba(48,54,61,0.8);border-radius:10px;padding:12px 16px;min-width:200px;max-height:90vh;overflow-y:auto;backdrop-filter:blur(8px);">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+    <span style="font-size:12px;font-weight:700;color:#e6edf3;letter-spacing:1px;">İZOKRON ANALİZ</span>
+    <button id="isochron-close" style="background:none;border:none;color:#7d8590;cursor:pointer;font-size:14px;padding:0;">✕</button>
+  </div>
+  <div id="isochron-hint" style="font-size:11px;color:#7d8590;margin-bottom:10px;">Haritada bir noktaya tıklayın</div>
+  <div id="isochron-origin-label" style="font-size:11px;color:#58a6ff;margin-bottom:10px;display:none;"></div>
+  <div style="display:flex;flex-direction:column;gap:5px;">
+    <div style="display:flex;align-items:center;gap:8px;"><span style="width:12px;height:12px;border-radius:50%;background:#3fb950;display:inline-block;"></span><span style="font-size:11px;color:#e6edf3;">0 – 15 dakika</span></div>
+    <div style="display:flex;align-items:center;gap:8px;"><span style="width:12px;height:12px;border-radius:50%;background:#d29922;display:inline-block;"></span><span style="font-size:11px;color:#e6edf3;">15 – 30 dakika</span></div>
+    <div style="display:flex;align-items:center;gap:8px;"><span style="width:12px;height:12px;border-radius:50%;background:#e07b39;display:inline-block;"></span><span style="font-size:11px;color:#e6edf3;">30 – 45 dakika</span></div>
+    <div style="display:flex;align-items:center;gap:8px;"><span style="width:12px;height:12px;border-radius:50%;background:#f85149;display:inline-block;"></span><span style="font-size:11px;color:#e6edf3;">45 – 60 dakika</span></div>
+  </div>
+  <div id="isochron-stats" style="margin-top:10px;font-size:10px;color:#7d8590;border-top:1px solid rgba(48,54,61,0.6);padding-top:8px;display:none;"></div>
+</div>
+<script src="gtfs-math-utils.js"></script>
+<script src="state-manager.js"></script>
+<script src="simulation-engine.js"></script>
+<script src="map-manager.js"></script>
+<script src="ui-manager.js"></script>
+<script src="planner-manager.js"></script>
+<script src="service-manager.js"></script>
+<script src="city-manager.js"></script>
+<script src="data-manager.js"></script>
+<script src="app-manager.js"></script>
+<script src="config.js"></script>
+<script src="sim-utils.js"></script>
+<script src="analytics-utils.js"></script>
+<script src="gtfs-utils.js"></script>
+<script src="gtfs-validator.js"></script>
+<script src="render-utils.js"></script>
+<script src="ui-utils.js"></script>
+<script>window.APP_BASE_PATH = "./"; window.PLATFORM = "web";</script>
+<script src="bootstrap-manager.js"></script>
+<script>
+window.BootstrapManager?.start?.();
+</script>
+</body>
+</html>
