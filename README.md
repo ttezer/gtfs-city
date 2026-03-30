@@ -1,4 +1,4 @@
-# GTFS City
+﻿# GTFS City
 
 GTFS City, GTFS ZIP verisini yükleyip toplu taşıma ağını masaüstünde incelemek için hazırlanmış Electron tabanlı analiz ve görselleştirme uygulamasıdır.
 
@@ -9,6 +9,32 @@ GTFS City, GTFS ZIP verisini yükleyip toplu taşıma ağını masaüstünde inc
 - hat, durak ve araç detay panelleri
 - headway, bekleme, yoğunluk ve kapsama katmanları
 - HTTPS GTFS ZIP linkinden yükleme (`Electron` içinde)
+
+## Ekran Görüntüleri
+
+### Giriş ekranı
+
+![Giriş sayfası](./docs/screens/giris_sayfasi.jpg)
+
+### GTFS yükleme örneği
+
+![GTFS yükleme örneği](./docs/screens/ornek_GTFS_Konya.jpg)
+
+### Hat paneli
+
+![Hat bilgi paneli](./docs/screens/hat_bilgi.jpg)
+
+### Durak paneli
+
+![Durak bilgi paneli](./docs/screens/durak_bilgi.jpg)
+
+### Araç paneli
+
+![Araç bilgi paneli](./docs/screens/arac_bilgi.jpg)
+
+### İzokron analizi
+
+![Durak bazlı izokron analizi](./docs/screens/durak_bazli_izokran.jpg)
 
 ## Çalışma Modeli
 
