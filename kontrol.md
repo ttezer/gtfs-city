@@ -10,6 +10,8 @@
 
 - Davranışı değiştiren işlerde önce etkilenmiş akış netleştirilir.
 - Türkçe metinlerde UTF-8 korunur.
+- `README.md`, `mimari.md`, `kontrol.md`, `isplani.md`, `docs/*.html`, `docs/*.md`, `package.json` gibi metin dosyalarına shell üzerinden here-string ile çok satırlı içerik yazılmaz.
+- Türkçe içeren metin dosyalarında yalnızca güvenli yama akışı kullanılır.
 - Büyük refactor yerine hedefli değişiklik tercih edilir.
 - Yeni iş mantığı ilgili manager veya util dosyasına eklenir.
 - `script.js` gereksiz büyütülmez; orkestrasyon ve ortak state katmanı olarak tutulur.
@@ -33,4 +35,10 @@ Paketleme veya dağıtım öncesi:
 
 ```bash
 npm run build:win -- --dir
+```
+
+Ek metin doğrulaması:
+
+```bash
+npm run check:text
 ```
