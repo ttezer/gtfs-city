@@ -1,12 +1,12 @@
 {
   "name": "gtfs-city",
   "version": "1.0.0",
-  "description": "GTFS City masa?st? toplu ta??ma analiz ve g?rselle?tirme uygulamas?",
+  "description": "GTFS City masaüstü toplu taşıma analiz ve görselleştirme uygulaması",
   "author": {
     "name": "GTFS City",
     "email": "hello@gtfs.city"
   },
-  "license": "MIT",
+  "license": "Apache-2.0",
   "main": "electron/main.js",
   "scripts": {
     "start": "electron .",
@@ -31,7 +31,7 @@
   "build": {
     "appId": "city.gtfs.app",
     "productName": "GTFS City",
-    "copyright": "Copyright ? 2026 GTFS City",
+    "copyright": "Copyright © 2026 GTFS City",
     "directories": {
       "output": "dist",
       "buildResources": "assets"
@@ -167,7 +167,7 @@
       ],
       "icon": "assets/icons/",
       "category": "Utility",
-      "synopsis": "GTFS City masa?st? toplu ta??ma analizi"
+      "synopsis": "GTFS City masaüstü toplu taşıma analizi"
     },
     "publish": {
       "provider": "github",

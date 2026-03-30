@@ -1,90 +1,90 @@
-# GTFS City ? G?ncel Durum
+# GTFS City — Güncel Durum
 
-## Mevcut Kararl? Durum
+## Mevcut Kararlı Durum
 
-Proje ?u anda Electron tabanl?, tek GTFS veri seti mant???yla ?al??an kararl? bir masa?st? uygulamad?r.
+Proje şu anda Electron tabanlı, tek GTFS veri seti mantığıyla çalışan kararlı bir masaüstü uygulamadır.
 
-Kararl? kabul edilen temel davran??lar:
+Kararlı kabul edilen temel davranışlar:
 
-- upload-first ba?lang?? ak???
+- upload-first başlangıç akışı
 - tek aktif GTFS veri seti
-- `HAR?TAYI A?` ile harita ekran?na ge?i?
-- route, stop ve vehicle panel ak??lar?
-- hat tipi filtresi, odakl? hat ve ilgili katman filtreleri
-- headway, bekleme, yo?unluk ve kapsama katmanlar?
-- HTTPS GTFS ZIP linkten y?kleme (yaln?zca Electron)
-- logo, landing ve temel ?r?n kimli?i
+- `HARİTAYI AÇ` ile harita ekranına geçiş
+- route, stop ve vehicle panel akışları
+- hat tipi filtresi, odaklı hat ve ilgili katman filtreleri
+- headway, bekleme, yoğunluk ve kapsama katmanları
+- HTTPS GTFS ZIP linkten yükleme, yalnızca Electron sürümünde
+- logo, landing ve temel ürün kimliği
 
 ## Kilit Kararlar
 
-### ADR-022 ? Upload-first a??l?? ak???
-Uygulama bo? landing ekranla ba?lar. Veri y?klenmeden harita ekran?na ge?ilmez.
+### ADR-022 — Upload-first açılış akışı
+Uygulama boş landing ekranla başlar. Veri yüklenmeden harita ekranına geçilmez.
 
-### ADR-023 ? Ba?lang?? veri kayna??
-Ba?lang?? veri kayna?? yerle?ik preload de?il, kullan?c? taraf?ndan y?klenen GTFS ZIP verisidir.
+### ADR-023 — Başlangıç veri kaynağı
+Başlangıç veri kaynağı yerleşik preload değil, kullanıcı tarafından yüklenen GTFS ZIP verisidir.
 
-### ADR-024 ? Tek progress y?zeyi
-GTFS y?kleme s?ras?nda tek bir progress y?zeyi kullan?l?r. ?ift confirm/progress ak??? a??lmaz.
+### ADR-024 — Tek progress yüzeyi
+GTFS yükleme sırasında tek bir progress yüzeyi kullanılır. Çift confirm/progress akışı açılmaz.
 
-### ADR-025 ? Worker tabanl? parse
-A??r GTFS parse i?lemi m?mk?n olan yerde worker ?zerinden ?al??t?r?l?r; fallback yaln?zca zorunlu durumda devreye girer.
+### ADR-025 — Worker tabanlı parse
+Ağır GTFS parse işlemi mümkün olan yerde worker üzerinden çalıştırılır; fallback yalnızca zorunlu durumda devreye girer.
 
-### ADR-026 ? Route/stop/vehicle panel davran???
-Route panel, stop panel, odakl? hat g?r?n?m? ve buna ba?l? filtre davran??lar? mevcut haliyle temel kabul edilir.
+### ADR-026 — Route/stop/vehicle panel davranışı
+Route panel, stop panel, odaklı hat görünümü ve buna bağlı filtre davranışları mevcut haliyle temel kabul edilir.
 
-## A??k Kalan Yak?n ??ler
+## Açık Kalan Yakın İşler
 
-- GitHub Pages i?in vitrin ve web demo olgunla?t?rma
-- favicon ve app icon i?in daha sade bir final logo s?r?m?
-- k???k UX ve veri do?ruluk d?zeltmeleri
-- istenirse GTFS-RT ara?t?rma ve taslak faz?
+- GitHub Pages için vitrin ve web demo olgunlaştırma
+- favicon ve app icon için daha sade bir final logo sürümü
+- küçük UX ve veri doğruluk düzeltmeleri
+- istenirse GTFS-RT araştırma ve taslak fazı
 
 ## Not
 
-Bu dosya uzun tarih?e de?il, g?ncel durum belgesidir. Yeni i?ler buraya k?sa ve g?ncel bi?imde eklenmelidir.
+Bu dosya uzun tarihçe değil, güncel durum belgesidir. Yeni işler buraya kısa ve güncel biçimde eklenmelidir.
 
-### Faz R ? GitHub Pages Vitrin Kurulumu (30 Mart 2026)
+### Faz R — GitHub Pages Vitrin Kurulumu (30 Mart 2026)
 
-- `docs/index.html` ve `docs/styles.css` ile statik vitrin sayfas? olu?turuldu.
-- Pages i?inde kullan?lmak ?zere `docs/logo-mark.png` ve `docs/favicon.ico` eklendi.
-- Pages kayna?? olarak `main /docs` kullan?lacak ?ekilde yap? kuruldu.
+- `docs/index.html` ve `docs/styles.css` ile statik vitrin sayfası oluşturuldu.
+- Pages içinde kullanılmak üzere `docs/logo-mark.png` ve `docs/favicon.ico` eklendi.
+- Pages kaynağı olarak `main /docs` kullanılacak şekilde yapı kuruldu.
 
-### Faz R ? Kamusal Repo Kontrol? Turu 2 (30 Mart 2026)
+### Faz R — Kamusal Repo Kontrolü Turu 2 (30 Mart 2026)
 
-- A??k repo taramas?nda tracked gizli veri, token veya ZIP veri paketi bulunmad?.
-- Electron taraf?ndaki eski marka kal?nt?lar? GTFS City ad?na temizlendi.
+- Açık repo taramasında tracked gizli veri, token veya ZIP veri paketi bulunmadı.
+- Electron tarafındaki eski marka kalıntıları GTFS City adına temizlendi.
 
-### Faz R ? Pages ve README G?rsel Galeri Turu 3 (31 Mart 2026)
+### Faz R — Pages ve README Görsel Galeri Turu 3 (31 Mart 2026)
 
-- Proje k?k?ndeki JPEG ?rnekleri `docs/screens/` alt?na al?narak GitHub Pages vitrinine ba?land?.
-- `README.md` i?ine ayn? ?rneklerden olu?an ekran g?r?nt?s? b?l?m? eklendi.
+- Proje kökündeki JPEG örnekleri `docs/screens/` altına alınarak GitHub Pages vitrinine bağlandı.
+- `README.md` içine aynı örneklerden oluşan ekran görüntüsü bölümü eklendi.
 
-### Faz R ? Pages Profesyonelle?tirme ve Preload Temizli?i Turu 4 (31 Mart 2026)
+### Faz R — Pages Profesyonelleştirme ve Preload Temizliği Turu 4 (31 Mart 2026)
 
-- Pages vitrini daha profesyonel bir d?zene ge?irildi.
-- README i?indeki gereksiz Pages kurulum maddeleri sadele?tirildi.
-- Art?k kullan?lmayan preload kal?nt?lar? kald?r?ld?: `trips_data.js`, `shapes_data.js`, `lookup_data.js`, `scripts/regenerate-bordeaux-preload.js`.
-- `cizim.md` kald?r?ld? ve `build-release.yml` preload ba??ml?l??? olmadan yeniden yaz?ld?.
+- Pages vitrini daha profesyonel bir düzene geçirildi.
+- README içindeki gereksiz Pages kurulum maddeleri sadeleştirildi.
+- Artık kullanılmayan preload kalıntıları kaldırıldı: `trips_data.js`, `shapes_data.js`, `lookup_data.js`, `scripts/regenerate-bordeaux-preload.js`.
+- `cizim.md` kaldırıldı ve `build-release.yml` preload bağımlılığı olmadan yeniden yazıldı.
 
-### Faz R ? K?k G?rsel Kaynaklar? Ignore Turu 5 (31 Mart 2026)
+### Faz R — Kök Görsel Kaynakları Ignore Turu 5 (31 Mart 2026)
 
-- `docs/screens/` kopyalar? korunurken, proje k?k?ndeki ge?ici JPEG kaynaklar ve `gtfscity.png` `.gitignore` i?ine al?nd?.
+- `docs/screens/` kopyaları korunurken, proje kökündeki geçici JPEG kaynaklar ve `gtfscity.png` `.gitignore` içine alındı.
 
-### Faz S ? Web MVP Haz?rl?k Turu 1 (31 Mart 2026)
+### Faz S — Web MVP Hazırlık Turu 1 (31 Mart 2026)
 
-- `docs/app/` alt?nda GitHub Pages i?in ayr? web giri? noktas? olu?turuldu.
-- Web giri?i, desktop ak???na dokunmadan k?k JS/CSS dosyalar?n?n Pages i?in izole kopyalar?yla haz?rland?.
-- `bootstrap-manager.js` i?ine base path deste?i eklendi ve Pages vitrinden `Web Demo` ba?lant?s? verildi.
+- `docs/app/` altında GitHub Pages için ayrı web giriş noktası oluşturuldu.
+- Web girişi, desktop akışına dokunmadan kök JS/CSS dosyalarının Pages için izole kopyalarıyla hazırlandı.
+- `bootstrap-manager.js` içine base path desteği eklendi ve Pages vitrinden `Web Demo` bağlantısı verildi.
 
-### Faz S ? Web MVP D?zenleme Turu 2 (31 Mart 2026)
+### Faz S — Web MVP Düzenleme Turu 2 (31 Mart 2026)
 
-- Y?klenen ?ehir silindi?inde landing ekran?na g?venli d?n?? ve yeniden GTFS y?kleme ak??? d?zeltildi.
-- Pages vitrinde giri? metni, ekran g?r?nt?s? yerle?imi ve ?r?n anlat?m? yeniden d?zenlendi.
-- HTTPS linkten y?kleme, g?venlik ve platform s?n?rlar? nedeniyle desktop s?r?m?nde tutuldu; web demo yerel ZIP y?kleme ile s?n?rland?.
+- Yüklenen şehir silindiğinde landing ekranına güvenli dönüş ve yeniden GTFS yükleme akışı düzeltildi.
+- Pages vitrinde giriş metni, ekran görüntüsü yerleşimi ve ürün anlatımı yeniden düzenlendi.
+- HTTPS linkten yükleme, güvenlik ve platform sınırları nedeniyle desktop sürümünde tutuldu; web demo yerel ZIP yükleme ile sınırlandı.
 
-### Faz S ? Lisans ve ???nc? Parti Tarama Turu 3 (31 Mart 2026)
+### Faz S — Lisans ve Üçüncü Parti Tarama Turu 3 (31 Mart 2026)
 
-- `package-lock.json` ve CDN ba??ml?l?klar? ?zerinden ???nc? parti lisans taramas? yap?ld?.
-- ?ekirdek ba??ml?l?klar i?in lisans ?zeti ??kar?ld? ve `THIRD_PARTY_NOTICES.md` eklendi.
-- npm taramas? i?inde zorunlu copyleft s?n?f?nda GPL/AGPL/LGPL ba??ml?l?k bulunmad?; JSZip i?in MIT se?ene?i not edildi.
-- `models/` alt?ndaki GLB varl?klar?n kayna?? otomatik tarama d???nda b?rak?ld? ve ayr?ca do?rulama gerektirdi?i not edildi.
+- `package-lock.json` ve CDN bağımlılıkları üzerinden üçüncü parti lisans taraması yapıldı.
+- Çekirdek bağımlılıklar için lisans özeti çıkarıldı ve `THIRD_PARTY_NOTICES.md` eklendi.
+- npm taraması içinde zorunlu copyleft sınıfında GPL/AGPL/LGPL bağımlılık bulunmadı; JSZip için MIT seçeneği not edildi.
+- `models/` altındaki GLB varlıkların kaynağı otomatik tarama dışında bırakıldı ve ayrıca doğrulama gerektirdiği not edildi.
