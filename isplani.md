@@ -65,15 +65,15 @@ Bu dosya artık uzun tarihçe değil, güncel durum belgesidir. Yeni işler bura
 - docs/index.html ve docs/styles.css daha profesyonel bir vitrin düzenine geçirildi; alt kısma Vatan'ın Babası Tacettin TEZER notu eklendi.
 - README.md içindeki gereksiz Pages kurulum maddeleri sadeleştirildi.
 - Artık kullanılmayan preload kalıntıları kaldırıldı: 	rips_data.js, shapes_data.js, lookup_data.js, scripts/regenerate-bordeaux-preload.js.
-- Eski cizim.md kaldırıldı ve uild-release.yml preload bağımlılığı olmadan yeniden yazıldı.
+- Eski cizim.md kaldırıldı ve build-release.yml preload bağımlılığı olmadan yeniden yazıldı.
 
 ### Faz R — Kök Görsel Kaynakları Ignore Turu 5 (31 Mart 2026)
 
 - Pages için kullanılan docs/screens/ kopyaları korunurken, proje kökündeki geçici JPEG kaynaklar ve gtfscity.png .gitignore içine alındı.
 
 
-### Faz S ? Web MVP Haz?rl?k Turu 1 (31 Mart 2026)
+### Faz S — Web MVP Hazırlık Turu 1 (31 Mart 2026)
 
-- `docs/app/` alt?nda GitHub Pages i?in ayr? web giri? noktas? olu?turuldu.
-- Web giri?i, desktop ak???na dokunmadan k?k JS/CSS dosyalar?n?n Pages i?in izole kopyalar?yla haz?rland?.
-- `bootstrap-manager.js` i?ine base path deste?i eklendi ve Pages vitrinden `Web Demo` ba?lant?s? verildi.
+- `docs/app/` altında GitHub Pages için ayrı web giriş noktası oluşturuldu.
+- Web girişi, desktop akışına dokunmadan kök JS/CSS dosyalarının Pages için izole kopyalarıyla hazırlandı.
+- `bootstrap-manager.js` içine base path desteği eklendi ve Pages vitrinden `Web Demo` bağlantısı verildi.
