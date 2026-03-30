@@ -67,3 +67,7 @@ Bu dosya artık uzun tarihçe değil, güncel durum belgesidir. Yeni işler bura
 - Artık kullanılmayan preload kalıntıları kaldırıldı: 	rips_data.js, shapes_data.js, lookup_data.js, scripts/regenerate-bordeaux-preload.js.
 - Eski cizim.md kaldırıldı ve uild-release.yml preload bağımlılığı olmadan yeniden yazıldı.
 
+### Faz R — Kök Görsel Kaynakları Ignore Turu 5 (31 Mart 2026)
+
+- Pages için kullanılan docs/screens/ kopyaları korunurken, proje kökündeki geçici JPEG kaynaklar ve gtfscity.png .gitignore içine alındı.
+
