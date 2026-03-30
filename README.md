@@ -79,3 +79,14 @@ npm run build:win -- --dir
 - `mimari.md` — güncel teknik yapı
 - `kontrol.md` — çalışma kuralları
 - `isplani.md` — güncel durum ve bundan sonrası
+- `docs/` — GitHub Pages vitrin dosyaları
+
+## GitHub Pages
+
+Statik vitrin sayfası `docs/` klasöründedir.
+
+GitHub Pages açmak için:
+
+1. GitHub repo ayarlarına gir.
+2. `Pages` bölümünde kaynak olarak `Deploy from a branch` seç.
+3. Branch olarak `main`, klasör olarak `/docs` seç.

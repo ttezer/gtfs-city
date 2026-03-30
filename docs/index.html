@@ -1,0 +1,74 @@
+﻿<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>GTFS City</title>
+  <meta name="description" content="GTFS City, GTFS ZIP verisini yükleyip toplu taşıma ağını analiz etmek için hazırlanmış Electron tabanlı masaüstü uygulamadır.">
+  <link rel="icon" type="image/x-icon" href="./favicon.ico">
+  <link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+  <main class="page">
+    <section class="hero">
+      <img src="./logo-mark.png" alt="GTFS City logo" class="hero-logo">
+      <div class="hero-copy">
+        <p class="eyebrow">GTFS Analiz ve Görselleştirme</p>
+        <h1>GTFS City</h1>
+        <p class="lead">GTFS ZIP verisini yükleyip hatları, durakları, araç akışını ve analiz katmanlarını tek masaüstü uygulamasında inceleyin.</p>
+        <div class="hero-actions">
+          <a class="btn primary" href="https://github.com/ttezer/gtfs-city" target="_blank" rel="noreferrer">GitHub</a>
+          <a class="btn" href="../README.md">README</a>
+          <a class="btn" href="../mimari.md">Mimari</a>
+        </div>
+      </div>
+    </section>
+
+    <section class="grid three">
+      <article class="card">
+        <h2>Tek GTFS Akışı</h2>
+        <p>Upload-first model ile aynı anda tek veri seti yüklenir. Veri hazır olunca harita ekranına geçilir.</p>
+      </article>
+      <article class="card">
+        <h2>Analiz Katmanları</h2>
+        <p>Headway, bekleme, yoğunluk ve kapsama katmanları aktif veri üzerinden filtrelerle birlikte çalışır.</p>
+      </article>
+      <article class="card">
+        <h2>Electron Masaüstü</h2>
+        <p>HTTPS linkten GTFS ZIP indirme, yerel dosya yükleme ve paketleme akışı masaüstü odaklı korunur.</p>
+      </article>
+    </section>
+
+    <section class="showcase card wide">
+      <div class="section-head">
+        <div>
+          <p class="eyebrow">Ekran Görünümü</p>
+          <h2>Çalışan uygulama</h2>
+        </div>
+      </div>
+      <img src="./ekran-goruntusu.png" alt="GTFS City ekran görüntüsü" class="screenshot">
+    </section>
+
+    <section class="grid two">
+      <article class="card">
+        <p class="eyebrow">Özellikler</p>
+        <ul>
+          <li>GTFS ZIP dosyası veya HTTPS ZIP linki ile veri yükleme</li>
+          <li>Hat, durak ve araç detay panelleri</li>
+          <li>Hat tipi filtresi ve odaklı hat görünümü</li>
+          <li>Simülasyon saati, replay ve sinematik görünüm</li>
+        </ul>
+      </article>
+      <article class="card">
+        <p class="eyebrow">Dokümanlar</p>
+        <ul>
+          <li><a href="../README.md">README</a></li>
+          <li><a href="../mimari.md">Mimari</a></li>
+          <li><a href="../kontrol.md">Kontrol</a></li>
+          <li><a href="../isplani.md">Güncel Durum</a></li>
+        </ul>
+      </article>
+    </section>
+  </main>
+</body>
+</html>
