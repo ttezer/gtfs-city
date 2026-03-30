@@ -11,7 +11,8 @@
   "scripts": {
     "start": "electron .",
     "dev": "NODE_ENV=development electron .",
-    "test": "node --test",
+    "check:text": "node scripts/check-text-encoding.js",
+    "test": "node scripts/check-text-encoding.js && node --test",
     "build": "electron-builder",
     "build:win": "electron-builder --win",
     "build:mac": "electron-builder --mac",

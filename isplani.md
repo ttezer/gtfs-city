@@ -87,10 +87,16 @@ Bu dosya uzun tarihçe değil, güncel durum belgesidir. Yeni işler buraya kıs
 - `package-lock.json` ve CDN bağımlılıkları üzerinden üçüncü parti lisans taraması yapıldı.
 - Çekirdek bağımlılıklar için lisans özeti çıkarıldı ve `THIRD_PARTY_NOTICES.md` eklendi.
 - npm taraması içinde zorunlu copyleft sınıfında GPL/AGPL/LGPL bağımlılık bulunmadı; JSZip için MIT seçeneği not edildi.
-- `models/` altındaki GLB varlıkların kaynağı otomatik tarama dışında bırakıldı ve ayrıca doğrulama gerektirdiği not edildi.
+- Özel görseller ve logo varlıklarının kaynağının proje sahibi tarafından ayrıca doğrulanması gerektiği not edildi.
 
-### Faz S ? 3D Model Kald?rma Turu 4 (31 Mart 2026)
+### Faz S — 3D Model Kaldırma Turu 4 (31 Mart 2026)
 
-- Kullan?lmayan `.glb` ara? modeli yolu kald?r?ld? ve uygulama 2D ara? g?r?n?m?ne sabitlendi.
-- 3D ara? modelleri toggle'? aray?zden ??kar?ld?.
-- Paketleme ve ???nc? parti bildirimleri model dizini kald?r?lacak ?ekilde g?ncellendi.
+- Kullanılmayan `.glb` araç modeli yolu kaldırıldı ve uygulama 2D araç görünümüne sabitlendi.
+- 3D araç modelleri toggle’ı arayüzden çıkarıldı.
+- Paketleme ve üçüncü parti bildirimleri model dizini kaldırılacak şekilde güncellendi.
+
+### Faz S — Türkçe Metin Güvencesi Turu 5 (31 Mart 2026)
+
+- Public metin dosyaları için kalıcı bozulma denetimi eklendi.
+- Mojibake kontrolü test akışına bağlandı.
+- Türkçe içeren doküman ve Pages dosyalarında shell üzerinden here-string yazımı yasaklandı; yalnızca güvenli yama akışı kullanılacak.

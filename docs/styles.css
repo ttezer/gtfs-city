@@ -1,43 +1,46 @@
 :root {
   --bg: #0b1118;
-  --bg-soft: #121923;
-  --panel: rgba(255,255,255,0.04);
-  --panel-strong: rgba(255,255,255,0.06);
+  --bg-soft: #101821;
+  --panel: rgba(255, 255, 255, 0.04);
+  --panel-strong: rgba(255, 255, 255, 0.06);
   --text: #e6edf3;
   --muted: #9aa4b2;
-  --border: rgba(255,255,255,0.09);
+  --border: rgba(255, 255, 255, 0.08);
   --red: #d92d27;
-  --white: #ffffff;
-  --shadow: 0 18px 50px rgba(0,0,0,0.28);
+  --red-soft: #ff5a52;
+  --shadow: 0 20px 60px rgba(0, 0, 0, 0.28);
 }
 
 * { box-sizing: border-box; }
-html, body {
+
+html,
+body {
   margin: 0;
   padding: 0;
   min-height: 100%;
   background:
-    radial-gradient(circle at top left, rgba(217,45,39,0.10), transparent 30%),
-    radial-gradient(circle at top right, rgba(255,255,255,0.05), transparent 24%),
+    radial-gradient(circle at top left, rgba(217, 45, 39, 0.10), transparent 30%),
+    radial-gradient(circle at top right, rgba(255, 255, 255, 0.04), transparent 24%),
     linear-gradient(180deg, #0f1722 0%, var(--bg) 100%);
   color: var(--text);
   font-family: Inter, "Segoe UI", Arial, sans-serif;
 }
-a { color: inherit; text-decoration: none; }
+
 body { min-height: 100vh; }
+a { color: inherit; text-decoration: none; }
 
 .page {
   width: min(1180px, calc(100% - 48px));
   margin: 0 auto;
-  padding: 56px 0 56px;
+  padding: 56px 0 48px;
 }
 
 .hero {
   display: grid;
   grid-template-columns: 1.15fr 0.85fr;
   gap: 26px;
-  align-items: center;
-  margin-bottom: 28px;
+  align-items: stretch;
+  margin-bottom: 24px;
 }
 
 .hero-copy,
@@ -51,7 +54,8 @@ body { min-height: 100vh; }
 
 .hero-copy,
 .hero-mark-wrap,
-.card {
+.card,
+.feature-card {
   border-radius: 22px;
 }
 
@@ -60,11 +64,10 @@ body { min-height: 100vh; }
 }
 
 .hero-mark-wrap {
-  min-height: 100%;
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 24px;
+  padding: 28px;
 }
 
 .hero-logo {
@@ -83,7 +86,7 @@ body { min-height: 100vh; }
 
 h1 {
   margin: 0 0 14px;
-  font-size: clamp(42px, 6vw, 72px);
+  font-size: clamp(40px, 6vw, 72px);
   line-height: 0.95;
 }
 
@@ -99,16 +102,15 @@ h3 {
 
 .lead {
   margin: 0;
-  max-width: 720px;
   color: #d7dee7;
   font-size: 18px;
-  line-height: 1.65;
+  line-height: 1.7;
 }
 
 .hero-actions {
   display: flex;
-  gap: 12px;
   flex-wrap: wrap;
+  gap: 12px;
   margin-top: 24px;
 }
 
@@ -120,15 +122,15 @@ h3 {
   padding: 12px 18px;
   border: 1px solid var(--border);
   border-radius: 12px;
-  background: rgba(255,255,255,0.03);
+  background: rgba(255, 255, 255, 0.03);
   color: var(--text);
   font-weight: 600;
 }
 
 .btn.primary {
-  background: linear-gradient(135deg, var(--red), #ff524a);
-  border-color: rgba(255,255,255,0.08);
-  color: var(--white);
+  background: linear-gradient(135deg, var(--red), var(--red-soft));
+  border-color: rgba(255, 255, 255, 0.08);
+  color: #fff;
 }
 
 .grid {
@@ -143,6 +145,10 @@ h3 {
 
 .grid.two {
   grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.section-gap {
+  margin-top: 22px;
 }
 
 .card {
@@ -182,13 +188,21 @@ h3 {
 .feature-card {
   display: grid;
   grid-template-columns: 1fr;
-  gap: 16px;
-  border-radius: 22px;
+  gap: 0;
   overflow: hidden;
 }
 
 .feature-wide {
-  grid-template-columns: 0.95fr 1.05fr;
+  grid-template-columns: 1.05fr 0.95fr;
+}
+
+.hero-shot .feature-copy,
+.iso-shot .feature-copy {
+  padding: 26px;
+}
+
+.feature-copy {
+  padding: 22px;
 }
 
 .feature-shot {
@@ -200,8 +214,14 @@ h3 {
   background: #0a0f14;
 }
 
-.feature-copy {
-  padding: 24px;
+.feature-shot.contain {
+  object-fit: contain;
+  padding: 18px;
+  background: #0f141a;
+}
+
+.iso-shot .feature-shot {
+  min-height: 360px;
 }
 
 .footer {
@@ -227,31 +247,11 @@ h3 {
     padding-top: 34px;
   }
 
-  .hero-mark-wrap {
-    min-height: auto;
-  }
-
   .feature-shot {
     min-height: 220px;
   }
-}
 
-.section-gap {
-  margin-top: 22px;
-}
-
-.full-span {
-  grid-column: 1 / -1;
-}
-
-.feature-shot.contain {
-  object-fit: contain;
-  padding: 18px;
-  background: #0f141a;
-}
-
-@media (max-width: 980px) {
-  .full-span {
-    grid-column: auto;
+  .iso-shot .feature-shot {
+    min-height: 260px;
   }
 }
