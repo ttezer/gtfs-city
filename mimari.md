@@ -1,93 +1,64 @@
-# gtfs-city — Mimari Özeti
+﻿# GTFS City — Mimari
 
-Bu doküman, uygulamanın güncel modüler yapısını, veri akışını ve çalışma modelini özetler.
+## Sistem Özeti
 
-## 1. Sistem Özeti
+GTFS City, GTFS ZIP verisini çalışma anında parse edip harita, panel ve analiz katmanlarına dağıtan Electron tabanlı masaüstü uygulamadır.
 
-gtfs-city, GTFS verisini runtime ZIP yükleme üzerinden alıp harita, simülasyon, panel ve analiz katmanlarına dağıtan Electron tabanlı bir masaüstü uygulamasıdır.
+Temel ilkeler:
 
-Ana akış:
+- tek aktif GTFS veri seti
+- upload-first başlangıç akışı
+- preload başlangıç bağımlılığı yok
+- ortak runtime state + modüler manager yapısı
 
-1. Başlangıçta preload veriler (`trips_data.js`, `shapes_data.js`, `lookup_data.js`) yüklenir.
-2. Uygulama modülleri başlatılır ve state oluşturulur.
-3. Harita + Deck.gl katmanları kurulur.
-4. Simülasyon zamanı ilerledikçe araç konumları, paneller ve analiz katmanları güncellenir.
-5. İstenirse builtin veya kullanıcı GTFS ZIP verisi parse edilip mevcut runtime veri seti değiştirilir.
+## Ana Akış
 
-## 2. Modül Yapısı
+1. Kullanıcı landing ekranda GTFS ZIP dosyası seçer veya HTTPS link verir.
+2. `data-manager.js` ZIP içeriğini doğrular ve parse eder.
+3. `gtfs-utils.js` / `gtfs-worker.js` runtime veri setini üretir.
+4. Runtime veri `AppState` ve ilgili alias'lara yazılır.
+5. `map-manager.js`, `ui-manager.js`, `simulation-engine.js` güncel veriyle çalışır.
 
-### Giriş ve orkestrasyon
+## Modüller
 
-- `index.html`  
-  Arayüz iskeleti ve script yükleme sırası.
-- `bootstrap-manager.js`  
-  Açılış yükleme akışı, preload script yükleme ve landing hazırlığı.
-- `app-manager.js`  
-  Ana ekran geçişleri, landing görünürlüğü ve bazı uygulama seviyesi UI akışları.
-- `script.js`  
-  Orkestrasyon, global state, legacy bridge, ortak yardımcılar ve modüller arası bağlayıcı katman.
+### Çekirdek
 
-### Veri ve şehir yönetimi
+- `script.js` — uygulama orkestrasyonu, ortak state, bridge yüzeyi
+- `state-manager.js` — state yardımcıları
+- `config.js` — sabitler ve tip/meta bilgileri
 
-- `data-manager.js`  
-  GTFS ZIP okuma, validasyon, runtime apply, preload/runtime normalizasyonu.
-- `city-manager.js`  
-  Şehir seçimi, builtin şehir yükleme, upload şehirleri ve görünürlük akışı.
-- `service-manager.js`  
-  Servis takvimi, tarih uyarlama, servis seçimi ve takvim özeti.
-- `planner-manager.js`  
-  Rota planlama, adjacency tabanlı arama ve izokron yardımcıları.
+### Veri
 
-### Harita, UI ve simülasyon
+- `data-manager.js` — ZIP okuma, validasyon, runtime apply, upload/link akışı
+- `gtfs-utils.js` — GTFS parse ve runtime yapı üretimi
+- `gtfs-worker.js` — ağır parse işlerini worker'a taşıyan katman
+- `gtfs-validator.js` — temel veri doğrulama
+- `city-manager.js` — aktif dataset kartı ve görünürlük akışı
+- `service-manager.js` — takvim, tarih ve servis filtreleme
 
-- `map-manager.js`  
-  Deck.gl katman üretimi, static/dynamic layer cache, 2D/3D araç katmanları.
-- `ui-manager.js`  
-  Tooltip, hat paneli, araç paneli, durak paneli, route listeleri, stringline ve seçim akışları.
-- `simulation-engine.js`  
-  Animasyon döngüsü, simülasyon saati, replay, performans ve zaman bağlı güncellemeler.
+### Görselleştirme ve UI
 
-### Yardımcı modüller
+- `map-manager.js` — Deck.gl katmanları, route/type/focus filtreleri
+- `ui-manager.js` — route, stop ve vehicle drawer/panel yönetimi
+- `app-manager.js` — landing, genel ekran akışları, logo/başlangıç görünümü
+- `planner-manager.js` — nasıl giderim ve izokron akışı
 
-- `sim-utils.js`  
-  Araç konumu, zaman ofseti, trip progress gibi simülasyon matematiği.
-- `analytics-utils.js`  
-  Headway, bunching, bekleme, sonraki durak ve analiz hesapları.
-- `ui-utils.js`  
-  Panel state üretimi ve UI format yardımcıları.
-- `render-utils.js`  
-  Renk, model seçimi, yön/orientation ve metin normalizasyon yardımcıları.
-- `gtfs-utils.js`  
-  GTFS parse, map üretimi ve runtime veri oluşturma yardımcıları.
-- `gtfs-worker.js`  
-  Ağır GTFS işleme yükünü ana thread dışına taşıyan worker.
-- `gtfs-validator.js`  
-  Yüklenen GTFS paketlerinin temel doğrulaması.
-- `config.js`  
-  Tür meta bilgileri, headway eşikleri ve harita ayarları.
+### Simülasyon ve Analiz
 
-### Electron katmanı
+- `simulation-engine.js` — simülasyon saati, replay, render tick
+- `sim-utils.js` — araç konumu ve zaman hesapları
+- `analytics-utils.js` — headway, bunching, bekleme, yoğunluk hesapları
+- `render-utils.js` — renk, metin ve model yardımcıları
+- `ui-utils.js` — panel state ve yardımcı formatlama
 
-- `electron/main.js`  
-  Uygulama penceresi, menü ve IPC handler’ları.
-- `electron/preload.js`  
-  Renderer ile Electron arasında güvenli köprü.
+### Electron
 
-## 3. Veri Modeli
+- `electron/main.js` — pencere, IPC, güvenli HTTPS GTFS indirme
+- `electron/preload.js` — renderer tarafına açılan güvenli API
 
-### Preload veri seti
+## Veri Modeli
 
-Başlangıçta aşağıdaki dosyalar yüklenir:
-
-- `trips_data.js`
-- `shapes_data.js`
-- `lookup_data.js`
-
-Bu dosyalar uygulamanın ilk açılışta hemen veri göstermesini sağlar. İstanbul preload verisi gerektiğinde `scripts/regenerate-istanbul-preload.js` ile `Data\İstanbul.zip` kaynağından yeniden üretilir.
-
-### Runtime veri seti
-
-GTFS ZIP yüklendiğinde veya builtin şehir ZIP’i parse edildiğinde `data-manager.js` şu ana yapıları üretir:
+Runtime veri setinin ana parçaları:
 
 - `TRIPS`
 - `SHAPES`
@@ -98,66 +69,16 @@ GTFS ZIP yüklendiğinde veya builtin şehir ZIP’i parse edildiğinde `data-ma
 - `HOURLY_HEAT`
 - `ADJ`
 
-Bu veri `AppState` içine yazılır, alias’lar senkronize edilir ve harita/panel katmanları yeniden kurulur.
+Bu veri seti `AppState` üzerinde tutulur ve filtreler/katmanlar aynı kaynağı kullanır.
 
-## 4. Veri Akışı
+## Kilit Kararlar
 
-### 4.1 Başlangıç akışı
+- Aynı anda yalnızca tek yüklenmiş GTFS veri seti tutulur.
+- Başlangıçta otomatik yerleşik şehir yüklenmez.
+- GTFS yükleme için tek progress yüzeyi kullanılır.
+- Worker tabanlı parse korunur.
+- Route panel, stop panel ve odaklı hat davranışı mevcut haliyle temel kabul edilir.
 
-1. `bootstrap-manager.js` preload dosyalarını yükler.
-2. `script.js` `AppState` ve bridge yapısını kurar.
-3. `map-manager.js` katmanları üretmeye hazır hale gelir.
-4. `simulation-engine.js` simülasyon döngüsünü başlatır.
-5. `ui-manager.js` etkileşim ve panelleri yönetir.
+## GitHub Pages Notu
 
-### 4.2 GTFS yükleme akışı
-
-1. ZIP dosyası `data-manager.js` tarafından okunur.
-2. `gtfs-validator.js` temel kontrol yapar.
-3. `gtfs-utils.js` ve gerekirse `gtfs-worker.js` parse ve runtime veri üretir.
-4. Metinler normalize edilir, trip zamanları patch edilir, stop sequence bilgileri tamamlanır.
-5. `AppState` güncellenir.
-6. Route/stop listeleri, density, adjacency ve harita katmanları yenilenir.
-
-### 4.3 Etkileşim akışı
-
-- Harita hover/click olayları `script.js` üzerinden `ui-manager.js` tarafına gider.
-- Seçim sonrası:
-  - araç paneli
-  - hat paneli
-  - durak paneli
-  - rota planlama/izokron
-  ilgili manager ve util zinciriyle hesaplanır.
-
-## 5. Katman Mantığı
-
-`map-manager.js` iki ana grup katman üretir:
-
-- Statik katmanlar  
-  Hat çizgileri, duraklar, density, heatmap, izokron, route highlight
-- Dinamik katmanlar  
-  Araç izleri, araç ikonları, 3D modeller, headway çizgileri, bunching alarmları, bekleme sütunları
-
-Static layer üretimi cache ile korunur; dinamik katmanlar simülasyon zamanına göre daha sık güncellenir.
-
-## 6. State ve Bridge Yapısı
-
-Uygulamanın merkezi state’i `script.js` içindeki `AppState` ve global seçim/toggle değişkenleridir.
-
-Bridge nesneleri (`Legacy*Bridge`) modüllere kontrollü erişim sağlar:
-
-- map bridge
-- ui bridge
-- simulation bridge
-- data bridge
-- city bridge
-- service bridge
-
-Bu yapı eski global akış ile yeni modüler yapının birlikte çalışmasını sağlar.
-
-## 7. Güncel Mimari Notları
-
-- Büyük monolit parçalama fazı tamamlanmıştır.
-- `script.js` hâlâ orkestrasyon ve köprü katmanı içerir; ancak ana iş mantığı manager dosyalarına taşınmıştır.
-- Preload ve runtime veri yolları birlikte yaşamaktadır; preload sadece hızlı açılış için vardır.
-- Doküman ve uygulama arasında çelişki olduğunda güncel davranış için kod ve `isplani.md` esas alınır.
+Mevcut repo ana ürün olarak Electron uygulamasıdır. GitHub Pages için doğrudan tam uygulama değil, ayrı bir web vitrin veya sade demo yaklaşımı daha uygundur.

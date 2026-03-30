@@ -1,15 +1,25 @@
-# gtfs-city
+﻿# GTFS City
 
-GTFS verisini 2D ve 3D harita üzerinde simüle eden, analiz katmanları ve GTFS yükleme akışı içeren Electron tabanlı toplu taşıma uygulaması.
+GTFS City, GTFS ZIP verisini yükleyip toplu taşıma ağını harita üzerinde incelemek için hazırlanmış Electron tabanlı masaüstü uygulamadır.
 
-## Ne Yapar?
+## Kapsam
 
-- hatları ve durakları harita üzerinde gösterir
-- araçları zaman tabanlı olarak simüle eder
-- 2D ve 3D araç gösterimi sunar
-- headway, bunching, bekleme ve yoğunluk katmanları üretir
-- şehir ve servis takvimi yönetir
-- GTFS ZIP yükleyip runtime veri setini değiştirebilir
+- GTFS ZIP yükleme ve doğrulama
+- Hat, durak ve araç görselleştirme
+- Simülasyon saati ve replay akışı
+- Hat tipi filtresi ve odaklı hat görünümü
+- Headway, bekleme, yoğunluk ve kapsama katmanları
+- Durak, araç ve hat detay panelleri
+- HTTPS GTFS ZIP linkinden yükleme (yalnızca Electron)
+
+## Çalışma Modeli
+
+Uygulama artık tek veri seti mantığıyla çalışır.
+
+- Aynı anda yalnızca bir yüklenmiş GTFS veri seti tutulur.
+- Başlangıç akışı upload-first modelidir.
+- Veri yüklendikten sonra `Haritayı Aç` ile çalışma ekranına geçilir.
+- Yerleşik preload başlangıcı kullanılmaz.
 
 ## Kurulum
 
@@ -26,82 +36,46 @@ npm install
 
 ## Çalıştırma
 
-Geliştirme / masaüstü uygulama:
+Geliştirme:
 
 ```bash
 npm start
 ```
 
-Ek komutlar:
+Test:
 
 ```bash
 npm test
-npm run build:win
-npm run build:mac
-npm run build:linux
 ```
 
-## Kullanım
-
-Temel akış:
-
-1. Uygulamayı aç.
-2. Landing ekrandan simülasyonu başlat.
-3. Hat, durak veya araca tıklayarak detay panellerini aç.
-4. Gerekirse şehir seç veya GTFS ZIP yükle.
-5. Analiz katmanlarını açıp kapatarak headway, bekleme ve yoğunluğu incele.
-
-## Veri Kaynakları
-
-Başlangıç preload verileri:
-
-- `trips_data.js`
-- `shapes_data.js`
-- `lookup_data.js`
-
-Ek kaynaklar:
-
-- `Data\*.zip` builtin şehir paketleri
-- kullanıcı tarafından yüklenen GTFS ZIP dosyaları
-
-İstanbul preload verisi gerektiğinde şu script ile yeniden üretilebilir:
-
-```bash
-node scripts/regenerate-istanbul-preload.js
-```
-
-## Paketleme
-
-Windows dizin çıktısı:
+Windows paketleme:
 
 ```bash
 npm run build:win -- --dir
 ```
 
-## Proje Yapısı
+## Kullanım
 
-Ana dosyalar:
+1. Uygulamayı aç.
+2. `GTFS ZIP YÜKLE` ile veri seç veya Electron içinde HTTPS link kullan.
+3. Yükleme tamamlanınca `HARİTAYI AÇ` ile haritaya geç.
+4. Sol menüden hat tipi, katmanlar ve görünürlük ayarlarını yönet.
+5. Hat, durak veya araç seçerek detay panellerini incele.
+
+## Ana Dosyalar
 
 - `index.html` — arayüz iskeleti
-- `script.js` — orkestrasyon ve köprü katmanı
-- `map-manager.js` — harita katmanları
-- `ui-manager.js` — panel ve etkileşim yönetimi
-- `simulation-engine.js` — simülasyon döngüsü
-- `data-manager.js` — GTFS veri yükleme ve runtime apply
-- `city-manager.js` — şehir yönetimi
-- `service-manager.js` — servis/takvim yönetimi
-- `planner-manager.js` — rota planlama ve izokron
-- `electron/main.js` — Electron ana süreç
-- `electron/preload.js` — IPC köprüsü
+- `script.js` — orkestrasyon ve ortak state
+- `data-manager.js` — GTFS yükleme ve runtime apply
+- `city-manager.js` — aktif veri seti ve şehir kartı akışı
+- `service-manager.js` — çalışma takvimi ve servis filtresi
+- `map-manager.js` — Deck.gl katmanları
+- `ui-manager.js` — paneller ve kullanıcı etkileşimleri
+- `simulation-engine.js` — animasyon ve simülasyon döngüsü
+- `electron/main.js` / `electron/preload.js` — Electron köprüsü
 
-## Belgeler
+## Dokümanlar
 
-- `isplani.md` — canlı plan, fazlar ve geçmiş kayıtlar
-- `mimari.md` — modüller, veri akışı ve sistem haritası
-- `kontrol.md` — geliştirme kuralları ve repo çalışma prensipleri
-
-## Notlar
-
-- Uygulama preload veri ile hızlı açılır, ancak runtime GTFS yükleme ile veri seti değiştirilebilir.
-- Büyük preload dosyaları repoda tutulur; yeniden üretim için generator script kullanılır.
-- Teknik değişikliklerden sonra minimum doğrulama olarak test ve gerekirse build alınmalıdır.
+- `mimari.md` — güncel teknik yapı
+- `kontrol.md` — çalışma kuralları
+- `isplani.md` — güncel durum ve bundan sonrası

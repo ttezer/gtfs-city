@@ -1,42 +1,36 @@
-# gtfs-city — Geliştirme Kuralları
+﻿# GTFS City — Çalışma Kuralları
 
-Bu dosya, repoda çalışırken uyulacak kısa kurallar listesidir. Canlı iş planı için her zaman `isplani.md` esas alınır.
+## Öncelik Belgeleri
 
-## 1. Öncelik Sırası
+- `README.md` — ürün ve kullanım özeti
+- `mimari.md` — teknik yapı
+- `isplani.md` — mevcut durum, kararlar ve sonraki işler
 
-- Canlı plan ve faz durumu: `isplani.md`
-- Ürün ve kurulum özeti: `README.md`
-- Teknik yapı ve veri akışı: `mimari.md`
+## Çalışma İlkeleri
 
-## 2. Dokümantasyon Kuralı
+- Davranışı değiştiren işlerde önce etkilenmiş akış netleştirilir.
+- Türkçe metinlerde UTF-8 korunur.
+- Büyük refactor yerine hedefli değişiklik tercih edilir.
+- Yeni iş mantığı ilgili manager veya util dosyasına eklenir.
+- `script.js` gereksiz büyütülmez; orkestrasyon ve ortak state katmanı olarak tutulur.
 
-- Tamamlanan işleri `isplani.md` içinden silme; yeni kayıtları sona ekle.
-- Her faz veya önemli düzeltme sonrası `isplani.md` güncelle.
-- Yeni teknik kararlar mevcut mimariyle çelişiyorsa önce `mimari.md` ve `isplani.md` hizalanır.
+## Veri İlkeleri
 
-## 3. Kod Yapısı
+- Tek aktif GTFS veri seti modeli korunur.
+- Upload-first akış bozulmaz.
+- Büyük örnek veri dump'ları repo içine yeniden sokulmaz.
+- Linkten yükleme yalnızca HTTPS ile ve Electron içinde yapılır.
 
-- `README.md` ürün ve kullanım belgesidir; teknik ayrıntı ile doldurma.
-- `mimari.md` modüller, veri akışı ve çalışma modeli içindir.
-- `script.js` ana orkestrasyon ve legacy köprü katmanıdır; yeni büyük iş mantığını buraya yığma.
-- Yeni iş mantığı mümkün olduğunca ilgili manager veya util dosyasına eklenir.
-- Sabitler ve tip/meta tanımları `config.js` üzerinden okunur; gereksiz hardcode ekleme.
+## Doğrulama
 
-## 4. Veri ve Performans
+En az:
 
-- Büyük preload dosyalarını (`trips_data.js`, `shapes_data.js`, `lookup_data.js`) gereksiz yere elde düzenleme.
-- Preload yeniden üretimi gerektiğinde `scripts/regenerate-istanbul-preload.js` kullan.
-- Simülasyon döngüsünde O(N²) maliyetli taramalardan kaçın; cache-first yaklaşımı koru.
+```bash
+node --test --test-concurrency=1 --test-isolation=none
+```
 
-## 5. Doğrulama
+Paketleme veya dağıtım öncesi:
 
-- Mantıksal değişiklik sonrası en az:
-  - `node --test --test-concurrency=1 --test-isolation=none`
-- Paketleme veya preload/veri değişikliği sonrası ayrıca:
-  - `npm run build:win -- --dir`
-
-## 6. Çalışma Prensibi
-
-- Davranışı değiştiren işlerde regresyon riski açıkça değerlendirilir.
-- Türkçe metinlerde UTF-8 korunur; mojibake üreten shell akışlarından kaçınılır.
-- Repo içi gerçek durum anlatılır; varsayım gerekiyorsa açıkça belirtilir.
+```bash
+npm run build:win -- --dir
+```
