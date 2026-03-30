@@ -58,7 +58,6 @@
       "sw.js",
       "electron/**/*",
       "assets/**/*",
-      "models/**/*",
       "!node_modules/**/*",
       "!dist/**/*",
       "!.git/**/*"

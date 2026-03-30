@@ -21,7 +21,6 @@ window.MapManager = (function () {
     ColumnLayer,
     HeatmapLayer,
     LineLayer,
-    ScenegraphLayer,
     IconLayer,
   } = deck;
 
@@ -375,65 +374,8 @@ window.MapManager = (function () {
     });
   }
 
-  function build3DVehicleLayer(ctx, visTrips, time) {
-    const mapgl = getMapgl();
-    const zoom = mapgl ? mapgl.getZoom() : 0;
-    if (zoom < 11) {
-      ctx.setLodBadge('LOD: NOKTA', 'mid', '3D/ikon gösterimi için biraz daha yakınlaş');
-      return null;
-    }
-    if (typeof ScenegraphLayer !== 'function') {
-      ctx.setLodBadge('LOD: 2D FALLBACK', 'mid', 'ScenegraphLayer mevcut değil; 2D gösterim kullanılıyor');
-      return null;
-    }
-
-    const fallbackTrips = visTrips.filter((trip) => ctx.getModelNotice(trip.t) === 'fallback');
-    ctx.setLodBadge(
-      fallbackTrips.length ? 'LOD: GLB/FALLBACK' : 'LOD: GLB',
-      'on',
-      fallbackTrips.length ? 'Bazı araç türleri gerçek model yerine benzer fallback model kullanıyor' : 'Gerçek GLB modeller yüklendi',
-    );
-
-    const heads = visTrips.map((trip, index) => {
-      const pos = ctx.getVehiclePos(trip, time);
-      if (!pos) return null;
-      const baseColor = ctx.getRouteColorRgb(trip.s, trip.t, trip.c);
-      return {
-        pos,
-        trip,
-        idx: trip._idx ?? index,
-        model: ctx.getModelPath(trip.t),
-        orientation: ctx.getModelOrientation(trip, time),
-        scale: ctx.getModelScale(trip.t),
-        color: window.RenderUtils ? window.RenderUtils.getVehicleColorRgb(baseColor, trip._delay || 0) : baseColor,
-      };
-    }).filter(Boolean);
-
-    if (!heads.length) return null;
-    const byModel = {};
-    heads.forEach((head) => {
-      if (!byModel[head.model]) byModel[head.model] = [];
-      byModel[head.model].push(head);
-    });
-
-    return Object.entries(byModel).map(([model, data], idx) => new ScenegraphLayer({
-      id: `scenegraph-${idx}-${model}`,
-      data,
-      scenegraph: model,
-      getPosition: (d) => d.pos,
-      getTranslation: () => [0, 0, 3],
-      getOrientation: (d) => d.orientation,
-      getScale: (d) => [d.scale, d.scale, d.scale],
-      sizeScale: 3,
-      pickable: true,
-      _lighting: 'pbr',
-      parameters: { depthTest: true },
-      getColor: (d) => [...d.color, 255],
-      onError: (error) => {
-        console.error('[3D Model] yüklenemedi:', model, error);
-        ctx.setLodBadge('LOD: 2D FALLBACK', 'mid', `${model} yüklenemedi; 2D gösterim kullanılıyor`);
-      },
-    }));
+  function build3DVehicleLayer() {
+    return null;
   }
 
   function buildLayers() {
