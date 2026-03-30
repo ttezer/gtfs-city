@@ -77,3 +77,9 @@ Bu dosya artık uzun tarihçe değil, güncel durum belgesidir. Yeni işler bura
 - `docs/app/` altında GitHub Pages için ayrı web giriş noktası oluşturuldu.
 - Web girişi, desktop akışına dokunmadan kök JS/CSS dosyalarının Pages için izole kopyalarıyla hazırlandı.
 - `bootstrap-manager.js` içine base path desteği eklendi ve Pages vitrinden `Web Demo` bağlantısı verildi.
+
+### Faz S ? Web MVP D?zenleme Turu 2 (31 Mart 2026)
+
+- Y?klenen ?ehir silindi?inde landing ekran?na g?venli d?n?? ve yeniden GTFS y?kleme ak??? d?zeltildi.
+- Pages vitrinde giri? metni, ekran g?r?nt?s? yerle?imi ve ?r?n anlat?m? yeniden d?zenlendi.
+- HTTPS linkten y?kleme, g?venlik ve platform s?n?rlar? nedeniyle desktop s?r?m?nde tutuldu; web demo yerel ZIP y?kleme ile s?n?rland?.

@@ -235,3 +235,23 @@ h3 {
     min-height: 220px;
   }
 }
+
+.section-gap {
+  margin-top: 22px;
+}
+
+.full-span {
+  grid-column: 1 / -1;
+}
+
+.feature-shot.contain {
+  object-fit: contain;
+  padding: 18px;
+  background: #0f141a;
+}
+
+@media (max-width: 980px) {
+  .full-span {
+    grid-column: auto;
+  }
+}

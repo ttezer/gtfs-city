@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>GTFS City</title>
-  <meta name="description" content="GTFS City, GTFS ZIP verisini yükleyip toplu taşıma ağını analiz etmek için hazırlanmış Electron tabanlı masaüstü uygulamadır.">
+  <meta name="description" content="GTFS City, GTFS ZIP verisini y?kleyip toplu ta??ma a??n? analiz etmek i?in haz?rlanm?? masa?st? ve web odakl? bir analiz uygulamas?d?r.">
   <link rel="icon" type="image/x-icon" href="./favicon.ico">
   <link rel="stylesheet" href="./styles.css">
 </head>
@@ -12,9 +12,9 @@
   <main class="page">
     <section class="hero">
       <div class="hero-copy">
-        <p class="eyebrow">GTFS Analiz ve Görselleştirme</p>
+        <p class="eyebrow">GTFS Analiz ve G?rselle?tirme</p>
         <h1>GTFS City</h1>
-        <p class="lead">GTFS ZIP verisini yükleyip hatları, durakları, araç akışını ve analiz katmanlarını masaüstünde inceleyin.</p>
+        <p class="lead">GTFS ZIP verisini y?kleyip hatlar?, duraklar?, ara? ak???n? ve analiz katmanlar?n? tek uygulama i?inde inceleyin. Desktop s?r?m tam ak??? sunar; web demo taray?c? i?inde temel deneyimi g?sterir.</p>
         <div class="hero-actions">
           <a class="btn primary" href="./app/">Web Demo</a>
           <a class="btn" href="https://github.com/ttezer/gtfs-city" target="_blank" rel="noreferrer">GitHub</a>
@@ -30,41 +30,62 @@
     <section class="grid three">
       <article class="card stat-card">
         <h2>Tek Veri Seti</h2>
-        <p>Aynı anda tek GTFS veri seti tutulur. Upload-first akış veri bağlamını sade tutar.</p>
+        <p>Ayn? anda tek aktif GTFS veri seti tutulur. Bu yakla??m veri ba?lam?n? sade tutar ve ?ehir kar??mas?n? ?nler.</p>
       </article>
       <article class="card stat-card">
-        <h2>Analiz Katmanları</h2>
-        <p>Headway, bekleme, yoğunluk, kapsama ve izokron katmanları aktif filtrelerle birlikte çalışır.</p>
+        <h2>Analiz Katmanlar?</h2>
+        <p>Headway, bekleme, yo?unluk, kapsama ve izokron katmanlar? aktif filtrelerle birlikte ?al???r.</p>
       </article>
       <article class="card stat-card">
-        <h2>Electron Odaklı</h2>
-        <p>Yerel dosya yükleme, HTTPS ZIP linki ve masaüstü paketleme akışı aynı ürün içinde korunur.</p>
+        <h2>?ift Platform</h2>
+        <p>Desktop s?r?m yerel dosya ve HTTPS ZIP linki destekler. Web demo ise taray?c? i?inde do?rudan ZIP y?kleme ile ?al???r.</p>
+      </article>
+    </section>
+
+    <section class="grid two section-gap">
+      <article class="card">
+        <p class="eyebrow">Ne Ba?ar?r?</p>
+        <ul>
+          <li>GTFS ZIP verisini do?rular ve ?al??ma ekran?na tek kaynak olarak ba?lar.</li>
+          <li>Hat, durak ve ara? panellerini ayn? veri modeli ?zerinden tutarl? g?sterir.</li>
+          <li>Hat tipi filtresi, odakl? hat g?r?n?m? ve ilgili katmanlar? birlikte y?netir.</li>
+          <li>Sim?lasyon saati, replay ve analiz katmanlar?n? tek aray?zde toplar.</li>
+        </ul>
+      </article>
+      <article class="card">
+        <p class="eyebrow">Neden Farkl??</p>
+        <ul>
+          <li>Tek veri seti mant???yla karma??k preload zincirini terk eder.</li>
+          <li>Upload-first ak?? ile veri gelmeden haritaya ge?mez.</li>
+          <li>Desktop ve web deneyimini ayn? temel kod taban? ?zerinde ta??r.</li>
+          <li>Analiz odakl?d?r; sadece harita g?stermekle kalmaz, operasyonel yorum ?retir.</li>
+        </ul>
       </article>
     </section>
 
     <section class="section-block">
       <div class="section-head">
         <div>
-          <p class="eyebrow">Ürün Görselleri</p>
-          <h2>Arayüzden örnekler</h2>
+          <p class="eyebrow">?r?n G?rselleri</p>
+          <h2>Aray?zden ?rnekler</h2>
         </div>
       </div>
       <div class="feature-stack">
         <article class="feature-card feature-wide">
           <div class="feature-copy">
-            <p class="eyebrow">Giriş Ekranı</p>
-            <h3>Upload-first başlangıç</h3>
-            <p>Uygulama veri gelmeden haritaya geçmez. ZIP yükleme ve linkten indirme tek akış üzerinden yönetilir.</p>
+            <p class="eyebrow">Giri? Ekran?</p>
+            <h3>?lk Y?kleme</h3>
+            <p>Uygulama veri gelmeden haritaya ge?mez. ZIP y?kleme ve masa?st?nde HTTPS linkten indirme ayn? veri hatt?na ba?lan?r.</p>
           </div>
-          <img src="./screens/giris_sayfasi.jpg" alt="GTFS City giriş sayfası" class="feature-shot">
+          <img src="./screens/giris_sayfasi.jpg" alt="GTFS City giri? sayfas?" class="feature-shot">
         </article>
 
         <div class="gallery-grid">
           <article class="feature-card">
-            <img src="./screens/ornek_GTFS_Konya.jpg" alt="GTFS yükleme örneği" class="feature-shot">
+            <img src="./screens/ornek_GTFS_Konya.jpg" alt="GTFS y?kleme ?rne?i" class="feature-shot">
             <div class="feature-copy">
-              <h3>GTFS yükleme</h3>
-              <p>Veri seti doğrulanır, hazırlanır ve çalışma ekranına tek aktif kaynak olarak bağlanır.</p>
+              <h3>GTFS y?kleme</h3>
+              <p>Veri seti do?rulan?r, haz?rlan?r ve ?al??ma ekran?na tek aktif kaynak olarak ba?lan?r.</p>
             </div>
           </article>
 
@@ -72,61 +93,60 @@
             <img src="./screens/hat_bilgi.jpg" alt="Hat bilgi paneli" class="feature-shot">
             <div class="feature-copy">
               <h3>Hat paneli</h3>
-              <p>Yön bilgisi, servis takvimi ve güzergâh özeti tek drawer içinde toplanır.</p>
+              <p>Y?n bilgisi, servis takvimi ve g?zerg?h ?zeti tek panel i?inde toplan?r.</p>
             </div>
           </article>
 
-          <article class="feature-card">
-            <img src="./screens/durak_bilgi.jpg" alt="Durak bilgi paneli" class="feature-shot">
+          <article class="feature-card feature-wide full-span">
+            <img src="./screens/durak_bilgi.jpg" alt="Durak bilgi paneli" class="feature-shot contain">
             <div class="feature-copy">
               <h3>Durak paneli</h3>
-              <p>İlk gelen ve sonraki araç süreleri tablo yapısında izlenir.</p>
+              <p>?lk gelen ve sonraki ara? s?releri tablo yap?s?nda izlenir. Durak paneli, hat bazl? geli? bilgisini daha okunur hale getirir.</p>
             </div>
           </article>
 
           <article class="feature-card">
-            <img src="./screens/arac_bilgi.jpg" alt="Araç bilgi paneli" class="feature-shot">
+            <img src="./screens/arac_bilgi.jpg" alt="Ara? bilgi paneli" class="feature-shot">
             <div class="feature-copy">
-              <h3>Araç paneli</h3>
-              <p>Seçilen araç için hat, yön, ilerleme ve durak ilişkisi tek panelde izlenir.</p>
+              <h3>Ara? paneli</h3>
+              <p>Se?ilen ara? i?in hat, y?n, ilerleme ve durak ili?kisi tek panelde izlenir.</p>
             </div>
           </article>
 
-          <article class="feature-card feature-wide">
-            <img src="./screens/durak_bazli_izokran.jpg" alt="Durak bazlı izokron analizi" class="feature-shot">
+          <article class="feature-card feature-wide full-span">
+            <img src="./screens/durak_bazli_izokran.jpg" alt="Durak bazl? izokron analizi" class="feature-shot">
             <div class="feature-copy">
-              <h3>İzokron analizi</h3>
-              <p>Seçilen duraktan erişilebilir alanlar süre temelli renklendirilir ve analiz katmanlarıyla birlikte yorumlanır.</p>
+              <h3>?zokron analizi</h3>
+              <p>Se?ilen duraktan eri?ilebilir alanlar s?re temelli renklendirilir. ?zokron, bekleme ve di?er katmanlarla birlikte yorumlan?r.</p>
             </div>
           </article>
         </div>
       </div>
     </section>
 
-    <section class="grid two">
+    <section class="grid two section-gap">
       <article class="card">
-        <p class="eyebrow">Özellikler</p>
+        <p class="eyebrow">Web ve Desktop Ayr?m?</p>
         <ul>
-          <li>GTFS ZIP dosyası veya HTTPS ZIP linki ile veri yükleme</li>
-          <li>Hat, durak ve araç detay panelleri</li>
-          <li>Hat tipi filtresi ve odaklı hat görünümü</li>
-          <li>Simülasyon saati, replay ve sinematik görünüm</li>
+          <li>Web demo: taray?c? i?inde yerel ZIP y?kleme ve temel deneyim</li>
+          <li>Desktop: yerel dosya, HTTPS ZIP linki ve tam masa?st? ak???</li>
+          <li>HTTPS linkten y?kleme g?venlik ve platform sebepleriyle yaln?zca Electron s?r?m?nde tutulur</li>
         </ul>
       </article>
       <article class="card">
-        <p class="eyebrow">Dokümanlar</p>
+        <p class="eyebrow">Dok?manlar</p>
         <ul>
           <li><a href="https://github.com/ttezer/gtfs-city/blob/main/README.md" target="_blank" rel="noreferrer">README</a></li>
           <li><a href="https://github.com/ttezer/gtfs-city/blob/main/mimari.md" target="_blank" rel="noreferrer">Mimari</a></li>
           <li><a href="https://github.com/ttezer/gtfs-city/blob/main/kontrol.md" target="_blank" rel="noreferrer">Kontrol</a></li>
-          <li><a href="https://github.com/ttezer/gtfs-city/blob/main/isplani.md" target="_blank" rel="noreferrer">Güncel Durum</a></li>
+          <li><a href="https://github.com/ttezer/gtfs-city/blob/main/isplani.md" target="_blank" rel="noreferrer">G?ncel Durum</a></li>
         </ul>
       </article>
     </section>
   </main>
 
   <footer class="footer">
-    <span>Vatan'ın Babası Tacettin TEZER</span>
+    <span>Vatan'?n Babas? Tacettin TEZER</span>
   </footer>
 </body>
 </html>
