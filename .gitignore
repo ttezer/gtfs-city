@@ -1,0 +1,8 @@
+node_modules/
+dist/
+Ydek/
+*.zip
+*.docx
+Data/*.zip
+*.tmp
+data.js

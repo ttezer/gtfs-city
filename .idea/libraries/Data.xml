@@ -1,0 +1,20 @@
+<component name="libraryTable">
+  <library name="Data">
+    <CLASSES>
+      <root url="jar://$PROJECT_DIR$/Data/İstanbul.zip!/" />
+      <root url="jar://$PROJECT_DIR$/Data/MBTA_GTFS.zip!/" />
+      <root url="jar://$PROJECT_DIR$/Data/IETT.zip!/" />
+      <root url="jar://$PROJECT_DIR$/Data/flixbus_EU.zip!/" />
+      <root url="jar://$PROJECT_DIR$/Data/gtfs.zip!/" />
+      <root url="jar://$PROJECT_DIR$/Data/Almanya Bölgesel Trenler.zip!/" />
+      <root url="jar://$PROJECT_DIR$/Data/Kocaeli.zip!/" />
+      <root url="jar://$PROJECT_DIR$/Data/Konya.zip!/" />
+      <root url="jar://$PROJECT_DIR$/Data/Flixbus Türkiye.zip!/" />
+      <root url="jar://$PROJECT_DIR$/Data/İzmir ESHOT.zip!/" />
+      <root url="jar://$PROJECT_DIR$/Data/Flixbus Kamil Koç.zip!/" />
+      <root url="jar://$PROJECT_DIR$/Data/Berlin.zip!/" />
+    </CLASSES>
+    <JAVADOC />
+    <SOURCES />
+  </library>
+</component>
