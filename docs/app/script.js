@@ -9,7 +9,7 @@ const deck = window.deck || window.Deck;
 const {
   MapboxOverlay, TripsLayer, ScatterplotLayer,
   ColumnLayer, HeatmapLayer, LineLayer,
-  ScenegraphLayer, IconLayer
+  IconLayer
 } = deck;
 
 // ── BAŞLANGIÇ DURUMU ─────────────────────────────────────
@@ -858,7 +858,6 @@ if ('serviceWorker' in navigator && window.PLATFORM === 'web') {
 
 const DEPLOY = {
   base: './',
-  modelsPath: './models/',
   tilesStyle: PHASE_CFG,
 };
 
@@ -1185,7 +1184,6 @@ window.LegacyDataBridge = createLegacyBridge(() => ({
       const toggles = {
         'tog-stops': false,
         'tog-stop-coverage': false,
-        'tog-3d': false,
         'tog-anim': true,
         'tog-paths': true,
         'tog-density': false,
@@ -1945,7 +1943,7 @@ updateVehiclePanel = function () {
   return callManager('UIManager', 'updateVehiclePanel');
 };
 
-function getModelUrl(type) { return window.RenderUtils ? window.RenderUtils.getModelUrl(type) : 'models/bus.glb'; }
+function getModelUrl(type) { return window.RenderUtils ? window.RenderUtils.getModelUrl(type) : ''; }
 function getModelPath(type) { return window.RenderUtils ? window.RenderUtils.getModelPath(type) : getModelUrl(type); }
 function getModelNotice(type) { return window.RenderUtils ? window.RenderUtils.getModelNotice(type) : 'native'; }
 function getModelScale(type) { return window.RenderUtils ? window.RenderUtils.getModelScale(type) : 8; }
@@ -2003,12 +2001,6 @@ window.handleNativeCityScan = async function (cities) {
 async function initializeBuiltinCity(city) {
   return callManager('CityManager', 'initializeBuiltinCity', [city]);
 }
-
-document.getElementById('tog-3d')?.addEventListener('change', function () {
-  show3D = this.checked;
-  const badge = document.getElementById('lod-badge');
-  if (badge) badge.className = 'lod-badge' + (show3D ? '' : ' off');
-});
 
 window.IS_ELECTRON = typeof window !== 'undefined' && !!window.electronAPI;
 
