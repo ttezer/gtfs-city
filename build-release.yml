@@ -1,19 +1,4 @@
-name: Build & Release
-
-# SPRINT 4 DÜZELTMELERİ:
-# 1. Her build job'ına "Generate data files" adımı eklendi.
-#    Önceden CI'da trips_data.js / shapes_data.js / lookup_data.js hiç üretilmiyordu;
-#    build sessizce bozuk paket üretiyordu.
-#    Çözüm A (tercihli): GitHub Actions cache ile önceki build'den dosyaları sakla/geri yükle.
-#    Çözüm B (fallback): SKIP_DATA_CHECK=1 ile kontrol atlayıp stub build üret.
-#
-# 2. Release job'ına "if: failure()" ile başarısızlık senaryosu eklendi.
-#    Önceden bir platform build başarısız olursa diğerleri tamamlanıp
-#    eksik platformla release oluşturuluyordu.
-#    Çözüm: release job sadece tüm build'ler başarılıysa çalışır.
-#
-# 3. Her build job'ına "if: success()" upload koşulu eklendi.
-#    Build başarısız olursa artifact upload atlanır, boş artifact oluşmaz.
+﻿name: Build & Release
 
 on:
   push:
@@ -25,169 +10,61 @@ permissions:
   contents: write
 
 jobs:
-  # ── WINDOWS BUILD ────────────────────────────────────────
   build-windows:
     runs-on: windows-latest
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
         with:
           node-version: '20'
           cache: 'npm'
-
-      - name: Install dependencies
-        run: npm ci
-
-      # SPRINT 4: Veri dosyalarını cache'den geri yükle
-      # İlk build'de cache miss olur → SKIP_DATA_CHECK=1 ile devam edilir (stub build)
-      # Sonraki build'lerde cache hit olur → tam veri ile paket üretilir
-      - name: Restore data files from cache
-        id: cache-data
-        uses: actions/cache@v4
-        with:
-          path: |
-            trips_data.js
-            shapes_data.js
-            lookup_data.js
-          key: gtfs-data-${{ runner.os }}-${{ hashFiles('Data/**/*.zip') }}
-          restore-keys: |
-            gtfs-data-${{ runner.os }}-
-
-      # Cache miss durumunda Python ile veri üret (Data/ klasöründe zip varsa)
-      - name: Generate data files (if cache miss)
-        if: steps.cache-data.outputs.cache-hit != 'true'
-        shell: bash
-        run: |
-          if [ -f "gtfs_to_js.py" ] && [ -n "$(ls Data/*.zip 2>/dev/null)" ]; then
-            echo "Data dosyaları üretiliyor..."
-            python gtfs_to_js.py
-          else
-            echo "GTFS zip bulunamadı, veri dosyaları atlanıyor (SKIP_DATA_CHECK=1)"
-            echo "SKIP_DATA_CHECK=1" >> $GITHUB_ENV
-          fi
-
-      - name: Build Windows (NSIS + Portable)
-        run: npm run build:win
+      - run: npm ci
+      - run: npm run build:win
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          SKIP_DATA_CHECK: ${{ env.SKIP_DATA_CHECK }}
-
-      # SPRINT 4: if: success() — build başarısız olursa artifact upload atlanır
-      - name: Upload artifacts
+      - uses: actions/upload-artifact@v4
         if: success()
-        uses: actions/upload-artifact@v4
         with:
           name: windows-build
           path: dist/*.exe
           retention-days: 7
 
-  # ── MACOS BUILD ──────────────────────────────────────────
   build-macos:
     runs-on: macos-latest
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
         with:
           node-version: '20'
           cache: 'npm'
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Restore data files from cache
-        id: cache-data
-        uses: actions/cache@v4
-        with:
-          path: |
-            trips_data.js
-            shapes_data.js
-            lookup_data.js
-          key: gtfs-data-${{ runner.os }}-${{ hashFiles('Data/**/*.zip') }}
-          restore-keys: |
-            gtfs-data-${{ runner.os }}-
-
-      - name: Generate data files (if cache miss)
-        if: steps.cache-data.outputs.cache-hit != 'true'
-        run: |
-          if [ -f "gtfs_to_js.py" ] && [ -n "$(ls Data/*.zip 2>/dev/null)" ]; then
-            echo "Data dosyaları üretiliyor..."
-            python3 gtfs_to_js.py
-          else
-            echo "GTFS zip bulunamadı, veri dosyaları atlanıyor"
-            echo "SKIP_DATA_CHECK=1" >> $GITHUB_ENV
-          fi
-
-      - name: Build macOS (DMG — x64 + arm64)
-        run: npm run build:mac
+      - run: npm ci
+      - run: npm run build:mac
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          SKIP_DATA_CHECK: ${{ env.SKIP_DATA_CHECK }}
-          APPLE_ID:                   ${{ secrets.APPLE_ID }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
           APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
-          APPLE_TEAM_ID:              ${{ secrets.APPLE_TEAM_ID }}
-
-      - name: Upload artifacts
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+      - uses: actions/upload-artifact@v4
         if: success()
-        uses: actions/upload-artifact@v4
         with:
           name: macos-build
           path: dist/*.dmg
           retention-days: 7
 
-  # ── LINUX BUILD ──────────────────────────────────────────
   build-linux:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
         with:
           node-version: '20'
           cache: 'npm'
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Restore data files from cache
-        id: cache-data
-        uses: actions/cache@v4
-        with:
-          path: |
-            trips_data.js
-            shapes_data.js
-            lookup_data.js
-          key: gtfs-data-${{ runner.os }}-${{ hashFiles('Data/**/*.zip') }}
-          restore-keys: |
-            gtfs-data-${{ runner.os }}-
-
-      - name: Generate data files (if cache miss)
-        if: steps.cache-data.outputs.cache-hit != 'true'
-        run: |
-          if [ -f "gtfs_to_js.py" ] && [ -n "$(ls Data/*.zip 2>/dev/null)" ]; then
-            echo "Data dosyaları üretiliyor..."
-            python3 gtfs_to_js.py
-          else
-            echo "GTFS zip bulunamadı, veri dosyaları atlanıyor"
-            echo "SKIP_DATA_CHECK=1" >> $GITHUB_ENV
-          fi
-
-      - name: Build Linux (AppImage + deb)
-        run: npm run build:linux
+      - run: npm ci
+      - run: npm run build:linux
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          SKIP_DATA_CHECK: ${{ env.SKIP_DATA_CHECK }}
-
-      - name: Upload artifacts
+      - uses: actions/upload-artifact@v4
         if: success()
-        uses: actions/upload-artifact@v4
         with:
           name: linux-build
           path: |
@@ -195,72 +72,18 @@ jobs:
             dist/*.deb
           retention-days: 7
 
-  # ── GITHUB RELEASE ───────────────────────────────────────
   release:
-    # SPRINT 4: needs + başarı koşulu
-    # Önceden: herhangi bir build başarısız olsa bile release çalışıyordu.
-    # Şimdi: tüm üç build başarılı olmalı. Biri başarısız olursa release atlanır.
     needs: [build-windows, build-macos, build-linux]
     runs-on: ubuntu-latest
     if: startsWith(github.ref, 'refs/tags/') && success()
     steps:
-      - name: Download all artifacts
-        uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v4
         with:
           path: artifacts/
-
-      # Hangi platformların artifact ürettiğini kontrol et
-      - name: List artifacts
-        run: find artifacts/ -type f | sort
-
-      - name: Create GitHub Release
-        uses: softprops/action-gh-release@v2
+      - uses: softprops/action-gh-release@v2
         with:
-          name: "İstanbul Transit 3D ${{ github.ref_name }}"
+          name: "GTFS City ${{ github.ref_name }}"
           body: |
-            ## 🚌 İstanbul Transit 3D ${{ github.ref_name }}
-
-            **14.380+ gerçek GTFS seferi · deck.gl 3D · MapLibre GL**
-
-            ### İndirme
-            | Platform | Dosya |
-            |----------|-------|
-            | Windows (Installer) | `*-Setup.exe` |
-            | Windows (Portable)  | `*-Portable.exe` |
-            | macOS (Intel)       | `*-x64.dmg` |
-            | macOS (Apple Silicon)| `*-arm64.dmg` |
-            | Linux (AppImage)    | `*.AppImage` |
-            | Linux (deb)         | `*.deb` |
-
-            ### Yenilikler
-            - Sprint 1: Cache düzeltmeleri, dep-board temizliği, Electron bridge fix
-            - Sprint 2: parseCsvRows ve hhmmToSec tek kaynağa taşındı
-            - Sprint 3: Dijkstra min-heap, buildLayers statik cache, getNextStop O(NxM) kaldırıldı
-            - Sprint 4: Build pipeline, data dosyaları CI cache, YAML düzeltmeleri
+            GTFS City release paketi.
           files: |
-            artifacts/**/*.exe
-            artifacts/**/*.dmg
-            artifacts/**/*.AppImage
-            artifacts/**/*.deb
-          draft: false
-          prerelease: false
-          fail_on_unmatched_files: false
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-  # ── KISMI BAŞARISIZLIK BİLDİRİMİ ─────────────────────────
-  # Bir veya daha fazla platform build başarısız olursa burası tetiklenir.
-  # Release oluşturmadan önce geliştiriciye hangi platformun bozulduğunu bildirir.
-  notify-failure:
-    needs: [build-windows, build-macos, build-linux]
-    runs-on: ubuntu-latest
-    if: failure() && startsWith(github.ref, 'refs/tags/')
-    steps:
-      - name: Report build failure
-        run: |
-          echo "::error::Bir veya daha fazla platform build başarısız oldu."
-          echo "::error::Release oluşturulmadı."
-          echo "::notice::Başarısız job'ları kontrol edin:"
-          echo "::notice::  build-windows, build-macos, build-linux"
-          echo "::notice::Tüm platformlar başarılı olunca tekrar tag push edin."
-          exit 1
+            artifacts/**/*
