@@ -1,6 +1,5 @@
 /**
- * İstanbul Transit 3D — Electron Preload Script
- * DÜZELTİLMİŞ VERSİYON
+ * GTFS City - Electron Preload Script
  */
 
 const { contextBridge, ipcRenderer } = require('electron');

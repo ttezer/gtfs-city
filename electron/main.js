@@ -1,6 +1,5 @@
 /**
- * İstanbul Transit 3D — Electron Main Process
- * DÜZELTİLMİŞ VERSİYON (IPC köprüsü tam)
+ * GTFS City - Electron Main Process
  */
 
 const { app, BrowserWindow, ipcMain, Menu, dialog, shell } = require('electron');
@@ -18,7 +17,7 @@ let mainWindow = null;
 function createWindow() {
   mainWindow = new BrowserWindow({
     width: 1440, height: 900, minWidth: 900, minHeight: 600,
-    title: 'İstanbul Transit 3D',
+    title: 'GTFS City',
     titleBarStyle: isMac ? 'hiddenInset' : 'default',
     frame: true,
     backgroundColor: '#080c12',
