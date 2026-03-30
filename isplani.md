@@ -71,3 +71,9 @@ Bu dosya artık uzun tarihçe değil, güncel durum belgesidir. Yeni işler bura
 
 - Pages için kullanılan docs/screens/ kopyaları korunurken, proje kökündeki geçici JPEG kaynaklar ve gtfscity.png .gitignore içine alındı.
 
+
+### Faz S ? Web MVP Haz?rl?k Turu 1 (31 Mart 2026)
+
+- `docs/app/` alt?nda GitHub Pages i?in ayr? web giri? noktas? olu?turuldu.
+- Web giri?i, desktop ak???na dokunmadan k?k JS/CSS dosyalar?n?n Pages i?in izole kopyalar?yla haz?rland?.
+- `bootstrap-manager.js` i?ine base path deste?i eklendi ve Pages vitrinden `Web Demo` ba?lant?s? verildi.
