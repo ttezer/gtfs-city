@@ -54,3 +54,9 @@ Bu dosya artık uzun tarihçe değil, güncel durum belgesidir. Yeni işler bura
 - Açık repo taramasında tracked gizli veri, token veya ZIP veri paketi bulunmadı.
 - electron/main.js ve electron/preload.js içindeki eski İstanbul marka kalıntıları GTFS City olarak temizlendi.
 
+### Faz R — Pages ve README Görsel Galeri Turu 3 (31 Mart 2026)
+
+- Proje kökündeki JPEG örnekleri docs/screens/ altına kopyalanarak GitHub Pages vitrinine bağlandı.
+- docs/index.html içeriği giriş ekranı, GTFS yükleme, hat paneli, durak paneli, araç paneli ve izokron görselleriyle genişletildi.
+- README.md içine aynı örneklerden oluşan ekran görüntüsü bölümü eklendi.
+
