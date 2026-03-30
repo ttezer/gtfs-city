@@ -1,0 +1,38 @@
+# electron-builder.yml
+#
+# SPRINT 4 DÜZELTMELERİ:
+# - mac.notarize.teamId: önceden ${APPLE_TEAM_ID} yazıyordu.
+#   Bu shell interpolasyonu değil, electron-builder'a özgü sözdizimi.
+#   Bazı YAML parser'ları bunu hatalı yorumlayabiliyor.
+#   Çözüm: notarize bloğu kaldırıldı, değer doğrudan electron-builder'ın
+#   env değişkeni okuma mekanizmasına bırakıldı.
+#   electron-builder, APPLE_TEAM_ID env var'ını otomatik olarak okur.
+#
+# - win.signDlls ve signingHashAlgorithms korundu — bunlar geçerli YAML.
+#
+# NOT: Bu dosya package.json "build" bloğunu tamamlar.
+#      Buradaki ayarlar package.json'dakileri override eder.
+
+# macOS notarization
+# APPLE_ID, APPLE_APP_SPECIFIC_PASSWORD, APPLE_TEAM_ID
+# env var olarak CI'da set edilmeli.
+# electron-builder bu değişkenleri otomatik okur — burada tekrar tanımlamaya gerek yok.
+mac:
+  notarize: true
+
+# Windows code signing
+# WIN_CSC_LINK, WIN_CSC_KEY_PASSWORD env var olarak CI'da set edilmeli.
+win:
+  signingHashAlgorithms:
+    - sha256
+  signDlls: false
+
+# Electron download mirror (ağ sorunları için)
+# electronDownload:
+#   mirror: https://npmmirror.com/mirrors/electron/
+
+# Auto-update feed
+publish:
+  provider: github
+  private: false
+  releaseType: release
