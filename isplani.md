@@ -49,3 +49,8 @@ Bu dosya artık uzun tarihçe değil, güncel durum belgesidir. Yeni işler bura
 - Pages içinde kullanılmak üzere `docs/logo-mark.png` ve `docs/favicon.ico` eklendi.
 - `README.md` GitHub Pages açma adımlarını içerecek şekilde güncellendi.
 - Pages kaynağı olarak `main /docs` kullanılacak.
+### Faz R — Kamusal Repo Kontrolü Turu 2 (30 Mart 2026)
+
+- Açık repo taramasında tracked gizli veri, token veya ZIP veri paketi bulunmadı.
+- electron/main.js ve electron/preload.js içindeki eski İstanbul marka kalıntıları GTFS City olarak temizlendi.
+
