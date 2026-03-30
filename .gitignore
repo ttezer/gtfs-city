@@ -1,6 +1,8 @@
 node_modules/
 dist/
 Ydek/
+.idea/
+.vscode/
 *.zip
 *.docx
 Data/*.zip

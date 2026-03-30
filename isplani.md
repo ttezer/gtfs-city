@@ -1196,3 +1196,10 @@ Dosyalar **bu sırayla** tamamlanacak, her dosya onaylandıktan sonra bir sonrak
 - Landing sayfasına ve sol menü üst bloğuna yeni logo yerleşimi eklendi; eski metin/hex görünümü kaldırıldı.
 - style.css içinde logo görselleri için logo-mark ve yeni landing logo ölçüleri tanımlandı.
 
+### Faz Q — Depo Temizliği Turu 31 (30 Mart 2026)
+
+- Git deposundan IDE ayar klasörleri kaldırıldı: .idea/, .vscode/.
+- Tek GTFS moduna geçiş sonrası gereksiz örnek veri dosyası kaldırıldı: Data/gtfs.zip.
+- Eski inceleme/ara dosya kalıntıları kaldırıldı: İnceleme Dosyaları/, 	est_write.txt.
+- .gitignore güncellenerek .idea/ ve .vscode/ tekrar depoya girmeyecek hale getirildi.
+
