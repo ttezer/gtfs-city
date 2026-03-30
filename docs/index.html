@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="tr">
 <head>
   <meta charset="utf-8">
@@ -11,70 +11,95 @@
 <body>
   <main class="page">
     <section class="hero">
-      <img src="./logo-mark.png" alt="GTFS City logo" class="hero-logo">
       <div class="hero-copy">
         <p class="eyebrow">GTFS Analiz ve Görselleştirme</p>
         <h1>GTFS City</h1>
-        <p class="lead">GTFS ZIP verisini yükleyip hatları, durakları, araç akışını ve analiz katmanlarını tek masaüstü uygulamasında inceleyin.</p>
+        <p class="lead">GTFS ZIP verisini yükleyip hatları, durakları, araç akışını ve analiz katmanlarını masaüstünde inceleyin.</p>
         <div class="hero-actions">
           <a class="btn primary" href="https://github.com/ttezer/gtfs-city" target="_blank" rel="noreferrer">GitHub</a>
           <a class="btn" href="https://github.com/ttezer/gtfs-city/blob/main/README.md" target="_blank" rel="noreferrer">README</a>
           <a class="btn" href="https://github.com/ttezer/gtfs-city/blob/main/mimari.md" target="_blank" rel="noreferrer">Mimari</a>
         </div>
       </div>
+      <div class="hero-mark-wrap">
+        <img src="./logo-mark.png" alt="GTFS City logo" class="hero-logo">
+      </div>
     </section>
 
     <section class="grid three">
-      <article class="card">
-        <h2>Tek GTFS Akışı</h2>
-        <p>Upload-first model ile aynı anda tek veri seti yüklenir. Veri hazır olunca harita ekranına geçilir.</p>
+      <article class="card stat-card">
+        <h2>Tek Veri Seti</h2>
+        <p>Aynı anda tek GTFS veri seti tutulur. Upload-first akış veri bağlamını sade tutar.</p>
       </article>
-      <article class="card">
+      <article class="card stat-card">
         <h2>Analiz Katmanları</h2>
-        <p>Headway, bekleme, yoğunluk, kapsama ve izokron katmanları aktif veri üzerinden filtrelerle birlikte çalışır.</p>
+        <p>Headway, bekleme, yoğunluk, kapsama ve izokron katmanları aktif filtrelerle birlikte çalışır.</p>
       </article>
-      <article class="card">
-        <h2>Electron Masaüstü</h2>
-        <p>HTTPS linkten GTFS ZIP indirme, yerel dosya yükleme ve paketleme akışı masaüstü odaklı korunur.</p>
+      <article class="card stat-card">
+        <h2>Electron Odaklı</h2>
+        <p>Yerel dosya yükleme, HTTPS ZIP linki ve masaüstü paketleme akışı aynı ürün içinde korunur.</p>
       </article>
     </section>
 
-    <section class="showcase card wide">
+    <section class="section-block">
       <div class="section-head">
         <div>
-          <p class="eyebrow">Giriş Ekranı</p>
-          <h2>Upload-first akış</h2>
+          <p class="eyebrow">Ürün Görselleri</p>
+          <h2>Arayüzden örnekler</h2>
         </div>
       </div>
-      <img src="./screens/giris_sayfasi.jpg" alt="GTFS City giriş sayfası" class="screenshot">
-    </section>
+      <div class="feature-stack">
+        <article class="feature-card feature-wide">
+          <div class="feature-copy">
+            <p class="eyebrow">Giriş Ekranı</p>
+            <h3>Upload-first başlangıç</h3>
+            <p>Uygulama veri gelmeden haritaya geçmez. ZIP yükleme ve linkten indirme tek akış üzerinden yönetilir.</p>
+          </div>
+          <img src="./screens/giris_sayfasi.jpg" alt="GTFS City giriş sayfası" class="feature-shot">
+        </article>
 
-    <section class="grid two gallery-grid">
-      <article class="card gallery-card">
-        <img src="./screens/ornek_GTFS_Konya.jpg" alt="GTFS yükleme örneği" class="gallery-shot">
-        <h3>GTFS yükleme</h3>
-        <p>ZIP yükleme tamamlandığında veri seti tek aktif kaynak olarak çalışma ekranına bağlanır.</p>
-      </article>
-      <article class="card gallery-card">
-        <img src="./screens/hat_bilgi.jpg" alt="Hat bilgi paneli" class="gallery-shot">
-        <h3>Hat paneli</h3>
-        <p>Hat özeti, yön bilgisi, servis takvimi ve güzergâh detayları tek drawer içinde toplanır.</p>
-      </article>
-      <article class="card gallery-card">
-        <img src="./screens/durak_bilgi.jpg" alt="Durak bilgi paneli" class="gallery-shot">
-        <h3>Durak paneli</h3>
-        <p>İlk gelen araç ve sonraki araç süreleri tablo yapısında okunabilir biçimde gösterilir.</p>
-      </article>
-      <article class="card gallery-card">
-        <img src="./screens/arac_bilgi.jpg" alt="Araç bilgi paneli" class="gallery-shot">
-        <h3>Araç paneli</h3>
-        <p>Seçilen araç için hat, yön, ilerleme ve durak ilişkisi tek panelde izlenir.</p>
-      </article>
-      <article class="card gallery-card wide-card">
-        <img src="./screens/durak_bazli_izokran.jpg" alt="Durak bazlı izokron analizi" class="gallery-shot">
-        <h3>İzokron analizi</h3>
-        <p>Seçilen duraktan erişilebilir alanlar süre temelli renklendirilir ve analiz katmanlarıyla birlikte izlenir.</p>
-      </article>
+        <div class="gallery-grid">
+          <article class="feature-card">
+            <img src="./screens/ornek_GTFS_Konya.jpg" alt="GTFS yükleme örneği" class="feature-shot">
+            <div class="feature-copy">
+              <h3>GTFS yükleme</h3>
+              <p>Veri seti doğrulanır, hazırlanır ve çalışma ekranına tek aktif kaynak olarak bağlanır.</p>
+            </div>
+          </article>
+
+          <article class="feature-card">
+            <img src="./screens/hat_bilgi.jpg" alt="Hat bilgi paneli" class="feature-shot">
+            <div class="feature-copy">
+              <h3>Hat paneli</h3>
+              <p>Yön bilgisi, servis takvimi ve güzergâh özeti tek drawer içinde toplanır.</p>
+            </div>
+          </article>
+
+          <article class="feature-card">
+            <img src="./screens/durak_bilgi.jpg" alt="Durak bilgi paneli" class="feature-shot">
+            <div class="feature-copy">
+              <h3>Durak paneli</h3>
+              <p>İlk gelen ve sonraki araç süreleri tablo yapısında izlenir.</p>
+            </div>
+          </article>
+
+          <article class="feature-card">
+            <img src="./screens/arac_bilgi.jpg" alt="Araç bilgi paneli" class="feature-shot">
+            <div class="feature-copy">
+              <h3>Araç paneli</h3>
+              <p>Seçilen araç için hat, yön, ilerleme ve durak ilişkisi tek panelde izlenir.</p>
+            </div>
+          </article>
+
+          <article class="feature-card feature-wide">
+            <img src="./screens/durak_bazli_izokran.jpg" alt="Durak bazlı izokron analizi" class="feature-shot">
+            <div class="feature-copy">
+              <h3>İzokron analizi</h3>
+              <p>Seçilen duraktan erişilebilir alanlar süre temelli renklendirilir ve analiz katmanlarıyla birlikte yorumlanır.</p>
+            </div>
+          </article>
+        </div>
+      </div>
     </section>
 
     <section class="grid two">
@@ -98,5 +123,9 @@
       </article>
     </section>
   </main>
+
+  <footer class="footer">
+    <span>Vatan'ın Babası Tacettin TEZER</span>
+  </footer>
 </body>
 </html>

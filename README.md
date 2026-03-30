@@ -107,8 +107,4 @@ npm run build:win -- --dir
 
 Statik vitrin sayfası `docs/` klasöründedir.
 
-GitHub Pages açmak için:
-
-1. GitHub repo ayarlarına gir.
-2. `Pages` bölümünde `Deploy from a branch` seç.
-3. Branch olarak `main`, klasör olarak `/docs` seç.
+> Not: Ürün vitrini için Pages kullanılır; README tekrar eden kurulum talimatı dışında Pages içeriğini kopyalamaz.

@@ -60,3 +60,10 @@ Bu dosya artık uzun tarihçe değil, güncel durum belgesidir. Yeni işler bura
 - docs/index.html içeriği giriş ekranı, GTFS yükleme, hat paneli, durak paneli, araç paneli ve izokron görselleriyle genişletildi.
 - README.md içine aynı örneklerden oluşan ekran görüntüsü bölümü eklendi.
 
+### Faz R — Pages Profesyonelleştirme ve Preload Temizliği Turu 4 (31 Mart 2026)
+
+- docs/index.html ve docs/styles.css daha profesyonel bir vitrin düzenine geçirildi; alt kısma Vatan'ın Babası Tacettin TEZER notu eklendi.
+- README.md içindeki gereksiz Pages kurulum maddeleri sadeleştirildi.
+- Artık kullanılmayan preload kalıntıları kaldırıldı: 	rips_data.js, shapes_data.js, lookup_data.js, scripts/regenerate-bordeaux-preload.js.
+- Eski cizim.md kaldırıldı ve uild-release.yml preload bağımlılığı olmadan yeniden yazıldı.
+
