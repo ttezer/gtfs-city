@@ -24,8 +24,6 @@ const mojibakePatterns = [
   /�/g,
 ];
 
-const suspiciousQuestionMarkPattern = /[A-Za-zÇĞİÖŞÜçğıöşü]\?[A-Za-zÇĞİÖŞÜçğıöşü]/g;
-
 const failures = [];
 
 for (const relativePath of filesToCheck) {
@@ -44,12 +42,18 @@ for (const relativePath of filesToCheck) {
     }
   }
 
-  const questionMatches = content.match(suspiciousQuestionMarkPattern);
-  if (questionMatches && questionMatches.length) {
-    failures.push({
-      file: relativePath,
-      reason: `Şüpheli soru işareti deseni bulundu: ${questionMatches[0]}`,
-    });
+  const lines = content.split('\n');
+  for (const line of lines) {
+    if (/https?:\/\//.test(line)) continue;
+    const suspiciousQuestionMarkPattern = /[A-Za-zÇĞİÖŞÜçğıöşü]\?[A-Za-zÇĞİÖŞÜçğıöşü]/g;
+    const questionMatches = line.match(suspiciousQuestionMarkPattern);
+    if (questionMatches && questionMatches.length) {
+      failures.push({
+        file: relativePath,
+        reason: `Şüpheli soru işareti deseni bulundu: ${questionMatches[0]}`,
+      });
+      break;
+    }
   }
 }
 

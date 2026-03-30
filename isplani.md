@@ -100,3 +100,8 @@ Bu dosya uzun tarihçe değil, güncel durum belgesidir. Yeni işler buraya kıs
 - Public metin dosyaları için kalıcı bozulma denetimi eklendi.
 - Mojibake kontrolü test akışına bağlandı.
 - Türkçe içeren doküman ve Pages dosyalarında shell üzerinden here-string yazımı yasaklandı; yalnızca güvenli yama akışı kullanılacak.
+
+### Faz S — Pages Analytics Turu 6 (31 Mart 2026)
+
+- Google Analytics 4 ölçümü Pages vitrini ve web demo girişine eklendi.
+- Kullanılan ölçüm kimliği: `G-PRJPC1JRDH`
