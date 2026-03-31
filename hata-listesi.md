@@ -2,36 +2,24 @@
 
 Bu belge, açık hata kayıtlarını ve veri doğruluğu başlıklarını toplar. Ürün geliştirme fikirleri bu dosyada değil, `yol-haritasi.md` içinde tutulur.
 
-## Durum Alanları
+## Alanlar
 
-- **Açık** — doğrulandı, çözüm bekliyor
-- **İnceleniyor** — nedeni araştırılıyor
-- **Veri kontrolü** — uygulama yerine veri kaynağı veya veri yorumu kontrol ediliyor
-
-## Öncelik Düzeyi
-
-- **Yüksek** — ürün kullanımını doğrudan bozan sorun
-- **Orta** — kullanıcı deneyimini belirgin etkileyen sorun
-- **Düşük** — çekirdek akışı bozmayan sorun
+- **Öncelik:** `🔴 Yüksek`, `🟠 Orta`, `🟡 Düşük`
+- **Platform:** `Desktop`, `Web`, `Her ikisi`
+- **Durum:** `Açık`, `İnceleniyor`, `Veri kontrolü`, `Çözüldü`
 
 ## Açık Kayıtlar
 
-### Durak Aramada Liste Kapanıyor
-- **Tür:** Bug
-- **Öncelik:** Yüksek
-- **Platform:** Her ikisi
-- **Durum:** Açık
-- **Etki:** arama deneyimi bozuluyor
-- **Not:** arama kutusu ve sonuç listesinin etkileşim akışı yeniden gözden geçirilmeli
+| Başlık | Tür | Öncelik | Platform | Durum | Etki |
+|---|---|---|---|---|---|
+| Durak Aramada Liste Kapanıyor | Bug | 🔴 Yüksek | Her ikisi | Açık | Arama deneyimi bozuluyor |
+| Kocaeli Verisinde Hat Seçiminde Duraklar Eksik Görünüyor | Bug / Veri kontrolü | 🔴 Yüksek | Her ikisi | İnceleniyor | Seçili hatta ait tüm durakların görünmediği algısı oluşuyor |
 
-### Kocaeli Verisinde Hat Seçiminde Duraklar Eksik Görünüyor
-- **Tür:** Bug / Veri kontrolü
-- **Öncelik:** Yüksek
-- **Platform:** Her ikisi
-- **Durum:** İnceleniyor
-- **Etki:** seçili hatta ait tüm durakların görünmediği algısı oluşuyor
-- **Kontrol başlıkları:**
-  - veri içindeki `pickup_type` / `drop_off_type`
+## Notlar
+
+- `Durak Aramada Liste Kapanıyor` kaydında arama kutusu ve sonuç listesinin etkileşim akışı yeniden gözden geçirilmeli.
+- `Kocaeli Verisinde Hat Seçiminde Duraklar Eksik Görünüyor` kaydında şu başlıklar kontrol edilmeli:
+  - `pickup_type` / `drop_off_type`
   - yön filtresi etkisi
   - odaklı hat görünürlüğü
   - uygulamadaki liste kısıtlama koşulları
