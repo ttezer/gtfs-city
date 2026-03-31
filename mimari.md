@@ -21,6 +21,28 @@ Temel ilkeler:
 
 ## Modüller
 
+## Modül Ownership Tablosu
+
+| Modül | Sorumluluk | Not |
+|---|---|---|
+| `script.js` | orkestrasyon, ortak state, bridge yüzeyi | küçültülmesi hedeflenen ana dosya |
+| `state-manager.js` | merkezi durum yapısı | tam ownership için güçlendirilecek |
+| `data-manager.js` | GTFS yükleme, validasyon, runtime apply | veri giriş kapısı |
+| `gtfs-utils.js` | parse ve runtime veri üretimi | ağır veri işleme çekirdeği |
+| `gtfs-worker.js` | worker parse akışı | performans amaçlı yardımcı katman |
+| `city-manager.js` | aktif veri seti kartı ve görünürlük | tek veri seti modeline bağlı |
+| `service-manager.js` | çalışma takvimi ve servis filtresi | takvim bağlamı sahibi |
+| `map-manager.js` | katmanlar ve çizim | render sahibi |
+| `ui-manager.js` | panel, liste ve kullanıcı etkileşimi | UI sahibi |
+| `planner-manager.js` | nasıl giderim ve izokron | rota ve erişim analizi |
+| `simulation-engine.js` | simülasyon saati ve replay | zaman akışı sahibi |
+| `analytics-utils.js` | headway, bunching, yoğunluk, bekleme | analitik hesap çekirdeği |
+| `sim-utils.js` | araç konumu ve zaman yardımcıları | simülasyon yardımcıları |
+| `render-utils.js` | renk, metin ve görsel yardımcılar | sunum yardımcıları |
+| `app-manager.js` | landing ve genel ekran akışları | uygulama kabuğu |
+| `electron/main.js` | pencere, IPC, güvenli indirme | desktop platform sahibi |
+| `electron/preload.js` | güvenli renderer API yüzeyi | desktop köprüsü |
+
 ### Çekirdek
 
 - `script.js` — uygulama orkestrasyonu, ortak state, bridge yüzeyi
@@ -82,3 +104,5 @@ Bu veri seti `AppState` üzerinde tutulur ve filtreler/katmanlar aynı kaynağı
 ## GitHub Pages Notu
 
 Mevcut repo ana ürün olarak Electron uygulamasıdır. GitHub Pages için doğrudan tam uygulama değil, ayrı bir web vitrin veya sade demo yaklaşımı daha uygundur.
+
+Ek sınırlar için `desktop-web-notu.md` dosyasına bakılmalıdır.

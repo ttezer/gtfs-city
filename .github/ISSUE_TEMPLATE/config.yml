@@ -1,0 +1,8 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Yol haritası
+    url: https://github.com/ttezer/gtfs-city/blob/main/yol-haritasi.md
+    about: Planlanan özellik ve geliştirme başlıklarını önce kontrol et
+  - name: Hata listesi
+    url: https://github.com/ttezer/gtfs-city/blob/main/hata-listesi.md
+    about: Bilinen açık hata veya veri doğruluk sorunlarını önce kontrol et

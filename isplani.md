@@ -122,3 +122,10 @@ Bu dosya uzun tarihçe değil, güncel durum belgesidir. Yeni işler buraya kıs
 - Mimari riskler ve performans darboğazları `yol-haritasi.md` içine ayrı başlık olarak işlendi.
 - State ownership, `script.js` küçültme, trip eşleştirme, render ayrımı ve platform adapter işleri açık refactor planına dönüştürüldü.
 - Hedef, ürünü yeniden yazmadan kademeli iyileştirme yapmak olarak netleştirildi.
+
+### Faz S — Repo Olgunlaştırma Turu 9 (31 Mart 2026)
+
+- `CONTRIBUTING.md` eklendi.
+- GitHub issue template yapısı oluşturuldu.
+- `CHANGELOG.md` ve `desktop-web-notu.md` eklendi.
+- `mimari.md` içine modül ownership tablosu işlendi.

@@ -103,6 +103,9 @@ npm run build:win -- --dir
 - `isplani.md` — güncel durum ve sonraki işler
 - `yol-haritasi.md` — orta ve uzun vadeli geliştirme başlıkları
 - `hata-listesi.md` — açık hata ve veri doğruluk sorunları
+- `desktop-web-notu.md` — platform sınırları
+- `CHANGELOG.md` — kısa ürün kilometre taşları
+- `CONTRIBUTING.md` — katkı akışı
 - `docs/` — GitHub Pages vitrin dosyaları
 
 ## GitHub Pages
