@@ -1,4 +1,7 @@
 (function attachUiUtils(globalScope) {
+  function translate(key, fallback = '') {
+    return globalScope?.I18n?.t?.(key, fallback) || fallback || key;
+  }
   function formatGtfsClock(seconds, fallbackFormatter) {
     if (!Number.isFinite(seconds)) return '-';
     const totalSeconds = Math.max(0, Math.round(seconds));
@@ -19,7 +22,7 @@
   function buildRouteTooltipHtml(routeMeta, typeMetaEntry, displayText) {
     const icon = displayText(typeMetaEntry?.i || '');
     const typeName = typeMetaEntry?.n || '-';
-    return `<div class="tt-t white-text">${icon} ${routeMeta.short}</div><div class="tt-s muted-text">${routeMeta.longName || 'Uzun ad yok'}</div><div class="tt-v mute-text">${typeName}</div>`;
+    return `<div class="tt-t white-text">${icon} ${routeMeta.short}</div><div class="tt-s muted-text">${routeMeta.longName || translate('routeLongNameMissing', 'Uzun ad yok')}</div><div class="tt-v mute-text">${typeName}</div>`;
   }
 
   const _nearestStopCache = new Map();
@@ -160,14 +163,14 @@
       progress: `${Math.max(0, Math.min(100, Math.round((offset / duration) * 100)))}%`,
       nextStopName: nextStopLabel,
       eta: finalEta,
-      followLabel: followTripIdx === selectedTripIdx ? '📍 Takibi Bırak' : '📍 Takip Et',
+      followLabel: followTripIdx === selectedTripIdx ? `📍 ${translate('vehicleFollowStop', 'Takibi Bırak')}` : `📍 ${translate('vehicleFollow', 'Takip Et')}`,
       details: [
-        { label: 'Hat Uzun Adı', value: routeLongName || '-' },
-        { label: 'Yön', value: directionLabel || '-' },
-        { label: 'Çalışma Takvimi', value: typeof getActiveServiceLabel === 'function' ? getActiveServiceLabel() : '-' },
-        { label: 'Kalkış', value: `${firstStopName} · ${firstStopTime}` },
-        { label: 'Varış', value: `${lastStopName} · ${lastStopTime}` },
-        { label: 'Aynı Yönde Sefer', value: `${sameDirectionTripCount || 0}` },
+        { label: translate('vehicleDetailLongName', 'Hat Uzun Adı'), value: routeLongName || '-' },
+        { label: translate('vehicleDetailDirection', 'Yön'), value: directionLabel || '-' },
+        { label: translate('vehicleDetailService', 'Çalışma Takvimi'), value: typeof getActiveServiceLabel === 'function' ? getActiveServiceLabel() : '-' },
+        { label: translate('vehicleDetailDeparture', 'Kalkış'), value: `${firstStopName} · ${firstStopTime}` },
+        { label: translate('vehicleDetailArrival', 'Varış'), value: `${lastStopName} · ${lastStopTime}` },
+        { label: translate('vehicleDetailTripsSameDirection', 'Aynı Yönde Sefer'), value: `${sameDirectionTripCount || 0}` },
       ],
       stops: (Array.isArray(trip.st) ? trip.st : []).map((stEntry, index) => {
         const stopMeta = stopInfo?.[stEntry.sid];
