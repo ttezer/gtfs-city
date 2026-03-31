@@ -1,26 +1,26 @@
-# Degisiklik Gunlugu
+# Değişiklik Günlüğü
 
-Bu dosya, buyuk urun donum noktalarini kisa bicimde ozetler.
+Bu dosya, büyük ürün dönüm noktalarını kısa biçimde özetler.
 
 ## 2026-03-31
 
-### Stabil temel surum
+### Stabil temel sürüm
 
-- Tek aktif GTFS veri seti modeli netlestirildi.
-- Upload-first baslangic akisi kalici hale getirildi.
-- Electron masaustu akisi ve GitHub Pages vitrini birlikte calisir duruma getirildi.
-- Web demo girisi `docs/app/` altinda acildi.
-- Turkce metin bozulmalarina karsi otomatik metin denetimi eklendi.
-- Ucuncu parti lisans ozeti `THIRD_PARTY_NOTICES.md` ile belgelendi.
-- Kullanilmayan `.glb` model yolu kaldirildi, 2D arac gorunumune sabitlendi.
+- Tek aktif GTFS veri seti modeli netleştirildi.
+- Upload-first başlangıç akışı kalıcı hale getirildi.
+- Electron masaüstü akışı ve GitHub Pages vitrini birlikte çalışır duruma getirildi.
+- Web demo girişi `docs/app/` altında açıldı.
+- Türkçe metin bozulmalarına karşı otomatik metin denetimi eklendi.
+- Üçüncü parti lisans özeti `THIRD_PARTY_NOTICES.md` ile belgelendi.
+- Kullanılmayan `.glb` model yolu kaldırıldı, 2D araç görünümüne sabitlendi.
 
-### README ve dil secenegi
+### README ve dil seçeneği
 
-- README icine hata, fix ve ozellik icin nereye bakilacagini aciklayan yonlendirmeler eklendi.
-- `README.en.md` ile Ingilizce README surumu eklendi.
-- Uygulamaya ilk etap TR/EN dil secenegi eklendi; landing ve temel onboarding metinleri degistirilebilir hale getirildi.
+- README içine hata, fix ve özellik için nereye bakılacağını açıklayan yönlendirmeler eklendi.
+- `README.en.md` ile İngilizce README sürümü eklendi.
+- Uygulamaya ilk etap TR/EN dil seçeneği eklendi; landing ve temel onboarding metinleri değiştirilebilir hale getirildi.
 
 ## Not
 
-- Ayrintili gunluk yerine kisa urun kilometre taslari tutulur.
-- Acik isler `yol-haritasi.md` ve `hata-listesi.md` icinde izlenir.
+- Ayrıntılı günlük yerine kısa ürün kilometre taşları tutulur.
+- Açık işler `yol-haritasi.md` ve `hata-listesi.md` içinde izlenir.
