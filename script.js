@@ -240,6 +240,18 @@ const PHASE_CFG = {
   day: { badge: '☀️ GÜNDÜZ', bg: '#0d2233', style: 'https://basemaps.cartocdn.com/gl/voyager-gl-style/style.json' },
   dusk: { badge: '🌆 AKŞAM', bg: '#150d05', style: 'https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json' },
 };
+const ROUTE_TYPE_TRANSLATION_KEYS = {
+  '0': 'routeTypeTram',
+  '1': 'routeTypeMetro',
+  '2': 'routeTypeTrain',
+  '3': 'routeTypeBus',
+  '4': 'routeTypeFerry',
+  '5': 'routeTypeCableCar',
+  '6': 'routeTypeGondola',
+  '7': 'routeTypeFunicular',
+  '9': 'routeTypeMinibus',
+  '10': 'routeTypeSharedTaxi',
+};
 const SPEEDS = [1, 10, 30, 60, 120, 300, 600];
 
 // ── SİMÜLASYON STATE ─────────────────────────────────────
@@ -320,7 +332,7 @@ function getCinematicWaypoints() {
       pitch: 52,
       bearing: 0,
       duration: 3800,
-      label: 'Genel Bakış',
+      label: t('cinematicOverview', 'Genel Bakış'),
     }];
   }
 
@@ -342,7 +354,7 @@ function getCinematicWaypoints() {
       pitch: 52,
       bearing: 0,
       duration: 3800,
-      label: 'Genel Bakış',
+      label: t('cinematicOverview', 'Genel Bakış'),
     }];
   }
 
@@ -360,11 +372,11 @@ function getCinematicWaypoints() {
   else if (span < 0.04) overviewZoom = 13.2;
 
   const points = [
-    { center: [centerLon, centerLat], zoom: overviewZoom, pitch: 52, bearing: -12, duration: 3800, label: 'Genel Bakış' },
-    { center: [minLon + spanLon * 0.2, centerLat], zoom: Math.min(overviewZoom + 1.2, 14.4), pitch: 60, bearing: 24, duration: 4000, label: 'Batı Koridoru' },
-    { center: [maxLon - spanLon * 0.2, centerLat], zoom: Math.min(overviewZoom + 1.2, 14.4), pitch: 60, bearing: -28, duration: 4000, label: 'Doğu Koridoru' },
-    { center: [centerLon, maxLat - spanLat * 0.2], zoom: Math.min(overviewZoom + 0.8, 14.2), pitch: 58, bearing: 36, duration: 4000, label: 'Kuzey Hattı' },
-    { center: [centerLon, minLat + spanLat * 0.2], zoom: Math.min(overviewZoom + 0.8, 14.2), pitch: 58, bearing: -36, duration: 3600, label: 'Ağ Özeti' },
+    { center: [centerLon, centerLat], zoom: overviewZoom, pitch: 52, bearing: -12, duration: 3800, label: t('cinematicOverview', 'Genel Bakış') },
+    { center: [minLon + spanLon * 0.2, centerLat], zoom: Math.min(overviewZoom + 1.2, 14.4), pitch: 60, bearing: 24, duration: 4000, label: t('cinematicWestCorridor', 'Batı Koridoru') },
+    { center: [maxLon - spanLon * 0.2, centerLat], zoom: Math.min(overviewZoom + 1.2, 14.4), pitch: 60, bearing: -28, duration: 4000, label: t('cinematicEastCorridor', 'Doğu Koridoru') },
+    { center: [centerLon, maxLat - spanLat * 0.2], zoom: Math.min(overviewZoom + 0.8, 14.2), pitch: 58, bearing: 36, duration: 4000, label: t('cinematicNorthLine', 'Kuzey Hattı') },
+    { center: [centerLon, minLat + spanLat * 0.2], zoom: Math.min(overviewZoom + 0.8, 14.2), pitch: 58, bearing: -36, duration: 3600, label: t('cinematicNetworkSummary', 'Ağ Özeti') },
   ];
 
   return points.filter((point, index, array) => {
@@ -707,7 +719,13 @@ function buildStopTooltipHtml(stopMeta) {
 function buildRouteTooltipHtml(routeMeta, typeMetaEntry) {
   return window.UiUtils
     ? window.UiUtils.buildRouteTooltipHtml(routeMeta, typeMetaEntry, displayText)
-    : `<div class="tt-t">${displayText(typeMetaEntry?.i || '')} ${routeMeta.short}</div><div class="tt-s">${routeMeta.longName || t('routeLongNameMissing', 'Uzun ad yok')}</div><div class="tt-v">${typeMetaEntry?.n || '-'}</div>`;
+    : `<div class="tt-t">${displayText(typeMetaEntry?.i || '')} ${routeMeta.short}</div><div class="tt-s">${routeMeta.longName || t('routeLongNameMissing', 'Uzun ad yok')}</div><div class="tt-v">${getLocalizedRouteTypeName(routeMeta.type, typeMetaEntry?.n || '-')}</div>`;
+}
+function getLocalizedRouteTypeName(routeType, fallbackName = '') {
+  const normalized = String(routeType ?? '').trim();
+  const key = ROUTE_TYPE_TRANSLATION_KEYS[normalized];
+  if (!key) return displayText(fallbackName || normalized || '-');
+  return t(key, fallbackName || TYPE_META[normalized]?.n || normalized);
 }
 function buildVehiclePanelState(trip, selectedIdx, time) {
   return window.UiUtils
@@ -1019,6 +1037,16 @@ const I18N_MESSAGES = {
     vehicleDetailArrival: 'Varış',
     vehicleDetailTripsSameDirection: 'Aynı Yönde Sefer',
     vehicleFollowStop: 'Takibi Bırak',
+    routeTypeTram: 'Tramvay',
+    routeTypeMetro: 'Metro',
+    routeTypeTrain: 'Tren',
+    routeTypeBus: 'Otobüs',
+    routeTypeFerry: 'Feribot',
+    routeTypeCableCar: 'Teleferik',
+    routeTypeGondola: 'Gondol',
+    routeTypeFunicular: 'Füniküler',
+    routeTypeMinibus: 'Minibüs',
+    routeTypeSharedTaxi: 'Dolmuş',
     peakMorning: 'SABAH PİK',
     peakEvening: 'AKŞAM PİK',
     activeBadge: '{active} aktif araç - {routes} hat - {trips} sefer',
@@ -1028,6 +1056,20 @@ const I18N_MESSAGES = {
     cityVisible: 'Görünür',
     adaptedBadge: '⚠️ UYARLANDI',
     serviceAdaptedReason: 'Bugün için servis bulunamadı, takvim geçmiş veriye uyarlandı.',
+    dayNightNight: '🌙 GECE',
+    dayNightDawn: '🌅 ŞAFAK',
+    dayNightDay: '☀️ GÜNDÜZ',
+    dayNightDusk: '🌆 AKŞAM',
+    dayNightSatellite: '🛰️ UYDU',
+    dayNightDark: '🌙 KOYU',
+    dayNightLight: '☀️ AÇIK',
+    cinematicStart: '🎬 Sinematik',
+    cinematicStop: '⏹ Durdur',
+    cinematicOverview: 'Genel Bakış',
+    cinematicWestCorridor: 'Batı Koridoru',
+    cinematicEastCorridor: 'Doğu Koridoru',
+    cinematicNorthLine: 'Kuzey Hattı',
+    cinematicNetworkSummary: 'Ağ Özeti',
   },
   en: {
     languageLabel: 'Language',
@@ -1192,6 +1234,16 @@ const I18N_MESSAGES = {
     vehicleDetailArrival: 'Arrival',
     vehicleDetailTripsSameDirection: 'Trips Same Direction',
     vehicleFollowStop: 'Stop Following',
+    routeTypeTram: 'Tram',
+    routeTypeMetro: 'Metro',
+    routeTypeTrain: 'Train',
+    routeTypeBus: 'Bus',
+    routeTypeFerry: 'Ferry',
+    routeTypeCableCar: 'Cable Car',
+    routeTypeGondola: 'Gondola',
+    routeTypeFunicular: 'Funicular',
+    routeTypeMinibus: 'Minibus',
+    routeTypeSharedTaxi: 'Shared Taxi',
     peakMorning: 'MORNING PEAK',
     peakEvening: 'EVENING PEAK',
     activeBadge: '{active} active vehicles - {routes} routes - {trips} trips',
@@ -1201,6 +1253,20 @@ const I18N_MESSAGES = {
     cityVisible: 'Visible',
     adaptedBadge: '⚠️ ADAPTED',
     serviceAdaptedReason: 'No service was found for today, calendar was adapted from past data.',
+    dayNightNight: '🌙 NIGHT',
+    dayNightDawn: '🌅 DAWN',
+    dayNightDay: '☀️ DAY',
+    dayNightDusk: '🌆 EVENING',
+    dayNightSatellite: '🛰️ SATELLITE',
+    dayNightDark: '🌙 DARK',
+    dayNightLight: '☀️ LIGHT',
+    cinematicStart: '🎬 Cinematic',
+    cinematicStop: '⏹ Stop',
+    cinematicOverview: 'Overview',
+    cinematicWestCorridor: 'West Corridor',
+    cinematicEastCorridor: 'East Corridor',
+    cinematicNorthLine: 'North Line',
+    cinematicNetworkSummary: 'Network Summary',
   },
 };
 
@@ -1311,14 +1377,17 @@ function applyStaticTranslations() {
   if (warningClose) warningClose.title = t('close');
   const loaderText = document.querySelector('.loader-text');
   if (loaderText) loaderText.textContent = t('loaderPreparingData');
-  const sidebarLabels = document.querySelectorAll('#section-layers .section-label, #section-routes .section-label, #section-stops-list .section-label, #section-cities .section-label');
-  if (sidebarLabels[0]) sidebarLabels[0].textContent = t('sidebarLayers');
-  if (sidebarLabels[1]) sidebarLabels[1].textContent = t('sidebarRoutes');
-  if (sidebarLabels[2]) sidebarLabels[2].textContent = t('sidebarStops');
-  if (sidebarLabels[3]) sidebarLabels[3].textContent = t('sidebarCities');
-  const routeTypeLabel = document.querySelector('#type-btns')?.previousElementSibling;
+  const layersLabel = document.querySelector('#section-layers .section-label');
+  if (layersLabel) layersLabel.textContent = t('sidebarLayers');
+  const citiesLabel = document.querySelector('#section-cities .section-label');
+  if (citiesLabel) citiesLabel.textContent = t('sidebarCities');
+  const routesLabel = document.querySelector('#section-routes .section-label');
+  if (routesLabel) routesLabel.textContent = t('sidebarRoutes');
+  const stopsLabel = document.querySelector('#section-stops-list .section-label');
+  if (stopsLabel) stopsLabel.textContent = t('sidebarStops');
+  const routeTypeLabel = document.getElementById('route-type-label');
   if (routeTypeLabel) routeTypeLabel.textContent = t('sidebarRouteType');
-  const mapStyleLabel = document.querySelector('#map-style-btns')?.previousElementSibling;
+  const mapStyleLabel = document.getElementById('map-style-label');
   if (mapStyleLabel) mapStyleLabel.textContent = t('sidebarMapStyle');
   const serviceLabel = document.querySelector('.service-selector-label');
   if (serviceLabel) serviceLabel.textContent = t('sidebarServiceCalendar');
@@ -1345,12 +1414,20 @@ function applyStaticTranslations() {
   if (styleButtons[1]) styleButtons[1].textContent = t('mapStyleSatellite');
   if (styleButtons[2]) styleButtons[2].textContent = t('mapStyleDark');
   if (styleButtons[3]) styleButtons[3].textContent = t('mapStyleLight');
-  const cityVisible = document.querySelector('.city-visibility-toggle span');
-  if (cityVisible) cityVisible.textContent = t('cityVisible');
+  document.querySelectorAll('.city-visibility-toggle span').forEach((el) => { el.textContent = t('cityVisible'); });
   const adaptedBadge = document.getElementById('calendar-adapted-badge');
   if (adaptedBadge) adaptedBadge.textContent = t('adaptedBadge');
   const gtfsSidebarBtn = document.getElementById('btn-gtfs-upload');
   if (gtfsSidebarBtn) gtfsSidebarBtn.textContent = t('landingUploadButton');
+  const staticStopHeader = document.querySelector('#stop-panel .sa-head');
+  if (staticStopHeader) {
+    const spans = staticStopHeader.querySelectorAll('span');
+    if (spans[0]) spans[0].textContent = t('stopPanelHeaderLine');
+    if (spans[1]) spans[1].textContent = t('stopPanelHeaderDirection');
+    if (spans[2]) spans[2].textContent = t('stopPanelHeaderNextVehicle', 'Duration');
+  }
+  const cinematicBtn = document.getElementById('btn-cinematic');
+  if (cinematicBtn && !document.body.classList.contains('cinematic-mode')) cinematicBtn.textContent = t('cinematicStart');
 }
 
 function setLanguage(lang) {
@@ -1492,6 +1569,7 @@ window.LegacyUIBridge = createLegacyBridge(() => ({
     buildStopTooltipHtml,
     getRouteMeta,
     buildRouteTooltipHtml,
+    getLocalizedRouteTypeName,
     getFilteredStopsData,
     getFilteredStopIdSet,
     displayText,

@@ -3,6 +3,10 @@ window.PlannerManager = (function () {
   let toStopId = null;
   let initialized = false;
 
+  function translate(key, fallback = '') {
+    return window.I18n?.t?.(key, fallback) || fallback || key;
+  }
+
   function getCtx() {
     return window.LegacyPlannerBridge?.getContext?.() || null;
   }
@@ -152,7 +156,8 @@ window.PlannerManager = (function () {
     const hint = getElement('isochron-hint');
     const stats = getElement('isochron-stats');
     if (label) {
-      label.textContent = `?? ${window.RenderUtils?.displayText?.(info ? info[2] : stopId) || (info ? info[2] : stopId)}`;
+      label.textContent = translate('plannerIsochronOrigin', '📍 {name}')
+        .replace('{name}', window.RenderUtils?.displayText?.(info ? info[2] : stopId) || (info ? info[2] : stopId));
       label.style.display = 'block';
     }
     if (hint) hint.style.display = 'none';
@@ -200,7 +205,9 @@ window.PlannerManager = (function () {
     const label = getElement('route-planner-context');
     if (!label) return;
     const cityName = ctx?.displayText?.(ctx.getActiveCity?.()?.name || '') || '';
-    label.textContent = cityName ? `${cityName} ? aktif veri seti` : 'Aktif veri seti';
+    label.textContent = cityName
+      ? translate('plannerDatasetActive', '{city} · aktif veri seti').replace('{city}', cityName)
+      : translate('plannerDatasetDefault', 'Aktif veri seti');
   }
 
   function showPlannerMessage(title, message, type = 'info') {
@@ -210,7 +217,7 @@ window.PlannerManager = (function () {
     result.classList.remove('hidden');
     steps.innerHTML = `
       <div class="route-step">
-        <span class="step-icon">${type === 'error' ? '??' : '??'}</span>
+        <span class="step-icon">${type === 'error' ? translate('plannerMessageErrorIcon', '⚠') : translate('plannerMessageInfoIcon', 'ℹ')}</span>
         <div class="step-info">
           <div class="step-line">${title}</div>
           <div class="step-detail">${message}</div>
@@ -221,12 +228,20 @@ window.PlannerManager = (function () {
   function showSelectedRoute() {
     const ctx = getCtx();
     if (!ctx?.STOP_INFO?.[fromStopId] || !ctx?.STOP_INFO?.[toStopId]) {
-      showPlannerMessage('Durak do?rulanamad?', 'L?tfen aktif ?ehir verisinden ba?lang?? ve var?? dura??n? yeniden se?in.', 'error');
+      showPlannerMessage(
+        translate('plannerStopValidationTitle', 'Durak doğrulanamadı'),
+        translate('plannerStopValidationMessage', 'Lütfen aktif şehir verisinden başlangıç ve varış durağını yeniden seçin.'),
+        'error'
+      );
       return;
     }
     const path = dijkstra(fromStopId, toStopId);
     if (!path?.length) {
-      showPlannerMessage('Rota bulunamad?', 'Se?ilen duraklar aras?nda uygun bir toplu ta??ma ba?lant?s? hesaplanamad?.', 'error');
+      showPlannerMessage(
+        translate('plannerNoRouteTitle', 'Rota bulunamadı'),
+        translate('plannerNoRouteMessage', 'Seçilen duraklar arasında uygun bir toplu taşıma bağlantısı hesaplanamadı.'),
+        'error'
+      );
       return;
     }
     window.UIManager?.showRouteResult?.(path);
@@ -268,7 +283,11 @@ window.PlannerManager = (function () {
     if (routeButton) {
       routeButton.onclick = () => {
         if (!fromStopId || !toStopId) {
-          showPlannerMessage('Durak se?imi eksik', 'L?tfen aktif ?ehirden ba?lang?? ve var?? duraklar?n? se?in.', 'error');
+          showPlannerMessage(
+            translate('plannerMissingSelectionTitle', 'Durak seçimi eksik'),
+            translate('plannerMissingSelectionMessage', 'Lütfen aktif şehirden başlangıç ve varış duraklarını seçin.'),
+            'error'
+          );
           return;
         }
         showSelectedRoute();
@@ -287,6 +306,7 @@ window.PlannerManager = (function () {
     initialized = true;
     bindRoutePlannerControls();
     updatePlannerContext();
+    window.addEventListener('app-language-change', updatePlannerContext);
   }
 
   return {

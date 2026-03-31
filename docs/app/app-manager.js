@@ -11,6 +11,10 @@ window.AppManager = (function () {
     if (element) element.textContent = value;
   }
 
+  function translate(key, fallback = '') {
+    return window.I18n?.t?.(key, fallback) || fallback || key;
+  }
+
   function toggleHidden(element, hidden) {
     if (!element) return;
     element.classList.toggle('hidden', hidden);
@@ -30,6 +34,10 @@ window.AppManager = (function () {
     };
   }
 
+  function getLocale() {
+    return window.I18n?.getLanguage?.() === 'en' ? 'en-US' : 'tr-TR';
+  }
+
   function updateStartButtonState() {
     const ctx = getCtx();
     const { upload, start } = getLandingElements();
@@ -37,8 +45,10 @@ window.AppManager = (function () {
     const hasTrips = !!(ctx.AppState.trips && ctx.AppState.trips.length);
     start.disabled = !hasTrips;
     start.classList.toggle('hidden', !hasTrips);
-    start.textContent = '🗺️ HARİTAYI AÇ';
-    upload.textContent = hasTrips ? '📂 BAŞKA GTFS ZIP YÜKLE' : '📂 GTFS ZIP YÜKLE';
+    start.textContent = translate('landingStartButton', '🗺️ Open Map');
+    upload.textContent = hasTrips
+      ? translate('uploadAnother', 'Upload Another GTFS ZIP')
+      : translate('landingUploadButton', '📂 Upload GTFS ZIP');
     upload.disabled = false;
     upload.style.removeProperty('--load-pct');
     upload.classList.remove('is-loading');
@@ -52,15 +62,15 @@ window.AppManager = (function () {
         elements.upload.disabled = true;
         elements.upload.classList.add('is-loading');
         elements.upload.style.setProperty('--load-pct', `${boundedPct}%`);
-        elements.upload.textContent = `⏳ ${label || 'VERİ YÜKLENİYOR'} %${boundedPct}`;
+        elements.upload.textContent = `${label || translate('loading', 'Loading...')} %${boundedPct}`;
       }
       if (elements.start) {
         elements.start.disabled = true;
         elements.start.classList.add('hidden');
       }
-      if (routeCount !== null) setText(elements.route, Number(routeCount).toLocaleString('tr-TR'));
-      if (tripCount !== null) setText(elements.trip, Number(tripCount).toLocaleString('tr-TR'));
-      if (stopCount !== null) setText(elements.stop, Number(stopCount).toLocaleString('tr-TR'));
+      if (routeCount !== null) setText(elements.route, Number(routeCount).toLocaleString(getLocale()));
+      if (tripCount !== null) setText(elements.trip, Number(tripCount).toLocaleString(getLocale()));
+      if (stopCount !== null) setText(elements.stop, Number(stopCount).toLocaleString(getLocale()));
       return;
     }
     updateStartButtonState();
@@ -81,9 +91,9 @@ window.AppManager = (function () {
     }
     const routeSet = new Set();
     for (let index = 0; index < trips.length; index++) routeSet.add(trips[index].s);
-    setText(elements.route, routeSet.size.toLocaleString('tr-TR'));
-    setText(elements.trip, trips.length.toLocaleString('tr-TR'));
-    setText(elements.stop, (stops ? stops.length : 0).toLocaleString('tr-TR'));
+    setText(elements.route, routeSet.size.toLocaleString(getLocale()));
+    setText(elements.trip, trips.length.toLocaleString(getLocale()));
+    setText(elements.stop, (stops ? stops.length : 0).toLocaleString(getLocale()));
     updateStartButtonState();
   }
 
@@ -159,14 +169,14 @@ window.AppManager = (function () {
     if (!badge) return;
     if (window.IS_ELECTRON) {
       window.electronAPI?.getAppInfo?.().then((info) => {
-        badge.textContent = `ELECTRON / ${(info?.platform || '').toUpperCase()}`;
+        badge.textContent = `${translate('platformElectron', 'ELECTRON')} / ${(info?.platform || '').toUpperCase()}`;
         badge.className = 'platform-badge electron';
       }).catch(() => {
-        badge.textContent = 'ELECTRON';
+        badge.textContent = translate('platformElectron', 'ELECTRON');
         badge.className = 'platform-badge electron';
       });
     } else {
-      badge.textContent = 'WEB BROWSER';
+      badge.textContent = translate('platformWeb', 'WEB BROWSER');
       badge.className = 'platform-badge web';
     }
   }
@@ -207,6 +217,10 @@ window.AppManager = (function () {
     initPlatformBadge();
     syncLandingSourceControls();
     updateStartButtonState();
+    window.addEventListener('app-language-change', () => {
+      updateStartButtonState();
+      updateLandingPageReports();
+    });
     setTimeout(updateLandingPageReports, 1500);
   }
 
