@@ -14,6 +14,10 @@ window.DataManager = (function () {
     getElement(id)?.classList.toggle('hidden', hidden);
   }
 
+  function translate(key, fallback = '') {
+    return window.I18n?.t?.(key, fallback) || fallback || key;
+  }
+
   function getLoaderElements() {
     return {
       overlay: getElement('loading-overlay'),
@@ -37,6 +41,11 @@ window.DataManager = (function () {
       tripCount: counts.tripCount,
       stopCount: counts.stopCount,
     });
+  }
+
+  function localizedUploadLabel(key, fallback, uppercase = false) {
+    const text = translate(key, fallback);
+    return uppercase ? text.toLocaleUpperCase(window.I18n?.getLanguage?.() === 'en' ? 'en-US' : 'tr-TR') : text;
   }
 
   function normalizeCityKey(value) {
@@ -218,19 +227,19 @@ window.DataManager = (function () {
     const landingUpload = isLandingVisible();
     const normalized = normalizeIncomingZip(file);
     if (!normalized) {
-      showToast('GTFS ZIP kaynağı okunamadı.', 'error');
+      showToast(translate('gtfsSourceUnreadable', 'GTFS ZIP kaynağı okunamadı.'), 'error');
       return;
     }
     if (!window.JSZip) {
-      alert('JSZip kütüphanesi yüklenemedi.');
+      alert(translate('gtfsJsZipMissing', 'JSZip kütüphanesi yüklenemedi.'));
       return;
     }
-    if (!landingUpload) gtfsProgress('ZIP açılıyor...', 5);
-    if (landingUpload) updateLandingLoadingState(5, 'ZIP AÇILIYOR');
+    if (!landingUpload) gtfsProgress(translate('loadingZipOpening', 'ZIP açılıyor...'), 5);
+    if (landingUpload) updateLandingLoadingState(5, localizedUploadLabel('loadingZipOpeningShort', 'ZIP AÇILIYOR'));
     try {
       const zip = await JSZip.loadAsync(normalized.payload);
-      if (!landingUpload) gtfsProgress('Dosyalar okunuyor...', 25);
-      if (landingUpload) updateLandingLoadingState(25, 'DOSYALAR OKUNUYOR');
+      if (!landingUpload) gtfsProgress(translate('loadingFilesReading', 'Dosyalar okunuyor...'), 25);
+      if (landingUpload) updateLandingLoadingState(25, localizedUploadLabel('loadingFilesReadingShort', 'DOSYALAR OKUNUYOR'));
       const files = {};
       const names = Object.keys(zip.files);
       let index = 0;
@@ -246,11 +255,11 @@ window.DataManager = (function () {
           ? raw
           : decodeZipText(raw);
         index++;
-        if (!landingUpload) gtfsProgress(`${normalized} okunuyor...`, 25 + Math.min(50, index * 8));
-        if (landingUpload) updateLandingLoadingState(25 + Math.min(50, index * 8), `${normalized.toUpperCase()} OKUNUYOR`);
+        if (!landingUpload) gtfsProgress(translate('loadingFileReading', '{file} okunuyor...').replace('{file}', normalized), 25 + Math.min(50, index * 8));
+        if (landingUpload) updateLandingLoadingState(25 + Math.min(50, index * 8), `${normalized.toUpperCase()} ${localizedUploadLabel('loadingFilesReadingShort', 'OKUNUYOR', true)}`);
       }
-      if (!landingUpload) gtfsProgress('Validasyon yapılıyor...', 80);
-      if (landingUpload) updateLandingLoadingState(80, 'VALIDASYON YAPILIYOR');
+      if (!landingUpload) gtfsProgress(translate('loadingValidation', 'Validasyon yapılıyor...'), 80);
+      if (landingUpload) updateLandingLoadingState(80, localizedUploadLabel('loadingValidationShort', 'VALIDASYON YAPILIYOR'));
       const report = gtfsValidate(files);
       ctx?.setLastGtfsFiles(files);
       ctx?.setLastGtfsFileName(normalized.name);
@@ -258,9 +267,9 @@ window.DataManager = (function () {
       const stopRows = files['stops.txt'] ? ctx.parseCsvRows(files['stops.txt']) : [];
       const routeRows = files['routes.txt'] ? ctx.parseCsvRows(files['routes.txt']) : [];
       const tripRows = files['trips.txt'] ? ctx.parseCsvRows(files['trips.txt']) : [];
-      if (!landingUpload) gtfsProgress('Tamamlandı.', 100);
+      if (!landingUpload) gtfsProgress(localizedUploadLabel('loadingReadyShort', 'Tamamlandı.'), 100);
       if (landingUpload) {
-        updateLandingLoadingState(100, 'VERİ YÜKLENİYOR', {
+        updateLandingLoadingState(100, localizedUploadLabel('loadingDataImportingShort', 'VERİ YÜKLENİYOR'), {
           routeCount: routeRows.length,
           tripCount: tripRows.length,
           stopCount: stopRows.length,
@@ -274,7 +283,7 @@ window.DataManager = (function () {
         }, 400);
       }
     } catch (error) {
-      if (!landingUpload) gtfsProgress(`ZIP parse hatası: ${error.message}`, 0);
+      if (!landingUpload) gtfsProgress(translate('gtfsZipParseError', 'ZIP parse hatası: {message}').replace('{message}', error.message), 0);
       window.AppManager?.setLandingUploadState?.({ loading: false });
       console.error('GTFS parse hatası:', error);
     }
@@ -284,25 +293,25 @@ window.DataManager = (function () {
     const rawUrl = typeof urlValue === 'string' ? urlValue : (getElement('lp-gtfs-url')?.value || '');
     const url = String(rawUrl || '').trim();
     if (!url) {
-      showToast('Önce HTTPS GTFS ZIP linki gir.', 'warn');
+      showToast(translate('gtfsEnterHttpsUrl', 'Önce HTTPS GTFS ZIP linki gir.'), 'warn');
       return;
     }
     if (!/^https:\/\//i.test(url)) {
-      showToast('Yalnızca HTTPS GTFS ZIP linklerine izin verilir.', 'error');
+      showToast(translate('gtfsOnlyHttpsAllowed', 'Yalnızca HTTPS GTFS ZIP linklerine izin verilir.'), 'error');
       return;
     }
     if (!window.electronAPI?.downloadGTFSFromUrl) {
-      showToast('Linkten indirme yalnızca Electron sürümünde desteklenir.', 'error');
+      showToast(translate('gtfsElectronOnly', 'Linkten indirme yalnızca Electron sürümünde desteklenir.'), 'error');
       return;
     }
-    updateLandingLoadingState(5, 'LİNK DOĞRULANIYOR');
+    updateLandingLoadingState(5, localizedUploadLabel('loadingLinkCheckingShort', 'LİNK DOĞRULANIYOR'));
     const result = await window.electronAPI.downloadGTFSFromUrl(url);
     if (!result?.success) {
       window.AppManager?.setLandingUploadState?.({ loading: false });
-      showToast(result?.error || 'GTFS ZIP linki indirilemedi.', 'error');
+      showToast(result?.error || translate('gtfsUrlDownloadFailed', 'GTFS ZIP linki indirilemedi.'), 'error');
       return;
     }
-    updateLandingLoadingState(20, 'ZIP İNDİRİLDİ');
+    updateLandingLoadingState(20, localizedUploadLabel('loadingZipDownloadedShort', 'ZIP İNDİRİLDİ'));
     await handleGTFSFile(result);
   }
 
@@ -553,7 +562,7 @@ window.DataManager = (function () {
         if (progressBar) progressBar.style.width = `${pct}%`;
         if (percentText) percentText.textContent = `${pct}%`;
         if (isLandingVisible()) {
-          updateLandingLoadingState(pct, 'VERİ YÜKLENİYOR');
+      updateLandingLoadingState(pct, localizedUploadLabel('loadingDataImportingShort', 'VERİ YÜKLENİYOR'));
         }
       };
       setProgress(5);
@@ -562,7 +571,7 @@ window.DataManager = (function () {
       const tables = ctx.parseGtfsTables(files);
       setProgress(10);
       if (isLandingVisible()) {
-        updateLandingLoadingState(10, 'TABLOLAR AYRILIYOR', {
+    updateLandingLoadingState(10, localizedUploadLabel('loadingTablesParsingShort', 'TABLOLAR AYRILIYOR'), {
           routeCount: tables.routeRows.length,
           tripCount: tables.tripRows.length,
           stopCount: tables.stopRows.length,
@@ -617,7 +626,7 @@ window.DataManager = (function () {
         } else {
           const badge = document.getElementById('calendar-adapted-badge');
           if (badge) badge.classList.add('hidden');
-          if (autoResult.serviceId !== 'all') ctx.showToast('GTFS takvimi bugüne uygun olarak otomatik seçildi.', 'info');
+      if (autoResult.serviceId !== 'all') ctx.showToast(translate('gtfsCalendarAutoSelected', 'GTFS takvimi bugüne uygun olarak otomatik seçildi.'), 'info');
         }
         selectedServiceId = autoResult.serviceId;
         ctx.setActiveServiceId(autoResult.serviceId);
@@ -637,7 +646,7 @@ window.DataManager = (function () {
 
       const totalTripCount = Object.keys(filteredTripMeta).length;
       if (isLandingVisible()) {
-        updateLandingLoadingState(29, 'SEFERLER HAZIRLANIYOR', {
+    updateLandingLoadingState(29, localizedUploadLabel('loadingTripsPreparingShort', 'SEFERLER HAZIRLANIYOR'), {
           routeCount: tables.routeRows.length,
           tripCount: totalTripCount,
           stopCount: tables.stopRows.length,
@@ -651,7 +660,12 @@ window.DataManager = (function () {
         const keySet = new Set(keys);
         cappedTripMeta = Object.fromEntries(keys.map((key) => [key, filteredTripMeta[key]]));
         cappedTripStops = Object.fromEntries(Object.entries(tripStops).filter(([key]) => keySet.has(key)));
-        ctx.showToast(`⚠️ Büyük veri: ${totalTripCount.toLocaleString('tr-TR')} seferden ${tripCap.toLocaleString('tr-TR')} tanesi yüklendi`, 'warning');
+      ctx.showToast(
+        translate('gtfsLargeDataWarning', '⚠️ Büyük veri: {total} seferden {loaded} tanesi yüklendi')
+          .replace('{total}', totalTripCount.toLocaleString(window.I18n?.getLanguage?.() === 'en' ? 'en-US' : 'tr-TR'))
+          .replace('{loaded}', tripCap.toLocaleString(window.I18n?.getLanguage?.() === 'en' ? 'en-US' : 'tr-TR')),
+        'warning'
+      );
       }
 
       if (loaderText && !landingUpload) loaderText.textContent = '3D Rotalar ve Seferler İşleniyor...';
@@ -672,7 +686,7 @@ window.DataManager = (function () {
       ctx.resetViewToggles();
       applyGtfsRuntimeData(runtimeData);
       if (isLandingVisible()) {
-        updateLandingLoadingState(100, 'VERİ HAZIR', {
+    updateLandingLoadingState(100, localizedUploadLabel('loadingReadyShort', 'VERİ HAZIR'), {
           routeCount: new Set(runtimeData.nTRIPS.map((trip) => trip.s)).size,
           tripCount: runtimeData.nTRIPS.length,
           stopCount: runtimeData.nSTOPS.length,
@@ -716,7 +730,7 @@ window.DataManager = (function () {
     ctx.CITIES.splice(0, ctx.CITIES.length);
     ctx.setActiveCity(null);
     if (previousActiveUploadId) {
-      ctx.showToast('Önceki yüklenen veri kaldırıldı. Yeni GTFS etkinleştiriliyor.', 'info');
+    ctx.showToast(translate('gtfsReplacingPrevious', 'Önceki yüklenen veri kaldırıldı. Yeni GTFS etkinleştiriliyor.'), 'info');
     }
     ctx.CITIES.push(meta);
     ctx.uploadedGtfsCities.set(meta.id, { files, fileName });
@@ -792,7 +806,7 @@ window.DataManager = (function () {
 
     document.addEventListener('click', (event) => {
       if (event.target?.id === 'btn-gtfs-confirm') {
-        confirmGtfsImport().catch((error) => showToast(error?.message || 'GTFS import hatası oluştu', 'error'));
+    confirmGtfsImport().catch((error) => showToast(error?.message || translate('gtfsImportError', 'GTFS import hatası oluştu'), 'error'));
       }
       if (event.target?.id === 'btn-gtfs-cancel') cancelGtfsImport();
     });
