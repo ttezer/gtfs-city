@@ -937,6 +937,44 @@ const I18N_MESSAGES = {
     routeSuggestedJourney: 'Önerilen yolculuk',
     routeSummaryDetail: '{legs} etap · {lines} hat',
     routeTotal: 'Toplam: {minutes} dakika',
+    plannerHeaderTitle: 'Nasıl Giderim',
+    heatmapFollowSimulation: 'Sim ile takip et',
+    bunchingAlertsTitle: 'Bunching Uyarıları',
+    bunchingThreshold: 'Eşik:',
+    worstWaitTitle: 'En Uzun Bekleme',
+    worstWaitSubtitle: 'İlk 10 Durak',
+    gtfsPreparing: 'Hazırlanıyor...',
+    gtfsExpectedFiles: 'Beklenen GTFS Dosyaları',
+    gtfsInfoNote: 'Simülasyon Python pipeline ile preprocess gerektirir. Bu araç validasyon + istatistik sağlar.',
+    cityLoading: '{city} yükleniyor...',
+    cityLoadingGeneric: 'Yükleniyor...',
+    warningTitle: 'Veri Uyarıları',
+    close: 'Kapat',
+    loadingZipOpening: 'ZIP açılıyor...',
+    loadingZipOpeningShort: 'ZIP AÇILIYOR',
+    loadingFilesReading: 'Dosyalar okunuyor...',
+    loadingFileReading: '{file} okunuyor...',
+    loadingFilesReadingShort: 'DOSYALAR OKUNUYOR',
+    loadingValidation: 'Validasyon yapılıyor...',
+    loadingValidationShort: 'VALIDASYON YAPILIYOR',
+    loadingDataImporting: 'Veri yükleniyor',
+    loadingDataImportingShort: 'VERİ YÜKLENİYOR',
+    loadingLinkCheckingShort: 'LİNK DOĞRULANIYOR',
+    loadingZipDownloadedShort: 'ZIP İNDİRİLDİ',
+    loadingTablesParsingShort: 'TABLOLAR AYRILIYOR',
+    loadingTripsPreparingShort: 'SEFERLER HAZIRLANIYOR',
+    loadingReadyShort: 'VERİ HAZIR',
+    gtfsSourceUnreadable: 'GTFS ZIP kaynağı okunamadı.',
+    gtfsJsZipMissing: 'JSZip kütüphanesi yüklenemedi.',
+    gtfsZipParseError: 'ZIP parse hatası: {message}',
+    gtfsEnterHttpsUrl: 'Önce HTTPS GTFS ZIP linki gir.',
+    gtfsOnlyHttpsAllowed: 'Yalnızca HTTPS GTFS ZIP linklerine izin verilir.',
+    gtfsElectronOnly: 'Linkten indirme yalnızca Electron sürümünde desteklenir.',
+    gtfsUrlDownloadFailed: 'GTFS ZIP linki indirilemedi.',
+    gtfsCalendarAutoSelected: 'GTFS takvimi bugüne uygun olarak otomatik seçildi.',
+    gtfsLargeDataWarning: '⚠️ Büyük veri: {total} seferden {loaded} tanesi yüklendi',
+    gtfsReplacingPrevious: 'Önceki yüklenen veri kaldırıldı. Yeni GTFS etkinleştiriliyor.',
+    gtfsImportError: 'GTFS import hatası oluştu',
   },
   en: {
     languageLabel: 'Language',
@@ -1022,6 +1060,44 @@ const I18N_MESSAGES = {
     routeSuggestedJourney: 'Suggested journey',
     routeSummaryDetail: '{legs} legs · {lines} lines',
     routeTotal: 'Total: {minutes} minutes',
+    plannerHeaderTitle: 'How Do I Get There',
+    heatmapFollowSimulation: 'Follow sim',
+    bunchingAlertsTitle: 'Bunching Alerts',
+    bunchingThreshold: 'Threshold:',
+    worstWaitTitle: 'Longest Wait',
+    worstWaitSubtitle: 'Top 10 Stops',
+    gtfsPreparing: 'Preparing...',
+    gtfsExpectedFiles: 'Expected GTFS Files',
+    gtfsInfoNote: 'Simulation requires Python pipeline preprocessing. This tool provides validation and statistics.',
+    cityLoading: 'Loading {city}...',
+    cityLoadingGeneric: 'Loading...',
+    warningTitle: 'Data Warnings',
+    close: 'Close',
+    loadingZipOpening: 'Opening ZIP...',
+    loadingZipOpeningShort: 'OPENING ZIP',
+    loadingFilesReading: 'Reading files...',
+    loadingFileReading: 'Reading {file}...',
+    loadingFilesReadingShort: 'READING FILES',
+    loadingValidation: 'Running validation...',
+    loadingValidationShort: 'RUNNING VALIDATION',
+    loadingDataImporting: 'Importing data',
+    loadingDataImportingShort: 'IMPORTING DATA',
+    loadingLinkCheckingShort: 'CHECKING LINK',
+    loadingZipDownloadedShort: 'ZIP DOWNLOADED',
+    loadingTablesParsingShort: 'PARSING TABLES',
+    loadingTripsPreparingShort: 'PREPARING TRIPS',
+    loadingReadyShort: 'DATA READY',
+    gtfsSourceUnreadable: 'GTFS ZIP source could not be read.',
+    gtfsJsZipMissing: 'JSZip library could not be loaded.',
+    gtfsZipParseError: 'ZIP parse error: {message}',
+    gtfsEnterHttpsUrl: 'Enter an HTTPS GTFS ZIP link first.',
+    gtfsOnlyHttpsAllowed: 'Only HTTPS GTFS ZIP links are allowed.',
+    gtfsElectronOnly: 'Downloading from link is supported only in the Electron build.',
+    gtfsUrlDownloadFailed: 'GTFS ZIP link could not be downloaded.',
+    gtfsCalendarAutoSelected: 'GTFS calendar was automatically selected for today.',
+    gtfsLargeDataWarning: '⚠️ Large dataset: {loaded} of {total} trips were loaded',
+    gtfsReplacingPrevious: 'Previous data was removed. Activating new GTFS.',
+    gtfsImportError: 'A GTFS import error occurred',
   },
 };
 
@@ -1101,6 +1177,31 @@ function applyStaticTranslations() {
   if (routeBuildBtn) routeBuildBtn.textContent = t('plannerBuildRoute');
   const resultTitle = document.querySelector('#route-result-header > span');
   if (resultTitle) resultTitle.textContent = t('plannerResultTitle');
+  const plannerHeaderTitle = document.querySelector('#route-planner-header > div > span');
+  if (plannerHeaderTitle) plannerHeaderTitle.textContent = `🧭 ${t('plannerHeaderTitle')}`;
+  const heatmapFollow = document.querySelector('label[for="heatmap-follow-sim"], #heatmap-ctrl .small-check');
+  const heatmapCheckbox = document.getElementById('heatmap-follow-sim');
+  if (heatmapFollow && heatmapCheckbox) heatmapFollow.lastChild.textContent = ` ${t('heatmapFollowSimulation')}`;
+  const bunchingTitle = document.querySelector('#bunching-header > span');
+  if (bunchingTitle) bunchingTitle.textContent = `⚠️ ${t('bunchingAlertsTitle')}`;
+  const thresholdLabel = document.querySelector('#threshold-row > span');
+  if (thresholdLabel) thresholdLabel.textContent = t('bunchingThreshold');
+  const worstHeader = document.querySelector('#worst-header > span');
+  if (worstHeader) worstHeader.textContent = `⏱ ${t('worstWaitTitle')}`;
+  const worstSub = document.querySelector('#worst-header .worst-sub');
+  if (worstSub) worstSub.textContent = t('worstWaitSubtitle');
+  const gtfsProgressMsg = document.getElementById('gtfs-progress-msg');
+  if (gtfsProgressMsg && !gtfsProgressMsg.dataset.dynamic) gtfsProgressMsg.textContent = t('gtfsPreparing');
+  const gtfsInfoTitle = document.querySelector('.gtfs-info-title');
+  if (gtfsInfoTitle) gtfsInfoTitle.textContent = t('gtfsExpectedFiles');
+  const gtfsNote = document.querySelector('.gtfs-note');
+  if (gtfsNote) gtfsNote.textContent = t('gtfsInfoNote');
+  const cityLoadingName = document.getElementById('city-loading-name');
+  if (cityLoadingName && !cityLoadingName.dataset.city) cityLoadingName.textContent = t('cityLoadingGeneric');
+  const warningTitle = document.querySelector('.gwd-title');
+  if (warningTitle) warningTitle.textContent = t('warningTitle');
+  const warningClose = document.getElementById('gwd-close');
+  if (warningClose) warningClose.title = t('close');
 }
 
 function setLanguage(lang) {
