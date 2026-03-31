@@ -27,6 +27,10 @@
 body{font-family:'Barlow Condensed','Segoe UI Emoji','Apple Color Emoji','Noto Color Emoji',sans-serif;background:var(--bg);color:var(--text);height:100vh;overflow:hidden;}
 #map{position:absolute;inset:0;}
 #deck-canvas{position:absolute;inset:0;pointer-events:none;}
+#language-switcher{position:fixed;top:14px;right:14px;z-index:650;display:flex;align-items:center;gap:8px;padding:8px 10px;border:1px solid var(--border);border-radius:10px;background:rgba(13,17,23,.88);backdrop-filter:var(--blur);box-shadow:0 8px 24px rgba(0,0,0,.35);}
+#language-switcher label{font-size:10px;letter-spacing:1px;text-transform:uppercase;color:var(--text-muted);}
+#language-switcher select{background:rgba(22,27,34,.95);color:var(--text);border:1px solid var(--border);border-radius:8px;padding:4px 8px;font-size:12px;outline:none;}
+#language-switcher select:focus{border-color:var(--accent);}
 
 /* ── UI HELPERS ── */
 .section-label { color: #c9d1d9 !important; font-weight: 400 !important; font-size: 11px; letter-spacing: 0.8px; text-transform: uppercase; }
