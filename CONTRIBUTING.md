@@ -31,6 +31,16 @@ Bu repo kamuya acik ve katkiya aciktir. Amac, calisan masaustu ve web akislarini
 
 Bu repo icin hedef, az ama net kuralla profesyonel izlenebilirlik saglamaktir.
 
+### Repo Dili
+
+- Varsayilan repo dili Turkcedir.
+- Issue basliklari Turkce yazilir.
+- Issue aciklamalari Turkce yazilir.
+- PR basliklari Turkce yazilir.
+- PR aciklamalari Turkce yazilir.
+- Commit mesajlari Turkce yazilir.
+- Gerekirse ayrica Ingilizce ozet veya Ingilizce surum eklenebilir.
+
 ### Label Seti
 
 Asagidaki etiketler yeterlidir. Ilk etapta bunlarin disina cikmaya gerek yok.
