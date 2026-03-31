@@ -5,7 +5,7 @@ Bu belge, ürünün orta ve uzun vadeli geliştirme başlıklarını toplar. Hed
 ## Alanlar
 
 - **Tür:** `Yeni özellik` veya `Geliştirme`
-- **Öncelik:** `Yüksek`, `Orta`, `Düşük`
+- **Öncelik:** `🔴 Yüksek`, `🟠 Orta`, `🟡 Düşük`
 - **Platform:** `Desktop`, `Web`, `Her ikisi`
 - **Durum:** `Planlandı`, `İnceleniyor`, `Geliştiriliyor`, `Beklemede`, `Tamamlandı`
 
@@ -13,41 +13,41 @@ Bu belge, ürünün orta ve uzun vadeli geliştirme başlıklarını toplar. Hed
 
 | Başlık | Tür | Öncelik | Platform | Durum | Hedef |
 |---|---|---|---|---|---|
-| GTFS-RT Entegrasyonu | Yeni özellik | Yüksek | Desktop | Planlandı | Canlı araç konumu, gecikme ve gerçek zamanlı operasyon görünürlüğü |
-| Nasıl Giderim / Yol Tarifi | Geliştirme | Yüksek | Her ikisi | Planlandı | Hat ve aktarma mantığıyla çalışan anlaşılır yol tarifi üretmek |
-| Hat Seçiminde Yön Filtresi | Yeni özellik | Yüksek | Her ikisi | Planlandı | `direction_id` bazlı yön seçimi ile durak, araç ve panelleri birlikte filtrelemek |
-| Hat ve Durak Bazlı Sorgulama | Yeni özellik | Yüksek | Her ikisi | Planlandı | Seçili hat, durak, yön ve zaman bağlamında hedefli sorgulama sunmak |
-| Sefer Saatleri | Yeni özellik | Yüksek | Her ikisi | Planlandı | Hat bazlı sefer saatlerini okunabilir biçimde göstermek |
-| Araç İkonu Üzerinde Hat Kodu / Yön | Yeni özellik | Yüksek | Her ikisi | Planlandı | Araç ikonunun üstünde hat kodu ve yön bilgisini görünür kılmak |
-| 3D Bina Katmanı | Yeni özellik | Orta | Desktop | Planlandı | Harita bağlamını güçlendirmek |
-| Sinematik Geliştirmeleri | Geliştirme | Orta | Her ikisi | Planlandı | Açı, yön, hız ve kamera geçişlerini veri odaklı hale getirmek |
-| Yoğunluk Heatmap | Geliştirme | Orta | Her ikisi | Planlandı | Çap ve renk parametrelerini kullanıcıya açmak |
-| Durak 300 mt Katmanı | Geliştirme | Orta | Her ikisi | Planlandı | Mesafe, çizgi rengi ve dolgu rengini ayarlanabilir yapmak |
-| Bunching Alarmı | Geliştirme | Orta | Her ikisi | Planlandı | Alarmı daha anlaşılır ve daha okunur göstermek |
-| Bekleme Süresi 3D | Geliştirme | Orta | Her ikisi | Planlandı | Anlık zamana göre güncelleme ve puanlama eklemek |
-| Headway Çizgileri | Geliştirme | Orta | Her ikisi | Planlandı | Çizgi atılacak araç sayısını kullanıcıya seçtirmek |
-| Araç İzleri Yerine Kuyruklama Analizi | Yeni özellik | Orta | Her ikisi | Planlandı | Fade iz yerine daha anlamlı operasyon analizi sunmak |
-| İzokron Analizi Puanlama | Yeni özellik | Orta | Her ikisi | Planlandı | Veriye göre seçili durağa skor üretmek |
+| GTFS-RT Entegrasyonu | Yeni özellik | 🔴 Yüksek | Desktop | Planlandı | Canlı araç konumu, gecikme ve gerçek zamanlı operasyon görünürlüğü |
+| Nasıl Giderim / Yol Tarifi | Geliştirme | 🔴 Yüksek | Her ikisi | Planlandı | Hat ve aktarma mantığıyla çalışan anlaşılır yol tarifi üretmek |
+| Hat Seçiminde Yön Filtresi | Yeni özellik | 🔴 Yüksek | Her ikisi | Planlandı | `direction_id` bazlı yön seçimi ile durak, araç ve panelleri birlikte filtrelemek |
+| Hat ve Durak Bazlı Sorgulama | Yeni özellik | 🔴 Yüksek | Her ikisi | Planlandı | Seçili hat, durak, yön ve zaman bağlamında hedefli sorgulama sunmak |
+| Sefer Saatleri | Yeni özellik | 🔴 Yüksek | Her ikisi | Planlandı | Hat bazlı sefer saatlerini okunabilir biçimde göstermek |
+| Araç İkonu Üzerinde Hat Kodu / Yön | Yeni özellik | 🔴 Yüksek | Her ikisi | Planlandı | Araç ikonunun üstünde hat kodu ve yön bilgisini görünür kılmak |
+| 3D Bina Katmanı | Yeni özellik | 🟠 Orta | Desktop | Planlandı | Harita bağlamını güçlendirmek |
+| Sinematik Geliştirmeleri | Geliştirme | 🟠 Orta | Her ikisi | Planlandı | Açı, yön, hız ve kamera geçişlerini veri odaklı hale getirmek |
+| Yoğunluk Heatmap | Geliştirme | 🟠 Orta | Her ikisi | Planlandı | Çap ve renk parametrelerini kullanıcıya açmak |
+| Durak 300 mt Katmanı | Geliştirme | 🟠 Orta | Her ikisi | Planlandı | Mesafe, çizgi rengi ve dolgu rengini ayarlanabilir yapmak |
+| Bunching Alarmı | Geliştirme | 🟠 Orta | Her ikisi | Planlandı | Alarmı daha anlaşılır ve daha okunur göstermek |
+| Bekleme Süresi 3D | Geliştirme | 🟠 Orta | Her ikisi | Planlandı | Anlık zamana göre güncelleme ve puanlama eklemek |
+| Headway Çizgileri | Geliştirme | 🟠 Orta | Her ikisi | Planlandı | Çizgi atılacak araç sayısını kullanıcıya seçtirmek |
+| Araç İzleri Yerine Kuyruklama Analizi | Yeni özellik | 🟠 Orta | Her ikisi | Planlandı | Fade iz yerine daha anlamlı operasyon analizi sunmak |
+| İzokron Analizi Puanlama | Yeni özellik | 🟠 Orta | Her ikisi | Planlandı | Veriye göre seçili durağa skor üretmek |
 
 ## Web Yol Haritası
 
 | Başlık | Tür | Öncelik | Platform | Durum | Hedef |
 |---|---|---|---|---|---|
-| Açık Kaynak GTFS Link Havuzu | Yeni özellik | Orta | Web | Planlandı | Web sürümünde örnek açık veri bağlantıları sunmak |
-| Web Demo Olgunlaştırma | Geliştirme | Orta | Web | Geliştiriliyor | Pages demosunu daha tam özellikli ama güvenli kapsamda tutmak |
-| GitHub Pages Sayfa Tasarımı | Geliştirme | Orta | Web | Planlandı | Vitrin sayfasını daha profesyonel ve ürün kimliğine uygun hale getirmek |
+| Açık Kaynak GTFS Link Havuzu | Yeni özellik | 🟠 Orta | Web | Planlandı | Web sürümünde örnek açık veri bağlantıları sunmak |
+| Web Demo Olgunlaştırma | Geliştirme | 🟠 Orta | Web | Geliştiriliyor | Pages demosunu daha tam özellikli ama güvenli kapsamda tutmak |
+| GitHub Pages Sayfa Tasarımı | Geliştirme | 🟠 Orta | Web | Planlandı | Vitrin sayfasını daha profesyonel ve ürün kimliğine uygun hale getirmek |
 
 ## Teknik Borç ve Refactor Planı
 
 | Başlık | Tür | Öncelik | Platform | Durum | Hedef |
 |---|---|---|---|---|---|
-| State Ownership Temizliği | Geliştirme | Yüksek | Her ikisi | Planlandı | `state-manager.js` dosyasını gerçek merkezi durum katmanına dönüştürmek |
-| `script.js` Sorumluluk Azaltma | Geliştirme | Yüksek | Her ikisi | Planlandı | Ana dosyayı orkestrasyon katmanı olarak tutmak |
-| Trip Eşleştirme ve Picking Zinciri | Geliştirme | Yüksek | Her ikisi | Planlandı | Araç tıklama ve panel eşleşmesini daha deterministik hale getirmek |
-| Durak Paneli Hesaplarını Ayrıştırma | Geliştirme | Orta | Her ikisi | Planlandı | Durak özetleri ve varış hesaplarını ayrı util katmanına taşımak |
-| Katman Hesabı ve Render Ayrımı | Geliştirme | Yüksek | Her ikisi | Planlandı | `map-manager.js` içinde hesaplama ile çizim sorumluluğunu ayırmak |
-| Toggle Spam ve UI Kilitlenmesi | Geliştirme | Orta | Her ikisi | Planlandı | Art arda aç/kapa işlemlerinde yaşanan kilitlenmeleri azaltmak |
-| Web ve Desktop Adapter Ayrımı | Geliştirme | Orta | Her ikisi | Planlandı | Platforma özel akışları adapter katmanında toplamak |
+| State Ownership Temizliği | Geliştirme | 🔴 Yüksek | Her ikisi | Planlandı | `state-manager.js` dosyasını gerçek merkezi durum katmanına dönüştürmek |
+| `script.js` Sorumluluk Azaltma | Geliştirme | 🔴 Yüksek | Her ikisi | Planlandı | Ana dosyayı orkestrasyon katmanı olarak tutmak |
+| Trip Eşleştirme ve Picking Zinciri | Geliştirme | 🔴 Yüksek | Her ikisi | Planlandı | Araç tıklama ve panel eşleşmesini daha deterministik hale getirmek |
+| Durak Paneli Hesaplarını Ayrıştırma | Geliştirme | 🟠 Orta | Her ikisi | Planlandı | Durak özetleri ve varış hesaplarını ayrı util katmanına taşımak |
+| Katman Hesabı ve Render Ayrımı | Geliştirme | 🔴 Yüksek | Her ikisi | Planlandı | `map-manager.js` içinde hesaplama ile çizim sorumluluğunu ayırmak |
+| Toggle Spam ve UI Kilitlenmesi | Geliştirme | 🟠 Orta | Her ikisi | Planlandı | Art arda aç/kapa işlemlerinde yaşanan kilitlenmeleri azaltmak |
+| Web ve Desktop Adapter Ayrımı | Geliştirme | 🟠 Orta | Her ikisi | Planlandı | Platforma özel akışları adapter katmanında toplamak |
 
 ## Notlar
 
