@@ -153,7 +153,7 @@ window.ServiceManager = (function () {
     }
 
     const firstId = [...ids][0] || 'all';
-    const reason = adapted ? 'Bugün için servis bulunamadı, takvim geçmiş veriye uyarlandı.' : '';
+    const reason = adapted ? translate('serviceAdaptedReason', 'Bugün için servis bulunamadı, takvim geçmiş veriye uyarlandı.') : '';
     return { serviceId: firstId, adapted, serviceIds: ids, reason };
   }
 
