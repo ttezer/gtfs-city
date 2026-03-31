@@ -12,6 +12,7 @@ window.MapManager = (function () {
   let cacheTypeFilter = null;
   let cacheActiveRoutes = '';
   let cacheFocusedRoute = null;
+  let cacheSelectedRouteDirection = null;
 
   const deck = window.deck || window.Deck;
   const {
@@ -60,8 +61,8 @@ window.MapManager = (function () {
   }
 
   function getDirectionColor(baseColor, direction) {
-    if (direction === 0) return toneColor(baseColor, 24);
-    if (direction === 1) return toneColor(baseColor, -28);
+    if (direction === 0) return toneColor(baseColor, 58);
+    if (direction === 1) return toneColor(baseColor, -72);
     return baseColor;
   }
 
@@ -83,8 +84,8 @@ window.MapManager = (function () {
     const trip = entry?.trip || entry;
     const routeCode = String(trip?.s || '').trim();
     if (!routeCode) return '';
-    if (trip?.dir === 0) return `${routeCode} ↑`;
-    if (trip?.dir === 1) return `${routeCode} ↓`;
+    if (trip?.dir === 0) return `${routeCode} D0`;
+    if (trip?.dir === 1) return `${routeCode} D1`;
     return routeCode;
   }
 
@@ -92,7 +93,7 @@ window.MapManager = (function () {
     if (!ctx.focusedRoute || !ctx.showAnim) return false;
     const mapgl = getMapgl();
     if (!mapgl?.getZoom) return false;
-    return mapgl.getZoom() >= 14.2;
+    return mapgl.getZoom() >= 12.8;
   }
 
   function invalidateCaches() {
@@ -105,6 +106,7 @@ window.MapManager = (function () {
     cacheTypeFilter = null;
     cacheActiveRoutes = '';
     cacheFocusedRoute = null;
+    cacheSelectedRouteDirection = null;
   }
 
   function refreshLayersNow() {
@@ -118,6 +120,7 @@ window.MapManager = (function () {
       cacheTypeFilter,
       cacheActiveRoutes,
       ctx.focusedRoute || '',
+      ctx.selectedRouteDirection ?? 'all',
       ctx.QUALITY.level,
       ctx.showPaths ? 1 : 0,
       ctx.showStops ? 1 : 0,
@@ -138,6 +141,7 @@ window.MapManager = (function () {
       && ctx.typeFilter === cacheTypeFilter
       && activeRoutesKey === cacheActiveRoutes
       && (ctx.focusedRoute || null) === cacheFocusedRoute
+      && (ctx.selectedRouteDirection ?? null) === cacheSelectedRouteDirection
     ) {
       return { visTrips: cachedVisTrips, visShapes: cachedVisShapes };
     }
@@ -145,15 +149,18 @@ window.MapManager = (function () {
     cacheTypeFilter = ctx.typeFilter;
     cacheActiveRoutes = activeRoutesKey;
     cacheFocusedRoute = ctx.focusedRoute || null;
+    cacheSelectedRouteDirection = ctx.selectedRouteDirection ?? null;
     cachedVisTrips = ctx.TRIPS.filter((trip) => (
       (ctx.typeFilter === 'all' || normalizeRouteType(trip.t) === normalizeRouteType(ctx.typeFilter))
       && !ctx.activeRoutes.has(trip.s)
       && (!ctx.focusedRoute || trip.s === ctx.focusedRoute)
+      && (ctx.selectedRouteDirection === null || ctx.selectedRouteDirection === undefined || trip.dir === ctx.selectedRouteDirection)
     ));
     cachedVisShapes = ctx.SHAPES.filter((shape) => (
       (ctx.typeFilter === 'all' || normalizeRouteType(shape.t) === normalizeRouteType(ctx.typeFilter))
       && !ctx.activeRoutes.has(shape.s)
       && (!ctx.focusedRoute || shape.s === ctx.focusedRoute)
+      && (ctx.selectedRouteDirection === null || ctx.selectedRouteDirection === undefined || shape.dir === ctx.selectedRouteDirection)
     ));
     return { visTrips: cachedVisTrips, visShapes: cachedVisShapes };
   }
@@ -435,19 +442,19 @@ window.MapManager = (function () {
       data: labelData,
       getPosition: (d) => d.pos,
       getText: (d) => getVehicleLabel(d),
-      getSize: 13,
-      getColor: (d) => getVehicleDisplayColor(ctx, d),
-      getBackgroundColor: [12, 16, 24, 196],
+      getSize: 15,
+      getColor: () => [244, 247, 252, 255],
+      getBackgroundColor: (d) => [...getVehicleDisplayColor(ctx, d), 220],
       background: true,
-      getBorderColor: [220, 230, 255, 42],
+      getBorderColor: [14, 18, 24, 180],
       borderWidth: 1,
       getTextAnchor: 'middle',
       getAlignmentBaseline: 'bottom',
-      getPixelOffset: [0, -18],
+      getPixelOffset: [0, -20],
       fontFamily: 'JetBrains Mono, monospace',
       sizeUnits: 'pixels',
-      sizeMinPixels: 11,
-      sizeMaxPixels: 18,
+      sizeMinPixels: 13,
+      sizeMaxPixels: 22,
       characterSet: 'auto',
       billboard: true,
       pickable: false,
