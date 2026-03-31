@@ -4,14 +4,18 @@ window.ServiceManager = (function () {
   const WEEKDAY_LABELS = ['Pzt', 'Sal', '\u00c7ar', 'Per', 'Cum', 'Cmt', 'Paz'];
   const SERVICE_STATUS_RANK = { active: 0, future: 1, passive: 2, expired: 3 };
   const SERVICE_STATUS_LABELS = {
-    active: 'AKT\u0130F',
+    active: 'AKTİF',
     future: 'PLANLI',
-    expired: 'GE\u00c7M\u0130\u015e',
-    passive: 'PAS\u0130F',
+    expired: 'GEÇMİŞ',
+    passive: 'PASİF',
   };
 
   function getCtx() {
     return window.LegacyServiceBridge?.getContext?.() || null;
+  }
+
+  function translate(key, fallback = '') {
+    return window.I18n?.t?.(key, fallback) || fallback || key;
   }
 
   function normalizeServiceIds(currentIds) {
@@ -149,7 +153,7 @@ window.ServiceManager = (function () {
     }
 
     const firstId = [...ids][0] || 'all';
-    const reason = adapted ? 'Bug\u00fcn i\u00e7in servis bulunamad\u0131, takvim ge\u00e7mi\u015f veriye uyarland\u0131.' : '';
+    const reason = adapted ? translate('serviceAdaptedReason', 'Bugün için servis bulunamadı, takvim geçmiş veriye uyarlandı.') : '';
     return { serviceId: firstId, adapted, serviceIds: ids, reason };
   }
 
@@ -196,8 +200,8 @@ window.ServiceManager = (function () {
       picker.min = '';
       picker.max = '';
       picker.disabled = true;
-      if (info) info.textContent = '\u00c7al\u0131\u015fma takvimi verisi yok \u00b7 T\u00fcm\u00fc';
-      if (badges) badges.innerHTML = '<span class="service-badge passive">Takvim verisi yok</span>';
+      if (info) info.textContent = translate('serviceNoCalendarData', 'No service calendar data · All');
+      if (badges) badges.innerHTML = `<span class="service-badge passive">${translate('serviceNoCalendarShort', 'No calendar data')}</span>`;
       if (ctx) ctx.setCalendarCache({ rows: [], dateRows: [] });
       return;
     }
@@ -227,19 +231,28 @@ window.ServiceManager = (function () {
     const selectedDate = picker.value || new Date().toISOString().slice(0, 10);
     const summary = summarizeServiceStatuses(calendarRows, selectedDate, currentIds);
     if (info) {
-      info.textContent = `${selectedDate} \u00b7 ${summary.counts.active} aktif \u00b7 ${summary.counts.future} planl\u0131 \u00b7 ${summary.counts.expired} ge\u00e7mi\u015f`;
+      info.textContent = translate('serviceStatusSummary', '{date} · {active} active · {future} scheduled · {expired} expired')
+        .replace('{date}', selectedDate)
+        .replace('{active}', String(summary.counts.active))
+        .replace('{future}', String(summary.counts.future))
+        .replace('{expired}', String(summary.counts.expired));
     }
     if (badges) {
       const allSelected = !currentIds || currentIds.size === 0 || (currentIds.size === 1 && currentIds.has('all'));
       const badgeEntries = [
-        `<button type="button" class="service-badge ${allSelected ? 'active' : 'passive'} service-badge-button" data-service-action="all" onclick="window.ServiceManager?.applyAllServices?.()">Tümü</button>`
+        `<button type="button" class="service-badge ${allSelected ? 'active' : 'passive'} service-badge-button" data-service-action="all" onclick="window.ServiceManager?.applyAllServices?.()">${translate('serviceAll', 'All')}</button>`,
       ];
       badgeEntries.push(...summary.entries.slice(0, 10).map((entry) => {
-        const label = SERVICE_STATUS_LABELS[entry.status] || SERVICE_STATUS_LABELS.passive;
+        const label = {
+          active: translate('serviceBadgeActive', 'ACTIVE'),
+          future: translate('serviceBadgeFuture', 'SCHEDULED'),
+          expired: translate('serviceBadgeExpired', 'EXPIRED'),
+          passive: translate('serviceBadgePassive', 'PASSIVE'),
+        }[entry.status] || translate('serviceBadgePassive', 'PASSIVE');
         return `<span class="service-badge ${entry.status}" title="${entry.serviceId}">${entry.serviceId} \u00b7 ${label}</span>`;
       }));
       if (summary.entries.length > 10) {
-        badgeEntries.push(`<span class="service-badge passive">+${summary.entries.length - 10} servis</span>`);
+        badgeEntries.push(`<span class="service-badge passive">+${summary.entries.length - 10} ${translate('serviceMore', 'services')}</span>`);
       }
       badges.innerHTML = badgeEntries.join('');
     }
@@ -247,11 +260,11 @@ window.ServiceManager = (function () {
 
   function getActiveServiceLabel() {
     const ctx = getCtx();
-    if (!ctx) return 'T\u00fcm\u00fc';
+    if (!ctx) return translate('serviceAll', 'All');
     const activeServiceId = ctx.getActiveServiceId();
-    if (activeServiceId === 'all') return 'T\u00fcm\u00fc';
+    if (activeServiceId === 'all') return translate('serviceAll', 'All');
     const match = ctx.getActiveServiceOptions().find((option) => option.id === activeServiceId);
-    return ctx.displayText(match?.label || activeServiceId || 'T\u00fcm\u00fc');
+    return ctx.displayText(match?.label || activeServiceId || translate('serviceAll', 'All'));
   }
 
   async function handleDateChange(dateStr) {
@@ -263,7 +276,7 @@ window.ServiceManager = (function () {
 
     const ids = getServiceIdsForDate(dateStr, cache.rows, cache.dateRows);
     if (!ids.size) {
-      ctx.showToast('Bu tarihte sefer bulunamad\u0131', 'warning');
+      ctx.showToast('Bu tarihte sefer bulunamadı', 'warning');
       return;
     }
 

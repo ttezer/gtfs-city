@@ -57,7 +57,9 @@ window.UIManager = (function () {
     const detailsEl = getElement('route-panel-details');
     if (!panel || !nameEl || !metaEl || !detailsEl) return;
     const icon = ctx.displayText(typeMetaEntry?.i || '');
-    const typeName = ctx.displayText(typeMetaEntry?.n || '-');
+    const typeName = ctx.getLocalizedRouteTypeName
+      ? ctx.getLocalizedRouteTypeName(routeMeta.type, typeMetaEntry?.n || '-')
+      : ctx.displayText(typeMetaEntry?.n || '-');
     const stats = ctx.buildRoutePanelStats(routeMeta.short);
     nameEl.textContent = `${icon} ${routeMeta.short}${routeMeta.longName ? ` · ${ctx.displayText(routeMeta.longName)}` : ''}`.trim();
     metaEl.textContent = `${typeName} · ${ctx.displayText(stats.directionLabel)}`;
@@ -436,7 +438,9 @@ window.UIManager = (function () {
           <div class="ri-info"><div class="ri-name"></div><div class="ri-type"></div><div class="ri-long"></div></div>
           <input type="checkbox" class="ri-check" ${ctx.activeRoutes.has(route.s) ? '' : 'checked'} data-short="${route.s}">`;
         div.querySelector('.ri-name').textContent = routeMeta.short;
-        div.querySelector('.ri-type').textContent = ctx.TYPE_META[type]?.n || type;
+        div.querySelector('.ri-type').textContent = ctx.getLocalizedRouteTypeName
+          ? ctx.getLocalizedRouteTypeName(type, ctx.TYPE_META[type]?.n || type)
+          : (ctx.TYPE_META[type]?.n || type);
         div.querySelector('.ri-long').textContent = routeMeta.longName || '';
         div.classList.toggle('hidden-route', ctx.activeRoutes.has(route.s));
         div.onclick = (e) => {
@@ -716,7 +720,7 @@ window.UIManager = (function () {
     if (legend) legend.style.opacity = '0';
     const btn = document.getElementById('btn-cinematic');
     if (btn) {
-      btn.textContent = '⏹ Durdur';
+      btn.textContent = translate('cinematicStop', '⏹ Durdur');
       btn.style.background = 'rgba(248,81,73,0.25)';
       btn.style.borderColor = '#f85149';
       btn.style.color = '#f85149';
@@ -742,7 +746,7 @@ window.UIManager = (function () {
     }
     const btn = document.getElementById('btn-cinematic');
     if (btn) {
-      btn.textContent = '🎬 Sinematik';
+      btn.textContent = translate('cinematicStart', '🎬 Sinematik');
       btn.style.background = '';
       btn.style.borderColor = '';
       btn.style.color = '';

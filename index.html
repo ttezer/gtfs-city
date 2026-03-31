@@ -159,7 +159,7 @@
 
   <!-- TYPE FILTER -->
   <div class="panel-section">
-    <div class="section-label">HAT TİPİ</div>
+    <div class="section-label" id="route-type-label">HAT TİPİ</div>
     <div id="type-btns">
       <button class="tbtn active" data-t="all">Tümü</button>
       <button class="tbtn" data-t="1">Metro</button>
@@ -174,7 +174,7 @@
 
   <!-- HARİTA STİLİ -->
   <div class="panel-section">
-    <div class="section-label">HARİTA GÖRÜNÜMÜ</div>
+    <div class="section-label" id="map-style-label">HARİTA GÖRÜNÜMÜ</div>
     <div id="map-style-btns" style="display:flex; gap:4px; margin-top:6px;">
       <button class="cbtn sstyle active" data-s="auto">OTO</button>
       <button class="cbtn sstyle" data-s="satellite">UYDU</button>
@@ -287,11 +287,6 @@
     <button id="stop-panel-close" class="drawer-close">✕</button>
   </div>
   <div class="drawer-body stop-panel-inner">
-    <div class="sa-head" style="background:rgba(0,0,0,0.2); font-size:10px; padding:6px 16px; color:var(--text-muted); text-transform:uppercase; letter-spacing:1px; display:flex;">
-    <span style="min-width:50px">Hat</span>
-    <span style="flex:1; padding:0 10px">Varış Yönü</span>
-    <span style="min-width:60px; text-align:right">Süre</span>
-  </div>
   <div id="stop-arrivals-table"></div>
   </div>
 </div>

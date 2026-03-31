@@ -1,4 +1,7 @@
 window.SimulationEngine = (function () {
+  function translate(key, fallback = '') {
+    return window.I18n?.t?.(key, fallback) || fallback || key;
+  }
   const SATELLITE_STYLE = {
     version: 8,
     sources: {
@@ -152,25 +155,30 @@ window.SimulationEngine = (function () {
     if (ctx.currentMapStyle === 'satellite') {
       targetStyle = SATELLITE_STYLE;
       if (badge) {
-        badge.textContent = '🛰️ UYDU';
+        badge.textContent = translate('dayNightSatellite', '🛰️ UYDU');
         badge.style.background = '#1a2332';
       }
     } else if (ctx.currentMapStyle === 'dark') {
       targetStyle = 'https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json';
       if (badge) {
-        badge.textContent = '🌙 KOYU';
+        badge.textContent = translate('dayNightDark', '🌙 KOYU');
         badge.style.background = '#0d1520';
       }
     } else if (ctx.currentMapStyle === 'light') {
       targetStyle = 'https://basemaps.cartocdn.com/gl/voyager-gl-style/style.json';
       if (badge) {
-        badge.textContent = '☀️ AÇIK';
+        badge.textContent = translate('dayNightLight', '☀️ AÇIK');
         badge.style.background = '#f0f2f5';
       }
     } else {
       const phaseCfg = ctx.PHASE_CFG[phase];
       if (badge) {
-        badge.textContent = phaseCfg.badge;
+        badge.textContent = ({
+          night: translate('dayNightNight', '🌙 GECE'),
+          dawn: translate('dayNightDawn', '🌅 ŞAFAK'),
+          day: translate('dayNightDay', '☀️ GÜNDÜZ'),
+          dusk: translate('dayNightDusk', '🌆 AKŞAM'),
+        }[phase]) || phaseCfg.badge;
         badge.style.background = phaseCfg.bg;
       }
       targetStyle = phaseCfg.style;
