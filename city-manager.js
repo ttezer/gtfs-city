@@ -1,6 +1,10 @@
 window.CityManager = (function () {
   let initialized = false;
 
+  function translate(key, fallback = '') {
+    return window.I18n?.t?.(key, fallback) || fallback || key;
+  }
+
   function getCtx() {
     return window.LegacyCityBridge?.getContext?.() || null;
   }
@@ -13,29 +17,33 @@ window.CityManager = (function () {
     const overlay = getElement('city-loading');
     const name = getElement('city-loading-name');
     overlay?.classList.toggle('hidden', !visible);
-    if (visible && name) name.textContent = `${cityName} y?kleniyor...`;
+    if (!name) return;
+    name.dataset.city = visible && cityName ? cityName : '';
+    name.textContent = visible
+      ? translate('cityLoading', '{city} yükleniyor...').replace('{city}', cityName || translate('cityLoadingGeneric', 'Yükleniyor...'))
+      : translate('cityLoadingGeneric', 'Yükleniyor...');
   }
 
   function slugifyCityId(value) {
     return String(value || '')
       .toLocaleLowerCase('tr-TR')
-      .replace(/[^a-z0-9??????]+/gi, '-')
+      .replace(/[^a-z0-9ığüşöç]+/gi, '-')
       .replace(/^-+|-+$/g, '');
   }
 
   function buildScannedCity(city) {
-    const name = city?.name || city?.id || 'Yeni ?ehir';
+    const name = city?.name || city?.id || 'Yeni Şehir';
     return {
       id: slugifyCityId(city?.id || name),
       name,
-      flag: '???',
+      flag: '📍',
       center: city?.center || null,
       zoom: city?.zoom || 11.5,
       pitch: city?.pitch || 52,
       bearing: city?.bearing || 0,
       dataFiles: [],
       gtfsZip: city?.gtfsZip || null,
-      note: city?.zipSize ? `${Math.round(city.zipSize / (1024 * 1024))} MB haz?r GTFS` : 'Haz?r GTFS',
+      note: city?.zipSize ? `${Math.round(city.zipSize / (1024 * 1024))} MB hazır GTFS` : 'Hazır GTFS',
       source: 'builtin',
     };
   }
@@ -137,7 +145,7 @@ window.CityManager = (function () {
         const payload = await ctx.getBuiltinGtfsPayload(city);
         if (payload) loaded = await ctx.loadGtfsIntoSim(payload.files, payload.fileName);
       } catch (error) {
-        console.warn('[Builtin GTFS] y?klenemedi:', error);
+        console.warn('[Builtin GTFS] yüklenemedi:', error);
       }
       if (!loaded && ctx.AppState.baseRuntimeData?._cityId === city.id) {
         clearServiceSelectionUi();
@@ -250,7 +258,7 @@ window.CityManager = (function () {
         }
       }
     } catch (error) {
-      console.warn('[Builtin GTFS] ba?lang?? y?klemesi ba?ar?s?z:', error);
+      console.warn('[Builtin GTFS] başlangıç yüklemesi başarısız:', error);
     }
 
     if (ctx.AppState.baseRuntimeData?._cityId === city.id) {
@@ -264,6 +272,12 @@ window.CityManager = (function () {
     if (initialized) return;
     initialized = true;
     buildCityList();
+    window.addEventListener('app-language-change', () => {
+      const name = getElement('city-loading-name');
+      if (name?.dataset.city) setCityLoading(true, name.dataset.city);
+      else setCityLoading(false);
+      buildCityList();
+    });
     if (initialCity) await initializeBuiltinCity(initialCity);
   }
 
