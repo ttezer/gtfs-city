@@ -1,7 +1,7 @@
 {
   "name": "gtfs-city",
   "version": "1.0.0",
-  "description": "GTFS City masaüstü toplu taşıma analiz ve görselleştirme uygulaması",
+  "description": "GTFS City - GTFS viewer ve ücretsiz web demo içeren toplu taşıma analiz aracı",
   "author": {
     "name": "GTFS City",
     "email": "hello@gtfs.city"
@@ -167,7 +167,7 @@
       ],
       "icon": "assets/icons/",
       "category": "Utility",
-      "synopsis": "GTFS City masaüstü toplu taşıma analizi"
+      "synopsis": "GTFS City - GTFS viewer ve transit analiz aracı"
     },
     "publish": {
       "provider": "github",
