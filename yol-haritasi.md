@@ -1,73 +1,73 @@
-# GTFS City - Yol Haritasi
+# GTFS City - Yol Haritası
 
-Bu belge, urunun orta ve uzun vadeli gelistirme basliklarini toplar. Hedef, kararli masaustu ve web surumunu bozmadan yeni ozellikleri kontrollu bicimde eklemektir.
+Bu belge, ürünün orta ve uzun vadeli geliştirme başlıklarını toplar. Hedef, kararlı masaüstü ve web sürümünü bozmadan yeni özellikleri kontrollü biçimde eklemektir.
 
 ## Alanlar
 
-- **Tur:** `Yeni ozellik` veya `Gelistirme`
-- **Oncelik:** `Yuksek`, `Orta`, `Dusuk`
+- **Tür:** `Yeni özellik` veya `Geliştirme`
+- **Öncelik:** `Yüksek`, `Orta`, `Düşük`
 - **Platform:** `Desktop`, `Web`, `Her ikisi`
-- **Durum:** `Planlandi`, `Inceleniyor`, `Gelistiriliyor`, `Beklemede`, `Tamamlandi`
+- **Durum:** `Planlandı`, `İnceleniyor`, `Geliştiriliyor`, `Beklemede`, `Tamamlandı`
 
-## Urun Yol Haritasi
+## Ürün Yol Haritası
 
-| Baslik | Tur | Oncelik | Platform | Durum | Hedef |
+| Başlık | Tür | Öncelik | Platform | Durum | Hedef |
 |---|---|---|---|---|---|
-| GTFS-RT Entegrasyonu | Yeni ozellik | Yuksek | Desktop | Planlandi | Canli arac konumu, gecikme ve gercek zamanli operasyon gorunurlugu |
-| Nasil Giderim / Yol Tarifi | Gelistirme | Yuksek | Her ikisi | Planlandi | Hat ve aktarma mantigiyla calisan anlasilir yol tarifi uretmek |
-| Hat Seciminde Yon Filtresi | Yeni ozellik | Yuksek | Her ikisi | Planlandi | `direction_id` bazli yon secimi ile durak, arac ve panelleri birlikte filtrelemek |
-| Hat ve Durak Bazli Sorgulama | Yeni ozellik | Yuksek | Her ikisi | Planlandi | Secili hat, durak, yon ve zaman baglaminda hedefli sorgulama sunmak |
-| Sefer Saatleri | Yeni ozellik | Yuksek | Her ikisi | Planlandi | Hat bazli sefer saatlerini okunabilir bicimde gostermek |
-| Arac Ikonu Uzerinde Hat Kodu / Yon | Yeni ozellik | Yuksek | Her ikisi | Planlandi | Arac ikonunun ustunde hat kodu ve yon bilgisini gorunur kilmak |
-| 3D Bina Katmani | Yeni ozellik | Orta | Desktop | Planlandi | Harita baglamini guclendirmek |
-| Sinematik Gelistirmeleri | Gelistirme | Orta | Her ikisi | Planlandi | Aci, yon, hiz ve kamera gecislerini veri odakli hale getirmek |
-| Yogunluk Heatmap | Gelistirme | Orta | Her ikisi | Planlandi | Cap ve renk parametrelerini kullaniciya acmak |
-| Durak 300 mt Katmani | Gelistirme | Orta | Her ikisi | Planlandi | Mesafe, cizgi rengi ve dolgu rengini ayarlanabilir yapmak |
-| Bunching Alarmi | Gelistirme | Orta | Her ikisi | Planlandi | Alarmi daha anlasilir ve daha okunur gostermek |
-| Bekleme Suresi 3D | Gelistirme | Orta | Her ikisi | Planlandi | Anlik zamana gore guncelleme ve puanlama eklemek |
-| Headway Cizgileri | Gelistirme | Orta | Her ikisi | Planlandi | Cizgi atilacak arac sayisini kullaniciya sectirmek |
-| Arac Izleri Yerine Kuyruklama Analizi | Yeni ozellik | Orta | Her ikisi | Planlandi | Fade iz yerine daha anlamli operasyon analizi sunmak |
-| Izokron Analizi Puanlama | Yeni ozellik | Orta | Her ikisi | Planlandi | Veriye gore secili duraga skor uretmek |
+| GTFS-RT Entegrasyonu | Yeni özellik | Yüksek | Desktop | Planlandı | Canlı araç konumu, gecikme ve gerçek zamanlı operasyon görünürlüğü |
+| Nasıl Giderim / Yol Tarifi | Geliştirme | Yüksek | Her ikisi | Planlandı | Hat ve aktarma mantığıyla çalışan anlaşılır yol tarifi üretmek |
+| Hat Seçiminde Yön Filtresi | Yeni özellik | Yüksek | Her ikisi | Planlandı | `direction_id` bazlı yön seçimi ile durak, araç ve panelleri birlikte filtrelemek |
+| Hat ve Durak Bazlı Sorgulama | Yeni özellik | Yüksek | Her ikisi | Planlandı | Seçili hat, durak, yön ve zaman bağlamında hedefli sorgulama sunmak |
+| Sefer Saatleri | Yeni özellik | Yüksek | Her ikisi | Planlandı | Hat bazlı sefer saatlerini okunabilir biçimde göstermek |
+| Araç İkonu Üzerinde Hat Kodu / Yön | Yeni özellik | Yüksek | Her ikisi | Planlandı | Araç ikonunun üstünde hat kodu ve yön bilgisini görünür kılmak |
+| 3D Bina Katmanı | Yeni özellik | Orta | Desktop | Planlandı | Harita bağlamını güçlendirmek |
+| Sinematik Geliştirmeleri | Geliştirme | Orta | Her ikisi | Planlandı | Açı, yön, hız ve kamera geçişlerini veri odaklı hale getirmek |
+| Yoğunluk Heatmap | Geliştirme | Orta | Her ikisi | Planlandı | Çap ve renk parametrelerini kullanıcıya açmak |
+| Durak 300 m Katmanı | Geliştirme | Orta | Her ikisi | Planlandı | Mesafe, çizgi rengi ve dolgu rengini ayarlanabilir yapmak |
+| Bunching Alarmı | Geliştirme | Orta | Her ikisi | Planlandı | Alarmı daha anlaşılır ve daha okunur göstermek |
+| Bekleme Süresi 3D | Geliştirme | Orta | Her ikisi | Planlandı | Anlık zamana göre güncelleme ve puanlama eklemek |
+| Headway Çizgileri | Geliştirme | Orta | Her ikisi | Planlandı | Çizgi atılacak araç sayısını kullanıcıya seçtirmek |
+| Araç İzleri Yerine Kuyruklama Analizi | Yeni özellik | Orta | Her ikisi | Planlandı | Fade iz yerine daha anlamlı operasyon analizi sunmak |
+| İzokron Analizi Puanlama | Yeni özellik | Orta | Her ikisi | Planlandı | Veriye göre seçili durağa skor üretmek |
 
-## Web Yol Haritasi
+## Web Yol Haritası
 
-| Baslik | Tur | Oncelik | Platform | Durum | Hedef |
+| Başlık | Tür | Öncelik | Platform | Durum | Hedef |
 |---|---|---|---|---|---|
-| Acik Kaynak GTFS Link Havuzu | Yeni ozellik | Orta | Web | Planlandi | Web surumunde ornek acik veri baglantilari sunmak |
-| Web Demo Olgunlastirma | Gelistirme | Orta | Web | Gelistiriliyor | Pages demosunu daha tam ozellikli ama guvenli kapsamda tutmak |
-| GitHub Pages Sayfa Tasarimi | Gelistirme | Orta | Web | Planlandi | Vitrin sayfasini daha profesyonel ve urun kimligine uygun hale getirmek |
+| Açık Kaynak GTFS Link Havuzu | Yeni özellik | Orta | Web | Planlandı | Web sürümünde örnek açık veri bağlantıları sunmak |
+| Web Demo Olgunlaştırma | Geliştirme | Orta | Web | Geliştiriliyor | Pages demosunu daha tam özellikli ama güvenli kapsamda tutmak |
+| GitHub Pages Sayfa Tasarımı | Geliştirme | Orta | Web | Planlandı | Vitrin sayfasını daha profesyonel ve ürün kimliğine uygun hale getirmek |
 
-## Teknik Borc ve Refactor Plani
+## Teknik Borç ve Refactor Planı
 
-| Baslik | Tur | Oncelik | Platform | Durum | Hedef |
+| Başlık | Tür | Öncelik | Platform | Durum | Hedef |
 |---|---|---|---|---|---|
-| State Ownership Temizligi | Gelistirme | Yuksek | Her ikisi | Planlandi | `state-manager.js` dosyasini gercek merkezi durum katmanina donusturmek |
-| `script.js` Sorumluluk Azaltma | Gelistirme | Yuksek | Her ikisi | Planlandi | Ana dosyayi orkestrasyon katmani olarak tutmak |
-| Trip Eslestirme ve Picking Zinciri | Gelistirme | Yuksek | Her ikisi | Planlandi | Arac tiklama ve panel eslesmesini daha deterministik hale getirmek |
-| Durak Paneli Hesaplarini Ayristirma | Gelistirme | Orta | Her ikisi | Planlandi | Durak ozetleri ve varis hesaplarini ayri util katmanina tasimak |
-| Katman Hesabi ve Render Ayrimi | Gelistirme | Yuksek | Her ikisi | Planlandi | `map-manager.js` icinde hesaplama ile cizim sorumlulugunu ayirmak |
-| Toggle Spam ve UI Kilitlenmesi | Gelistirme | Orta | Her ikisi | Planlandi | Art arda ac/kapa islemlerinde yasanan kilitlenmeleri azaltmak |
-| Web ve Desktop Adapter Ayrimi | Gelistirme | Orta | Her ikisi | Planlandi | Platforma ozel akislarI adapter katmaninda toplamak |
-| Tam I18n Kapsami | Gelistirme | Orta | Her ikisi | Inceleniyor | Landing disindaki panel, servis, uyarilar ve dinamik metinleri TR/EN destekli hale getirmek |
-| Encoding Standardizasyonu | Gelistirme | Yuksek | Her ikisi | Planlandi | Metin dosyalarini tek kodlama standardina toplamak, bozuk karakter riskini ve yama kirilmalarini kaldirmak |
+| State Ownership Temizliği | Geliştirme | Yüksek | Her ikisi | Planlandı | `state-manager.js` dosyasını gerçek merkezi durum katmanına dönüştürmek |
+| `script.js` Sorumluluk Azaltma | Geliştirme | Yüksek | Her ikisi | Planlandı | Ana dosyayı orkestrasyon katmanı olarak tutmak |
+| Trip Eşleştirme ve Picking Zinciri | Geliştirme | Yüksek | Her ikisi | Planlandı | Araç tıklama ve panel eşleşmesini daha deterministik hale getirmek |
+| Durak Paneli Hesaplarını Ayrıştırma | Geliştirme | Orta | Her ikisi | Planlandı | Durak özetleri ve varış hesaplarını ayrı util katmanına taşımak |
+| Katman Hesabı ve Render Ayrımı | Geliştirme | Yüksek | Her ikisi | Planlandı | `map-manager.js` içinde hesaplama ile çizim sorumluluğunu ayırmak |
+| Toggle Spam ve UI Kilitlenmesi | Geliştirme | Orta | Her ikisi | Planlandı | Art arda aç/kapa işlemlerinde yaşanan kilitlenmeleri azaltmak |
+| Web ve Desktop Adapter Ayrımı | Geliştirme | Orta | Her ikisi | Planlandı | Platforma özel akışları adapter katmanında toplamak |
+| Tam I18n Kapsamı | Geliştirme | Orta | Her ikisi | İnceleniyor | Landing dışındaki panel, servis, uyarılar ve dinamik metinleri TR/EN destekli hale getirmek |
+| Encoding Standardizasyonu | Geliştirme | Yüksek | Her ikisi | Planlandı | Metin dosyalarını tek kodlama standardına toplamak, bozuk karakter riskini ve yama kırılmalarını kaldırmak |
 
-## Repo Yonetimi ve Kalite
+## Repo Yönetimi ve Kalite
 
-| Baslik | Tur | Oncelik | Platform | Durum | Hedef |
+| Başlık | Tür | Öncelik | Platform | Durum | Hedef |
 |---|---|---|---|---|---|
-| Issue Tabanli Calisma | Gelistirme | Yuksek | Her ikisi | Inceleniyor | Her kullanici gorunur degisiklik veya teknik borc isini issue ile izlenebilir hale getirmek |
-| Degisiklik Kaydi Disiplini | Gelistirme | Orta | Her ikisi | Inceleniyor | README, `CHANGELOG.md`, `isplani.md` ve gerekiyorsa roadmap kayitlarini tutarli hale getirmek |
-| PR Sablonu ve Cikis Kriterleri | Gelistirme | Orta | Her ikisi | Planlandi | Test, metin kontrolu, ekran goruntusu ve issue bagini zorunlu kontrol listesine donusturmek |
+| Issue Tabanlı Çalışma | Geliştirme | Yüksek | Her ikisi | İnceleniyor | Her kullanıcı görünür değişiklik veya teknik borç işini issue ile izlenebilir hale getirmek |
+| Değişiklik Kaydı Disiplini | Geliştirme | Orta | Her ikisi | İnceleniyor | README, `CHANGELOG.md`, `isplani.md` ve gerekiyorsa roadmap kayıtlarını tutarlı hale getirmek |
+| PR Şablonu ve Çıkış Kriterleri | Geliştirme | Orta | Her ikisi | Planlandı | Test, metin kontrolü, ekran görüntüsü ve issue bağını zorunlu kontrol listesine dönüştürmek |
 
 ## Notlar
 
-- `GTFS-RT Entegrasyonu` ilk fazda `VehiclePositions`, ikinci fazda `TripUpdates` ile ele alinmali.
-- `Arac Ikonu Uzerinde Hat Kodu / Yon` yogun sahnelerde okunabilirlik ve cakisma yonetimiyle birlikte tasarlanmali.
-- `3D Bina Katmani` performans etkisi nedeniyle ac/kapa kontrollu olmali.
-- `Headway Cizgileri` yon bazli yorumlamayi korumali.
-- `Acik Kaynak GTFS Link Havuzu` yalnizca guvenilir ve acik kaynak veri saglayicilari icermeli.
-- `Web Demo Olgunlastirma` masaustu akisina bozmadan ilerlemeli.
-- `Trip Eslestirme ve Picking Zinciri` isinde `findTripIdx` mantigi daha kucuk ve indeks tabanli hale getirilmeli.
-- `Web ve Desktop Adapter Ayrimi` linkten yukleme, dosya erisimi ve worker davranislarini temiz bicimde ayirmali.
-- `Tam I18n Kapsami` issue bazli parcali rollout ile ilerlemeli; tek seferde tum repo cevirisine girilmemeli.
-- `Encoding Standardizasyonu` tamamlanmadan metin agirlikli refactor ve toplu dokuman duzenlemelerinde dikkatli olunmali.
+- `GTFS-RT Entegrasyonu` ilk fazda `VehiclePositions`, ikinci fazda `TripUpdates` ile ele alınmalı.
+- `Araç İkonu Üzerinde Hat Kodu / Yön` yoğun sahnelerde okunabilirlik ve çakışma yönetimiyle birlikte tasarlanmalı.
+- `3D Bina Katmanı` performans etkisi nedeniyle aç/kapa kontrollü olmalı.
+- `Headway Çizgileri` yön bazlı yorumlamayı korumalı.
+- `Açık Kaynak GTFS Link Havuzu` yalnızca güvenilir ve açık kaynak veri sağlayıcıları içermeli.
+- `Web Demo Olgunlaştırma` masaüstü akışını bozmadan ilerlemeli.
+- `Trip Eşleştirme ve Picking Zinciri` işinde `findTripIdx` mantığı daha küçük ve indeks tabanlı hale getirilmeli.
+- `Web ve Desktop Adapter Ayrımı` linkten yükleme, dosya erişimi ve worker davranışlarını temiz biçimde ayırmalı.
+- `Tam I18n Kapsamı` issue bazlı parçalı rollout ile ilerlemeli; tek seferde tüm repo çevirisine girilmemeli.
+- `Encoding Standardizasyonu` tamamlanmadan metin ağırlıklı refactor ve toplu doküman düzenlemelerinde dikkatli olunmalı.
