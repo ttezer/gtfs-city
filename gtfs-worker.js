@@ -100,6 +100,7 @@ async function buildGtfsRuntimeData(routeMap, shapePts, stopsMap, tripMeta, trip
       c:  route.color,
       h:  meta.head || '',
       ln: route.longName || '',
+      dir: meta.direction_id,
       st: includeStops ? stops.map(st => ({ sid: st[2], off: st[1] % 86400 })) : []
     };
     nTRIPS.push(tripObj);
@@ -122,7 +123,7 @@ async function buildGtfsRuntimeData(routeMap, shapePts, stopsMap, tripMeta, trip
       nHOURLY_HEAT[String(hour)].push(path[0]);
     }
 
-    const shapeKey = `${route.short}::${meta.shape_id || tid}`;
+    const shapeKey = `${route.short}::${meta.shape_id || tid}::${meta.direction_id ?? 'x'}`;
     if (!seenShapes.has(shapeKey)) {
       seenShapes.add(shapeKey);
       nSHAPES.push({
@@ -130,7 +131,9 @@ async function buildGtfsRuntimeData(routeMap, shapePts, stopsMap, tripMeta, trip
         t:  route.type,
         c:  route.color,
         p:  simplifyPathPoints(path, SHAPE_PTS),
-        ln: route.longName || ''
+        ln: route.longName || '',
+        dir: meta.direction_id,
+        h: meta.head || ''
       });
     }
 
