@@ -987,6 +987,34 @@ const I18N_MESSAGES = {
     platformElectron: 'ELECTRON',
     platformWeb: 'WEB TARAYICI',
     routeLongNameMissing: 'Uzun ad yok',
+    landingUploadButton: '📂 GTFS ZIP Yükle',
+    landingStartButton: '🗺️ Haritayı Aç',
+    sidebarLayers: 'KATMANLAR',
+    sidebarRoutes: 'HATLAR',
+    sidebarStops: 'DURAKLAR',
+    sidebarCities: 'ŞEHİR',
+    sidebarRouteType: 'HAT TİPİ',
+    sidebarMapStyle: 'HARİTA GÖRÜNÜMÜ',
+    sidebarServiceCalendar: 'Çalışma Takvimi',
+    sidebarRouteSearch: 'Hat ara...',
+    sidebarStopSearch: 'Durak ara...',
+    togglePaths: 'Güzergâh Hatları',
+    toggleDensity: 'Durak Yoğunluğu 3D',
+    toggleStops: 'Duraklar',
+    toggleStopCoverage: 'Durak 300 m',
+    toggleHeadway: 'Headway Çizgileri',
+    toggleBunching: 'Bunching Alarmı',
+    toggleWaiting: 'Bekleme Süresi 3D',
+    toggleHeatmap: 'Yoğunluk Heatmap',
+    toggleTrail: 'Araç İzleri (Fade)',
+    toggleIsochron: 'İzokron Analiz 🗺️',
+    vehicleDetailLongName: 'Hat Uzun Adı',
+    vehicleDetailDirection: 'Yön',
+    vehicleDetailService: 'Çalışma Takvimi',
+    vehicleDetailDeparture: 'Kalkış',
+    vehicleDetailArrival: 'Varış',
+    vehicleDetailTripsSameDirection: 'Aynı Yönde Sefer',
+    vehicleFollowStop: 'Takibi Bırak',
   },
   en: {
     languageLabel: 'Language',
@@ -1122,6 +1150,34 @@ const I18N_MESSAGES = {
     platformElectron: 'ELECTRON',
     platformWeb: 'WEB BROWSER',
     routeLongNameMissing: 'No long name',
+    landingUploadButton: '📂 Upload GTFS ZIP',
+    landingStartButton: '🗺️ Open Map',
+    sidebarLayers: 'LAYERS',
+    sidebarRoutes: 'ROUTES',
+    sidebarStops: 'STOPS',
+    sidebarCities: 'CITY',
+    sidebarRouteType: 'ROUTE TYPE',
+    sidebarMapStyle: 'MAP STYLE',
+    sidebarServiceCalendar: 'Service Calendar',
+    sidebarRouteSearch: 'Search route...',
+    sidebarStopSearch: 'Search stop...',
+    togglePaths: 'Route Lines',
+    toggleDensity: 'Stop Density 3D',
+    toggleStops: 'Stops',
+    toggleStopCoverage: 'Stop 300 m',
+    toggleHeadway: 'Headway Lines',
+    toggleBunching: 'Bunching Alerts',
+    toggleWaiting: 'Waiting Time 3D',
+    toggleHeatmap: 'Density Heatmap',
+    toggleTrail: 'Vehicle Trails (Fade)',
+    toggleIsochron: 'Isochrone Analysis 🗺️',
+    vehicleDetailLongName: 'Route Long Name',
+    vehicleDetailDirection: 'Direction',
+    vehicleDetailService: 'Service Calendar',
+    vehicleDetailDeparture: 'Departure',
+    vehicleDetailArrival: 'Arrival',
+    vehicleDetailTripsSameDirection: 'Trips Same Direction',
+    vehicleFollowStop: 'Stop Following',
   },
 };
 
@@ -1172,6 +1228,10 @@ function applyStaticTranslations() {
   if (labels[2]) labels[2].textContent = t('landingStops');
   const uploadLink = document.getElementById('lp-btn-url');
   if (uploadLink) uploadLink.textContent = t('loadFromLink');
+  const uploadBtn = document.getElementById('lp-btn-upload');
+  if (uploadBtn && !uploadBtn.classList.contains('is-loading')) uploadBtn.textContent = t('landingUploadButton');
+  const startBtn = document.getElementById('lp-btn-start');
+  if (startBtn) startBtn.textContent = t('landingStartButton');
   const linkNote = document.getElementById('lp-link-note');
   if (linkNote) linkNote.textContent = t('linkNote');
   const homeBtn = document.getElementById('home-toggle-btn');
@@ -1228,6 +1288,32 @@ function applyStaticTranslations() {
   if (warningClose) warningClose.title = t('close');
   const loaderText = document.querySelector('.loader-text');
   if (loaderText) loaderText.textContent = t('loaderPreparingData');
+  const sidebarLabels = document.querySelectorAll('#section-layers .section-label, #section-routes .section-label, #section-stops-list .section-label, #section-cities .section-label');
+  if (sidebarLabels[0]) sidebarLabels[0].textContent = t('sidebarLayers');
+  if (sidebarLabels[1]) sidebarLabels[1].textContent = t('sidebarRoutes');
+  if (sidebarLabels[2]) sidebarLabels[2].textContent = t('sidebarStops');
+  if (sidebarLabels[3]) sidebarLabels[3].textContent = t('sidebarCities');
+  const routeTypeLabel = document.querySelector('#type-btns')?.previousElementSibling;
+  if (routeTypeLabel) routeTypeLabel.textContent = t('sidebarRouteType');
+  const mapStyleLabel = document.querySelector('#map-style-btns')?.previousElementSibling;
+  if (mapStyleLabel) mapStyleLabel.textContent = t('sidebarMapStyle');
+  const serviceLabel = document.querySelector('.service-selector-label');
+  if (serviceLabel) serviceLabel.textContent = t('sidebarServiceCalendar');
+  const routeSearch = document.getElementById('route-filter-inp');
+  if (routeSearch) routeSearch.placeholder = t('sidebarRouteSearch');
+  const stopSearch = document.getElementById('stop-list-filter');
+  if (stopSearch) stopSearch.placeholder = t('sidebarStopSearch');
+  const toggles = document.querySelectorAll('#section-layers .tog-row');
+  if (toggles[1]) toggles[1].lastChild.textContent = t('togglePaths');
+  if (toggles[2]) toggles[2].lastChild.textContent = t('toggleDensity');
+  if (toggles[3]) toggles[3].lastChild.textContent = t('toggleStops');
+  if (toggles[4]) toggles[4].lastChild.textContent = t('toggleStopCoverage');
+  if (toggles[5]) toggles[5].lastChild.textContent = t('toggleHeatmap');
+  if (toggles[6]) toggles[6].lastChild.textContent = t('toggleTrail');
+  if (toggles[7]) toggles[7].lastChild.textContent = t('toggleHeadway');
+  if (toggles[8]) toggles[8].lastChild.textContent = t('toggleBunching');
+  if (toggles[9]) toggles[9].lastChild.textContent = t('toggleWaiting');
+  if (toggles[10]) toggles[10].lastChild.textContent = t('toggleIsochron');
 }
 
 function setLanguage(lang) {
