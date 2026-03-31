@@ -264,6 +264,7 @@ let currentMapStyle = 'auto'; // 'auto', 'satellite', 'dark', 'light'
 let typeFilter = 'all';
 let activeRoutes = new Set();
 let focusedRoute = null;
+let selectedRouteDirection = null;
 let followTripIdx = null, selectedTripIdx = null;
 let selectedEntity = null, panelPauseOwner = null;
 let isReplay = false, replayLoop = false;
@@ -668,18 +669,19 @@ function refreshLayersNow() {
 }
 function getFocusedStopsData() {
   if (!focusedRoute) return null;
-  if (_focusedStopIdsCache?.route === focusedRoute) return _focusedStopIdsCache.data;
+  if (_focusedStopIdsCache?.route === focusedRoute && _focusedStopIdsCache?.direction === selectedRouteDirection) return _focusedStopIdsCache.data;
   const data = [];
   for (const [sid, deps] of Object.entries(STOP_DEPS)) {
     if (deps?.some(dep => {
       const trip = TRIPS[dep[0]];
-      return trip?.s === focusedRoute;
+      return trip?.s === focusedRoute
+        && (selectedRouteDirection === null || trip?.dir === selectedRouteDirection);
     })) {
       const info = STOP_INFO[sid];
       if (info) data.push({ sid, pos: [info[0], info[1]], name: displayText(info[2]), code: displayText(info[3] || sid) });
     }
   }
-  _focusedStopIdsCache = { route: focusedRoute, data };
+  _focusedStopIdsCache = { route: focusedRoute, direction: selectedRouteDirection, data };
   return data;
 }
 function getFilteredStopsData() {
@@ -707,7 +709,7 @@ function getFilteredStopsData() {
 }
 function getFilteredStopIdSet() {
   const stopData = getFilteredStopsData();
-  const cacheKey = `${typeFilter}|${focusedRoute || ''}|${activeRoutes.size}|${stopData.length}`;
+  const cacheKey = `${typeFilter}|${focusedRoute || ''}|${selectedRouteDirection ?? 'all'}|${activeRoutes.size}|${stopData.length}`;
   if (_filteredStopIdSetCache?.key === cacheKey) return _filteredStopIdSetCache.data;
   const data = new Set(stopData.map((stop) => stop[3]));
   _filteredStopIdSetCache = { key: cacheKey, data };
@@ -895,6 +897,8 @@ const I18N_MESSAGES = {
     routePanelRouteLength: 'Güzergâh Uzunluğu',
     routePanelAverageHeadway: 'Ort. Sefer Sıklığı',
     routePanelDirectionDistribution: 'Yön Dağılımı',
+    routePanelDirectionFilter: 'Hat Yönü',
+    routePanelDirectionAll: 'Tüm Yönler',
     routePanelNoTripInfo: 'Sefer bilgisi yok',
     stopPanelSimulationTime: 'Simülasyon saati',
     stopPanelHeaderLine: 'Hat',
@@ -1092,6 +1096,8 @@ const I18N_MESSAGES = {
     routePanelRouteLength: 'Route Length',
     routePanelAverageHeadway: 'Avg Headway',
     routePanelDirectionDistribution: 'Direction Distribution',
+    routePanelDirectionFilter: 'Route Direction',
+    routePanelDirectionAll: 'All Directions',
     routePanelNoTripInfo: 'No trip information',
     stopPanelSimulationTime: 'Simulation time',
     stopPanelHeaderLine: 'Line',
@@ -1490,6 +1496,7 @@ window.LegacyMapBridge = createLegacyBridge(() => ({
   typeFilter,
   activeRoutes,
   focusedRoute,
+  selectedRouteDirection,
   showPaths,
   showStops,
   showStopCoverage,
@@ -1546,6 +1553,7 @@ window.LegacyUIBridge = createLegacyBridge(() => ({
     AppState,
     simTime,
     focusedRoute,
+    selectedRouteDirection,
     selectedTripIdx,
     selectedEntity,
     showIsochron,
@@ -1591,6 +1599,7 @@ window.LegacyUIBridge = createLegacyBridge(() => ({
     setActiveStopData: (stop) => { _activeStopData = stop; },
     setSelectedTripIdx: (idx) => { selectedTripIdx = idx; },
     setFocusedRoute: (value) => { focusedRoute = value; },
+    setSelectedRouteDirection: (value) => { selectedRouteDirection = Number.isInteger(value) ? value : null; },
     setFocusedStopIdsCache: (value) => { _focusedStopIdsCache = value; },
     setRouteHighlightPath: (value) => { routeHighlightPath = value; },
     invalidateMapCaches: () => { _cachedVisTrips = null; _cachedVisShapes = null; _filteredStopsCache = null; _filteredStopIdSetCache = null; },
@@ -1768,6 +1777,7 @@ window.LegacyDataBridge = createLegacyBridge(() => ({
       selectedTripIdx = null;
       followTripIdx = null;
       focusedRoute = null;
+      selectedRouteDirection = null;
       activeRoutes.clear();
       selectedEntity = null;
       panelPauseOwner = null;
@@ -1925,16 +1935,19 @@ function inferTripDirectionLabel(trip) {
 }
 
 function buildRoutePanelStats(routeShort) {
-  const routeTrips = TRIPS.filter(trip => trip.s === routeShort);
-  const departures = routeTrips
+  const routeTrips = TRIPS.filter((trip) => trip.s === routeShort);
+  const filteredTrips = selectedRouteDirection === null
+    ? routeTrips
+    : routeTrips.filter((trip) => trip?.dir === selectedRouteDirection);
+  const departures = filteredTrips
     .map((trip, idx) => [trip._idx ?? idx, trip.ts?.[0] ?? null, routeShort, trip])
     .filter(([, offset]) => Number.isFinite(offset));
 
   let firstSec = Infinity, lastSec = -Infinity;
-  routeTrips.forEach(t => {
-    if (t.ts && t.ts.length > 0) {
-      if (t.ts[0] < firstSec) firstSec = t.ts[0];
-      if (t.ts[t.ts.length - 1] > lastSec) lastSec = t.ts[t.ts.length - 1];
+  filteredTrips.forEach((trip) => {
+    if (trip.ts && trip.ts.length > 0) {
+      if (trip.ts[0] < firstSec) firstSec = trip.ts[0];
+      if (trip.ts[trip.ts.length - 1] > lastSec) lastSec = trip.ts[trip.ts.length - 1];
     }
   });
 
@@ -1944,10 +1957,19 @@ function buildRoutePanelStats(routeShort) {
     directionMap.set(label, (directionMap.get(label) || 0) + 1);
   });
   const directionEntries = [...directionMap.entries()].sort((a, b) => b[1] - a[1]);
+  const directionOptionMap = new Map();
+  routeTrips.forEach((trip) => {
+    if (!Number.isInteger(trip?.dir)) return;
+    if (!directionOptionMap.has(trip.dir)) {
+      directionOptionMap.set(trip.dir, { value: trip.dir, label: inferTripDirectionLabel(trip), count: 0 });
+    }
+    directionOptionMap.get(trip.dir).count += 1;
+  });
+  const directionOptions = [...directionOptionMap.values()].sort((a, b) => a.value - b.value);
 
   // Hat uzunluğu hesaplama: en uzun güzergahı (shape) bul
   let maxM = 0;
-  const routeShapes = SHAPES.filter(s => s.s === routeShort);
+  const routeShapes = SHAPES.filter((shape) => shape.s === routeShort && (selectedRouteDirection === null || shape.dir === selectedRouteDirection));
   routeShapes.forEach(rs => {
     if (rs.p && rs.p.length >= 2) {
       const len = window.GtfsMathUtils ? window.GtfsMathUtils.pathLengthM(rs.p) : 0;
@@ -1956,12 +1978,16 @@ function buildRoutePanelStats(routeShort) {
   });
 
   return {
-    directionLabel: directionEntries.map(([label]) => label).slice(0, 2).join(' / ') || 'Yön bilgisi yok',
+    directionLabel: filteredTrips.length
+      ? [...new Set(filteredTrips.map((trip) => inferTripDirectionLabel(trip)))].slice(0, 2).join(' / ')
+      : directionEntries.map(([label]) => label).slice(0, 2).join(' / ') || 'Yön bilgisi yok',
     directionEntries,
+    directionOptions,
+    selectedDirection: selectedRouteDirection,
     tripCountByDirection: directionEntries.length
       ? directionEntries.map(([label, count]) => `${label}: ${count}`).join(' · ')
       : 'Sefer bilgisi yok',
-    totalTrips: routeTrips.length,
+    totalTrips: filteredTrips.length,
     firstTime: firstSec !== Infinity ? secsToHHMM(firstSec % 86400) : '—',
     lastTime: lastSec !== -Infinity ? secsToHHMM(lastSec % 86400) : '—',
     routeLengthKm: maxM > 0 ? (maxM / 1000).toFixed(2) : '—',
