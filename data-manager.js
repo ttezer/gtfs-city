@@ -756,7 +756,7 @@ window.DataManager = (function () {
     if (ctx.AppState.trips?.length) {
       landingStartBtn?.classList.remove('hidden');
       if (landingStartBtn) landingStartBtn.disabled = false;
-      if (landingStartBtn) landingStartBtn.textContent = '🗺️ HARİTAYI AÇ';
+      if (landingStartBtn) landingStartBtn.textContent = translate('landingStartButton', '🗺️ Open Map');
       if (landingUploadBtn) {
         landingUploadBtn.disabled = false;
         landingUploadBtn.classList.remove('is-loading');
