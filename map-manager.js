@@ -22,6 +22,7 @@ window.MapManager = (function () {
     HeatmapLayer,
     LineLayer,
     IconLayer,
+    TextLayer,
   } = deck;
 
   function getBridge() {
@@ -44,6 +45,54 @@ window.MapManager = (function () {
   function normalizeRouteType(value) {
     const parsed = Number.parseInt(String(value ?? '').trim(), 10);
     return Number.isFinite(parsed) ? String(parsed) : String(value ?? '');
+  }
+
+  function clampChannel(value) {
+    return Math.max(0, Math.min(255, Math.round(value)));
+  }
+
+  function toneColor(color, amount) {
+    return [
+      clampChannel(color[0] + amount),
+      clampChannel(color[1] + amount),
+      clampChannel(color[2] + amount),
+    ];
+  }
+
+  function getDirectionColor(baseColor, direction) {
+    if (direction === 0) return toneColor(baseColor, 24);
+    if (direction === 1) return toneColor(baseColor, -28);
+    return baseColor;
+  }
+
+  function getShapeColor(ctx, shape) {
+    const baseColor = ctx.getRouteColorRgb(shape.s, shape.t, shape.c);
+    if (!ctx.focusedRoute || shape.s !== ctx.focusedRoute) return baseColor;
+    return getDirectionColor(baseColor, shape.dir);
+  }
+
+  function getVehicleDisplayColor(ctx, entry) {
+    const trip = entry?.trip || entry;
+    const baseColor = ctx.getRouteColorRgb(trip.s, trip.t, trip.c);
+    if (ctx.focusedRoute && trip.s !== ctx.focusedRoute) return [120, 125, 130];
+    if (ctx.focusedRoute && trip.s === ctx.focusedRoute) return getDirectionColor(baseColor, trip.dir);
+    return baseColor;
+  }
+
+  function getVehicleLabel(entry) {
+    const trip = entry?.trip || entry;
+    const routeCode = String(trip?.s || '').trim();
+    if (!routeCode) return '';
+    if (trip?.dir === 0) return `${routeCode} ↑`;
+    if (trip?.dir === 1) return `${routeCode} ↓`;
+    return routeCode;
+  }
+
+  function shouldShowVehicleLabels(ctx) {
+    if (!ctx.focusedRoute || !ctx.showAnim) return false;
+    const mapgl = getMapgl();
+    if (!mapgl?.getZoom) return false;
+    return mapgl.getZoom() >= 14.2;
   }
 
   function invalidateCaches() {
@@ -110,7 +159,6 @@ window.MapManager = (function () {
   }
 
   function buildPathLayers(ctx, visShapes) {
-    const routeColor = (shape) => ctx.getRouteColorRgb(shape.s, shape.t, shape.c);
     const layers = [];
     const sanitizePath = (path) => (path || []).filter((pt) =>
       Array.isArray(pt)
@@ -152,7 +200,7 @@ window.MapManager = (function () {
         getSourcePosition: (d) => d.from,
         getTargetPosition: (d) => d.to,
         getColor: (d) => {
-          const color = routeColor(d);
+          const color = getShapeColor(ctx, d);
           return ctx.focusedRoute && d.s !== ctx.focusedRoute ? [...color, 18] : [...color, 138];
         },
         getWidth: (d) => ctx.TYPE_META[d.t]?.w || 2,
@@ -169,7 +217,7 @@ window.MapManager = (function () {
         getSourcePosition: (d) => d.from,
         getTargetPosition: (d) => d.to,
         getColor: (d) => {
-          const color = routeColor(d);
+          const color = getShapeColor(ctx, d);
           return ctx.focusedRoute && d.s !== ctx.focusedRoute ? [...color, 18] : [...color, 165];
         },
         getWidth: 5,
@@ -348,7 +396,11 @@ window.MapManager = (function () {
       data: heads,
       getPosition: (d) => d.pos,
       getRadius: 52,
-      getFillColor: (d) => (ctx.focusedRoute && d.trip.s !== ctx.focusedRoute ? [50, 55, 60, 180] : ctx.getVehicleMarkerColor(d)),
+      getFillColor: (d) => {
+        if (ctx.focusedRoute && d.trip.s !== ctx.focusedRoute) return [50, 55, 60, 180];
+        if (ctx.focusedRoute && d.trip.s === ctx.focusedRoute) return [...getVehicleDisplayColor(ctx, d), 220];
+        return ctx.getVehicleMarkerColor(d);
+      },
       getLineColor: [24, 28, 36, 220],
       stroked: ctx.QUALITY.level > 0,
       lineWidthMinPixels: 1.5,
@@ -363,13 +415,41 @@ window.MapManager = (function () {
       id: 'vehicle-icons',
       data: heads,
       getPosition: (d) => d.pos,
-      getIcon: (d) => ctx.getVehicleIconDefinition(d.trip.t, ctx.focusedRoute && d.trip.s !== ctx.focusedRoute ? [120, 125, 130] : d.color),
+      getIcon: (d) => ctx.getVehicleIconDefinition(d.trip.t, getVehicleDisplayColor(ctx, d)),
       getSize: 28,
       sizeUnits: 'pixels',
       sizeMinPixels: 16,
       sizeMaxPixels: 34,
       billboard: true,
       alphaCutoff: 0.05,
+      pickable: false,
+    });
+  }
+
+  function buildVehicleLabelLayer(ctx, heads) {
+    if (!shouldShowVehicleLabels(ctx)) return null;
+    const labelData = heads.filter((entry) => entry.trip?.s === ctx.focusedRoute);
+    if (!labelData.length) return null;
+    return new TextLayer({
+      id: 'vehicle-labels',
+      data: labelData,
+      getPosition: (d) => d.pos,
+      getText: (d) => getVehicleLabel(d),
+      getSize: 13,
+      getColor: (d) => getVehicleDisplayColor(ctx, d),
+      getBackgroundColor: [12, 16, 24, 196],
+      background: true,
+      getBorderColor: [220, 230, 255, 42],
+      borderWidth: 1,
+      getTextAnchor: 'middle',
+      getAlignmentBaseline: 'bottom',
+      getPixelOffset: [0, -18],
+      fontFamily: 'JetBrains Mono, monospace',
+      sizeUnits: 'pixels',
+      sizeMinPixels: 11,
+      sizeMaxPixels: 18,
+      characterSet: 'auto',
+      billboard: true,
       pickable: false,
     });
   }
@@ -414,7 +494,9 @@ window.MapManager = (function () {
           getTimestamps: (d) => d.trip.ts,
           getColor: (d) => {
             const trip = d.trip;
-            const base = ctx.getRouteColorRgb(trip.s, trip.t, trip.c);
+            const base = ctx.focusedRoute && trip.s === ctx.focusedRoute
+              ? getDirectionColor(ctx.getRouteColorRgb(trip.s, trip.t, trip.c), trip.dir)
+              : ctx.getRouteColorRgb(trip.s, trip.t, trip.c);
             return window.RenderUtils ? window.RenderUtils.getVehicleColorRgb(base, trip._delay || 0) : base;
           },
           currentTime: tripsCurrentTime,
@@ -432,7 +514,7 @@ window.MapManager = (function () {
       activeTrips.forEach((trip, index) => {
         const pos = ctx.getVehiclePos(trip, time);
         if (!pos) return;
-        const color = ctx.getRouteColorRgb(trip.s, trip.t, trip.c);
+        const color = getVehicleDisplayColor(ctx, trip);
         heads.push({ pos, color, c: color, trip, idx: trip._idx ?? index });
       });
 
@@ -440,6 +522,8 @@ window.MapManager = (function () {
       ctx.updateActiveBadge(totalActive, visTrips, visShapes);
       dynamicLayers.push(buildVehicleHeadsLayer(ctx, heads));
       dynamicLayers.push(buildVehicleIconLayer(ctx, heads));
+      const vehicleLabelLayer = buildVehicleLabelLayer(ctx, heads);
+      if (vehicleLabelLayer) dynamicLayers.push(vehicleLabelLayer);
 
       if (ctx.show3D) {
         const modelLayers = build3DVehicleLayer(ctx, activeTrips, time);
