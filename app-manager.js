@@ -45,10 +45,10 @@ window.AppManager = (function () {
     const hasTrips = !!(ctx.AppState.trips && ctx.AppState.trips.length);
     start.disabled = !hasTrips;
     start.classList.toggle('hidden', !hasTrips);
-    start.textContent = translate('openMap', 'Open Map');
+    start.textContent = translate('landingStartButton', '🗺️ Open Map');
     upload.textContent = hasTrips
       ? translate('uploadAnother', 'Upload Another GTFS ZIP')
-      : translate('uploadGtfsZip', 'Upload GTFS ZIP');
+      : translate('landingUploadButton', '📂 Upload GTFS ZIP');
     upload.disabled = false;
     upload.style.removeProperty('--load-pct');
     upload.classList.remove('is-loading');
