@@ -11,6 +11,10 @@ window.UIManager = (function () {
     return document.getElementById(id);
   }
 
+  function translate(key, fallback = '') {
+    return window.I18n?.t?.(key, fallback) || fallback || key;
+  }
+
   function normalizeRouteType(value) {
     const parsed = Number.parseInt(String(value ?? '').trim(), 10);
     return Number.isFinite(parsed) ? String(parsed) : String(value ?? '');
@@ -60,18 +64,18 @@ window.UIManager = (function () {
     detailsEl.innerHTML = `
       <div class="route-panel-stack">
         <div class="route-panel-box">
-          <div class="route-panel-box-title">Operasyon Özeti</div>
-          <div class="rp-row"><span class="rp-label">Çalışma Takvimi</span><span class="rp-value">${ctx.getActiveServiceLabel()}</span></div>
-          <div class="rp-row"><span class="rp-label">Sefer Sayısı</span><span class="rp-value">Bugün ${stats.totalTrips} sefer</span></div>
-          <div class="rp-row"><span class="rp-label">Çalışma Saatleri</span><span class="rp-value">${stats.firstTime} – ${stats.lastTime}</span></div>
-          <div class="rp-row"><span class="rp-label">Güzergâh Uzunluğu</span><span class="rp-value">${stats.routeLengthKm} km</span></div>
-          <div class="rp-row"><span class="rp-label">Ort. Sefer Sıklığı</span><span class="rp-value">${ctx.formatHeadwayLabel(stats.averageHeadway)}</span></div>
+          <div class="route-panel-box-title">${translate('routePanelSummary', 'Operations Summary')}</div>
+          <div class="rp-row"><span class="rp-label">${translate('routePanelServiceCalendar', 'Service Calendar')}</span><span class="rp-value">${ctx.getActiveServiceLabel()}</span></div>
+          <div class="rp-row"><span class="rp-label">${translate('routePanelTripCount', 'Trip Count')}</span><span class="rp-value">${translate('routePanelTripsToday', '{count} trips today').replace('{count}', String(stats.totalTrips))}</span></div>
+          <div class="rp-row"><span class="rp-label">${translate('routePanelServiceHours', 'Service Hours')}</span><span class="rp-value">${stats.firstTime} - ${stats.lastTime}</span></div>
+          <div class="rp-row"><span class="rp-label">${translate('routePanelRouteLength', 'Route Length')}</span><span class="rp-value">${stats.routeLengthKm} km</span></div>
+          <div class="rp-row"><span class="rp-label">${translate('routePanelAverageHeadway', 'Avg Headway')}</span><span class="rp-value">${ctx.formatHeadwayLabel(stats.averageHeadway)}</span></div>
         </div>
         <div class="route-panel-box">
-          <div class="route-panel-box-title">Yön Dağılımı</div>
+          <div class="route-panel-box-title">${translate('routePanelDirectionDistribution', 'Direction Distribution')}</div>
           <div class="rp-text">${(stats.directionEntries || []).length
             ? stats.directionEntries.map(([label, count]) => `<div>${ctx.displayText(label)}: ${count}</div>`).join('')
-            : 'Sefer bilgisi yok'}</div>
+            : translate('routePanelNoTripInfo', 'No trip information')}</div>
         </div>
       </div>`;
     ctx.setSelectedEntity({ type: 'route', routeShort: routeMeta.short });
@@ -313,13 +317,13 @@ window.UIManager = (function () {
       timeEl.style.cssText = 'font-size:10px;color:var(--text-muted,#7d8590);margin-top:2px;';
       panelName.parentNode.insertBefore(timeEl, panelName.nextSibling);
     }
-    timeEl.textContent = `🕐 Simülasyon saati: ${ctx.secsToHHMM(ctx.simTime % 86400)}`;
+    timeEl.textContent = `${translate('stopPanelSimulationTime', 'Simulation time')}: ${ctx.secsToHHMM(ctx.simTime % 86400)}`;
 
-    table.innerHTML = '<div class="sa-head"><span>Hat</span><span>Varış Yönü</span><span>İlk Araç</span><span>Sonraki Araç</span></div>';
+    table.innerHTML = `<div class="sa-head"><span>${translate('stopPanelHeaderLine', 'Line')}</span><span>${translate('stopPanelHeaderDirection', 'Direction')}</span><span>${translate('stopPanelHeaderFirstVehicle', 'First Vehicle')}</span><span>${translate('stopPanelHeaderNextVehicle', 'Next Vehicle')}</span></div>`;
     const deps = stopMeta.sid ? ctx.STOP_DEPS[stopMeta.sid] : null;
     if (!deps?.length) {
-      panelMeta.textContent = 'Bu durak için sefer verisi yok';
-      table.innerHTML += '<div class="sa-empty">Bu durağa sefer bulunamadı.</div>';
+      panelMeta.textContent = translate('stopPanelNoServiceData', 'No trip data for this stop');
+      table.innerHTML += `<div class="sa-empty">${translate('stopPanelNoServiceFound', 'No trips found for this stop.')}</div>`;
       panel.classList.remove('hidden');
       return;
     }
@@ -334,9 +338,11 @@ window.UIManager = (function () {
         ? ctx.stopAvgHeadways[stopMeta.sid]
         : ctx.computeAverageHeadwaySeconds(deps));
     const routeCount = new Set(deps.map((dep) => dep[2] || ctx.TRIPS[dep[0]]?.s).filter(Boolean)).size;
-    panelMeta.textContent = `${routeCount} hat · Ortalama headway ${ctx.formatHeadwayLabel(stopHeadway)}`;
+    panelMeta.textContent = translate('stopPanelSummary', '{count} routes · Average headway {headway}')
+      .replace('{count}', String(routeCount))
+      .replace('{headway}', ctx.formatHeadwayLabel(stopHeadway));
     if (!rows.length) {
-      table.innerHTML += '<div class="sa-empty">Bu durak için gösterilecek hat bulunamadı.</div>';
+      table.innerHTML += `<div class="sa-empty">${translate('stopPanelNoDisplayRoutes', 'No routes available to display for this stop.')}</div>`;
       panel.classList.remove('hidden');
       return;
     }
@@ -383,14 +389,14 @@ window.UIManager = (function () {
     insightWrap.className = 'stop-insight-grid';
     insightWrap.innerHTML = `
       <div class="stop-insight-card">
-        <span class="stop-insight-k">Ort. Bekleme</span>
+        <span class="stop-insight-k">${translate('stopPanelAverageWait', 'Avg Wait')}</span>
         <span class="stop-insight-v">${waitMinutes != null ? `${waitMinutes} dk` : '—'}</span>
         <span class="stop-insight-s">${ctx.formatHeadwayLabel(stopHeadway)} headway</span>
       </div>
       <div class="stop-insight-card">
-        <span class="stop-insight-k">Bekleme 3D</span>
+        <span class="stop-insight-k">${translate('stopPanelWaiting3d', 'Waiting 3D')}</span>
         <span class="stop-insight-v">${waitingLevel}</span>
-        <span class="stop-insight-s">${ctx.showWaiting ? 'Katman açık' : 'Katman kapalı'}</span>
+        <span class="stop-insight-s">${ctx.showWaiting ? translate('stopPanelLayerOpen', 'Layer enabled') : translate('stopPanelLayerClosed', 'Layer disabled')}</span>
       </div>`;
     document.getElementById('stop-spark-wrap')?.remove();
   }
@@ -481,7 +487,7 @@ window.UIManager = (function () {
         item.className = 'stop-item';
         item.innerHTML = `<span class="stop-dot"></span><div class="stop-info"><div class="stop-name"></div><div class="stop-meta"></div></div>`;
         item.querySelector('.stop-name').textContent = stopMeta.name;
-        item.querySelector('.stop-meta').textContent = `Kod: ${stopMeta.code}`;
+        item.querySelector('.stop-meta').textContent = `${translate('stopPanelCode', 'Code')}: ${stopMeta.code}`;
         item.onclick = () => {
           ctx.mapgl.flyTo({ center: [stop[0], stop[1]], zoom: 15, duration: 800 });
           showStopArrivals(stop);
