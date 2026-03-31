@@ -61,12 +61,24 @@ window.UIManager = (function () {
       ? ctx.getLocalizedRouteTypeName(routeMeta.type, typeMetaEntry?.n || '-')
       : ctx.displayText(typeMetaEntry?.n || '-');
     const stats = ctx.buildRoutePanelStats(routeMeta.short);
+    const directionOptions = Array.isArray(stats.directionOptions) ? stats.directionOptions : [];
+    const directionFilterHtml = directionOptions.length
+      ? `
+          <div class="rp-row">
+            <span class="rp-label">${translate('routePanelDirectionFilter', 'Route Direction')}</span>
+            <select id="route-direction-select" class="vp-btn" style="min-width:150px;padding:6px 10px;">
+              <option value="">${translate('routePanelDirectionAll', 'All Directions')}</option>
+              ${directionOptions.map((option) => `<option value="${option.value}" ${stats.selectedDirection === option.value ? 'selected' : ''}>${ctx.displayText(option.label)} (${option.count})</option>`).join('')}
+            </select>
+          </div>`
+      : '';
     nameEl.textContent = `${icon} ${routeMeta.short}${routeMeta.longName ? ` · ${ctx.displayText(routeMeta.longName)}` : ''}`.trim();
     metaEl.textContent = `${typeName} · ${ctx.displayText(stats.directionLabel)}`;
     detailsEl.innerHTML = `
       <div class="route-panel-stack">
         <div class="route-panel-box">
           <div class="route-panel-box-title">${translate('routePanelSummary', 'Operations Summary')}</div>
+          ${directionFilterHtml}
           <div class="rp-row"><span class="rp-label">${translate('routePanelServiceCalendar', 'Service Calendar')}</span><span class="rp-value">${ctx.getActiveServiceLabel()}</span></div>
           <div class="rp-row"><span class="rp-label">${translate('routePanelTripCount', 'Trip Count')}</span><span class="rp-value">${translate('routePanelTripsToday', '{count} trips today').replace('{count}', String(stats.totalTrips))}</span></div>
           <div class="rp-row"><span class="rp-label">${translate('routePanelServiceHours', 'Service Hours')}</span><span class="rp-value">${stats.firstTime} - ${stats.lastTime}</span></div>
@@ -80,6 +92,18 @@ window.UIManager = (function () {
             : translate('routePanelNoTripInfo', 'No trip information')}</div>
         </div>
       </div>`;
+    const directionSelect = detailsEl.querySelector('#route-direction-select');
+    if (directionSelect) {
+      directionSelect.addEventListener('change', () => {
+        const nextValue = directionSelect.value === '' ? null : Number.parseInt(directionSelect.value, 10);
+        ctx.setSelectedRouteDirection(Number.isInteger(nextValue) ? nextValue : null);
+        ctx.setFocusedStopIdsCache(null);
+        ctx.invalidateMapCaches();
+        buildStopList(document.getElementById('stop-list-filter')?.value || '');
+        openRoutePanel(routeMeta, typeMetaEntry);
+        ctx.refreshLayersNow();
+      });
+    }
     ctx.setSelectedEntity({ type: 'route', routeShort: routeMeta.short });
     showElement(panel);
     setTimeout(() => panel.classList.add('open'), 10);
@@ -104,6 +128,7 @@ window.UIManager = (function () {
       return;
     }
     ctx.setFocusedRoute(null);
+    ctx.setSelectedRouteDirection(null);
     ctx.setFocusedStopIdsCache(null);
     ctx.setRouteHighlightPath(null);
     document.querySelectorAll('.route-item').forEach((el) => el.classList.remove('focused'));
@@ -514,6 +539,7 @@ window.UIManager = (function () {
       return;
     }
     ctx.setFocusedRoute(shortName);
+    ctx.setSelectedRouteDirection(null);
     ctx.setFocusedStopIdsCache(null);
     document.querySelectorAll('.route-item').forEach((el) => el.classList.toggle('focused', el.dataset.short === shortName));
     const shape = ctx.SHAPES.find((s) => s.s === shortName);
