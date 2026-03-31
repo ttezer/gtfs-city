@@ -103,7 +103,7 @@ window.CityManager = (function () {
       const toggleId = `city-toggle-${city.id}`;
       const cityName = ctx.displayText ? ctx.displayText(city.name) : city.name;
       const cityNote = ctx.displayText ? ctx.displayText(city.note || '') : (city.note || '');
-      div.innerHTML = `${activeIndicator}${deleteBtn}<span class="city-flag">${city.flag}</span><div class="city-info"><div class="city-name">${cityName}</div><div class="city-note">${cityNote}</div></div><label class="city-visibility-toggle" title="Şehri göster / gizle"><input type="checkbox" id="${toggleId}" data-city-visible="${city.id}" ${visible ? 'checked' : ''}><span>Görünür</span></label>`;
+      div.innerHTML = `${activeIndicator}${deleteBtn}<span class="city-flag">${city.flag}</span><div class="city-info"><div class="city-name">${cityName}</div><div class="city-note">${cityNote}</div></div><label class="city-visibility-toggle" title="Şehri göster / gizle"><input type="checkbox" id="${toggleId}" data-city-visible="${city.id}" ${visible ? 'checked' : ''}><span>${translate('cityVisible', 'Görünür')}</span></label>`;
       div.onclick = (event) => {
         if (event.target.closest('[data-city-delete]') || event.target.closest('[data-city-visible]')) return;
         if (!isCityVisible(city)) return;
