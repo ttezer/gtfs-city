@@ -1,67 +1,67 @@
-# GTFS City - Katki Rehberi
+# GTFS City - Katkı Rehberi
 
-Bu repo kamuya acik ve katkiya aciktir. Amac, calisan masaustu ve web akislarini bozmadan kontrollu iyilestirme yapmaktir.
+Bu repo kamuya açık ve katkıya açıktır. Amaç, çalışan masaüstü ve web akışlarını bozmadan kontrollü iyileştirme yapmaktır.
 
-## Temel Ilke
+## Temel İlke
 
-- Once problemi netlestir.
-- Sonra etkilenen akisi sinirla.
-- En kucuk dogru degisikligi yap.
-- Degisiklikten sonra metin ve test kontrolu calistir.
+- Önce problemi netleştir.
+- Sonra etkilenen akışı sınırla.
+- En küçük doğru değişikliği yap.
+- Değişiklikten sonra metin ve test kontrolü çalıştır.
 
-## Katki Turleri
+## Katkı Türleri
 
-- hata duzeltmesi
-- veri dogrulugu duzeltmesi
-- performans iyilestirmesi
-- UI/UX iyilestirmesi
-- yeni ozellik
-- dokumantasyon
+- hata düzeltmesi
+- veri doğruluğu düzeltmesi
+- performans iyileştirmesi
+- UI/UX iyileştirmesi
+- yeni özellik
+- dokümantasyon
 
-## Calisma Kurallari
+## Çalışma Kuralları
 
 - Tek aktif GTFS veri seti modeli korunur.
-- Upload-first baslangic akisi bozulmaz.
-- Desktop ve Web akislari birbirine karistirilmaz.
-- Turkce iceren metin dosyalarinda guvenli yama akisi kullanilir.
-- Buyuk refactor yerine hedefli refactor tercih edilir.
-- Yeni ozellikler once `yol-haritasi.md` veya `hata-listesi.md` icinde gorunur olmali.
+- Upload-first başlangıç akışı bozulmaz.
+- Desktop ve Web akışları birbirine karıştırılmaz.
+- Türkçe içeren metin dosyalarında güvenli yama akışı kullanılır.
+- Büyük refactor yerine hedefli refactor tercih edilir.
+- Yeni özellikler önce `yol-haritasi.md` veya `hata-listesi.md` içinde görünür olmalı.
 
-## Hafif Repo Yonetimi
+## Hafif Repo Yönetimi
 
-Bu repo icin hedef, az ama net kuralla profesyonel izlenebilirlik saglamaktir.
+Bu repo için hedef, az ama net kuralla profesyonel izlenebilirlik sağlamaktır.
 
 ### Repo Dili
 
-- Varsayilan repo dili Turkcedir.
-- Issue basliklari Turkce yazilir.
-- Issue aciklamalari Turkce yazilir.
-- PR basliklari Turkce yazilir.
-- PR aciklamalari Turkce yazilir.
-- Commit mesajlari Turkce yazilir.
-- Gerekirse ayrica Ingilizce ozet veya Ingilizce surum eklenebilir.
+- Varsayılan repo dili Türkçedir.
+- Issue başlıkları Türkçe yazılır.
+- Issue açıklamaları Türkçe yazılır.
+- PR başlıkları Türkçe yazılır.
+- PR açıklamaları Türkçe yazılır.
+- Commit mesajları Türkçe yazılır.
+- Gerekirse ayrıca İngilizce özet veya İngilizce sürüm eklenebilir.
 
 ### Label Seti
 
-Asagidaki etiketler yeterlidir. Ilk etapta bunlarin disina cikmaya gerek yok.
+Aşağıdaki etiketler yeterlidir. İlk etapta bunların dışına çıkmaya gerek yok.
 
 #### Tip etiketleri
 
-- `bug` - kirik davranis, regresyon, hata
-- `enhancement` - yeni ozellik veya mevcut davranisi gelistirme
+- `bug` - kırık davranış, regresyon, hata
+- `enhancement` - yeni özellik veya mevcut davranışı geliştirme
 - `docs` - README, roadmap, changelog, rehber, issue template
-- `i18n` - dil secenegi, ceviri, metin standardizasyonu
+- `i18n` - dil seçeneği, çeviri, metin standardizasyonu
 - `tech-debt` - refactor, ownership, adapter, temizlik
-- `data` - GTFS veri dogrulugu, parse, takvim, veri tutarliligi
-- `ux` - akislari veya okunabilirligi iyilestiren arayuz isi
-- `performance` - performans, render, memory, buyuk veri seti iyilestirmesi
+- `data` - GTFS veri doğruluğu, parse, takvim, veri tutarlılığı
+- `ux` - akışları veya okunabilirliği iyileştiren arayüz işi
+- `performance` - performans, render, memory, büyük veri seti iyileştirmesi
 
-#### Oncelik etiketleri
+#### Öncelik etiketleri
 
-- `P0` - release blocker, veri kaybi, uygulamanin kullanilamaz hale gelmesi
-- `P1` - yakin donemde alinmasi gereken ciddi sorun veya yuksek degerli is
-- `P2` - normal planli is
-- `P3` - dusuk oncelikli, polish veya sonraya birakilabilir is
+- `P0` - release blocker, veri kaybı, uygulamanın kullanılamaz hale gelmesi
+- `P1` - yakın dönemde alınması gereken ciddi sorun veya yüksek değerli iş
+- `P2` - normal planlı iş
+- `P3` - düşük öncelikli, polish veya sonraya bırakılabilir iş
 
 #### Platform etiketleri
 
@@ -71,93 +71,93 @@ Asagidaki etiketler yeterlidir. Ilk etapta bunlarin disina cikmaya gerek yok.
 
 #### Durum etiketleri
 
-- `needs-triage` - ilk bakis bekliyor
-- `ready` - kapsam net, alinabilir
-- `blocked` - bagimlilik veya karar bekliyor
+- `needs-triage` - ilk bakış bekliyor
+- `ready` - kapsam net, alınabilir
+- `blocked` - bağımlılık veya karar bekliyor
 
-Bir issue icin hedef maksimum 3-5 etiket kullanmaktir.
+Bir issue için hedef maksimum 3-5 etiket kullanmaktır.
 
-Onerilen minimum kombinasyon:
+Önerilen minimum kombinasyon:
 
 - 1 tip etiketi
-- 1 oncelik etiketi
+- 1 öncelik etiketi
 - 1 platform etiketi
 
-## Issue Kurallari
+## Issue Kuralları
 
-### Ne zaman issue acilir
+### Ne zaman issue açılır
 
-- kullaniciya gorunen bug varsa
-- roadmap'e alinacak yeni ozellik varsa
-- teknik borc bir PR icinde sessizce buyumeye basladiysa
-- birden fazla commit veya tartisma gerekecekse
+- kullanıcıya görünen bug varsa
+- roadmap'e alınacak yeni özellik varsa
+- teknik borç bir PR içinde sessizce büyümeye başladıysa
+- birden fazla commit veya tartışma gerekecekse
 
-### Issue acmadan once
+### Issue açmadan önce
 
 1. `README.md`, `hata-listesi.md`, `yol-haritasi.md` ve `CHANGELOG.md` kontrol edilir.
-2. Benzer acik issue var mi bakilir.
-3. Is tek satirlik bir typo mu, yoksa izlenmesi gereken bir is mi karar verilir.
+2. Benzer açık issue var mı bakılır.
+3. İş tek satırlık bir typo mu, yoksa izlenmesi gereken bir iş mi karar verilir.
 
-### Iyi issue ozeti nasil olur
+### İyi issue özeti nasıl olur
 
-- problem tek cumlede net olmali
-- etkilenen akis yazilmali
-- platform yazilmali
-- varsa veri seti veya sehir baglami eklenmeli
-- beklenen davranis ile mevcut davranis ayrilmali
+- problem tek cümlede net olmalı
+- etkilenen akış yazılmalı
+- platform yazılmalı
+- varsa veri seti veya şehir bağlamı eklenmeli
+- beklenen davranış ile mevcut davranış ayrılmalı
 
-### Issue sinirlari
+### Issue sınırları
 
-- Tek issue tek problem veya tek hedef olmali.
-- "Bug fix + refactor + docs + UI cleanup" tek issue olmamali.
-- Teknik borc issue'su kullanici bug'i ile karistirilmamali; bagli issue olarak ayrilabilir.
+- Tek issue tek problem veya tek hedef olmalı.
+- "Bug fix + refactor + docs + UI cleanup" tek issue olmamalı.
+- Teknik borç issue'su kullanıcı bug'ı ile karıştırılmamalı; bağlı issue olarak ayrılabilir.
 
-## Gelistirme Akisi
+## Geliştirme Akışı
 
-1. Ilgili sorunu veya oneriyi once issue olarak ac veya mevcut issue ile iliskilendir.
-2. Etkilenen dosyalari ve akisi kisa notla netlestir.
-3. Gerekirse `isplani.md`, `yol-haritasi.md` veya `hata-listesi.md` guncelle.
-4. Kucuk ve odakli degisiklik yap.
-5. Asagidaki dogrulamalari calistir.
-6. PR acarken ilgili issue'yu bagla.
+1. İlgili sorunu veya öneriyi önce issue olarak aç veya mevcut issue ile ilişkilendir.
+2. Etkilenen dosyaları ve akışı kısa notla netleştir.
+3. Gerekirse `isplani.md`, `yol-haritasi.md` veya `hata-listesi.md` güncelle.
+4. Küçük ve odaklı değişiklik yap.
+5. Aşağıdaki doğrulamaları çalıştır.
+6. PR açarken ilgili issue'yu bağla.
 
-## PR Kurallari
+## PR Kuralları
 
 ### Kapsam
 
-- Bir PR tek konuya odakli olmali.
-- Ayrik degisiklikler ayri PR olmali.
-- Kullaniciya gorunen degisiklikle alakasiz refactor ayni PR'a gizlenmemeli.
+- Bir PR tek konuya odaklı olmalı.
+- Ayrık değişiklikler ayrı PR olmalı.
+- Kullanıcıya görünen değişiklikle alakasız refactor aynı PR'a gizlenmemeli.
 
-### PR basligi
+### PR başlığı
 
-Asagidaki sade form yeterlidir:
+Aşağıdaki sade form yeterlidir:
 
 - `bug: fix stop panel empty state`
 - `docs: clarify README navigation`
 - `i18n: add initial English landing copy`
 - `tech-debt: split service calendar helpers`
 
-### PR aciklamasi minimumu
+### PR açıklaması minimumu
 
-- ne degisti
-- neden degisti
-- hangi issue ile bagli
-- hangi test/dogrulama calisti
-- kullaniciya gorunen etkisi var mi
+- ne değişti
+- neden değişti
+- hangi issue ile bağlı
+- hangi test/doğrulama çalıştı
+- kullanıcıya görünen etkisi var mı
 
-### PR cikis kriteri
+### PR çıkış kriteri
 
-Merge oncesi su sorularin cevabi net olmali:
+Merge öncesi şu soruların cevabı net olmalı:
 
-- issue baglandi mi
+- issue bağlandı mı
 - kapsam tek konu mu
-- README / roadmap / changelog guncellemesi gerekiyor mu kontrol edildi mi
-- `npm run check:text` calisti mi
-- `node --test --test-concurrency=1 --test-isolation=none` veya `npm test` calisti mi
-- gorsel degisiklik varsa ekran goruntusu var mi
+- README / roadmap / changelog güncellemesi gerekiyor mu kontrol edildi mi
+- `npm run check:text` çalıştı mı
+- `node --test --test-concurrency=1 --test-isolation=none` veya `npm test` çalıştı mı
+- görsel değişiklik varsa ekran görüntüsü var mı
 
-## Zorunlu Dogrulama
+## Zorunlu Doğrulama
 
 En az:
 
@@ -166,40 +166,40 @@ npm run check:text
 node --test --test-concurrency=1 --test-isolation=none
 ```
 
-Pratikte su da kabul edilir:
+Pratikte şu da kabul edilir:
 
 ```bash
 npm test
 ```
 
-Dagitim veya paketleme etkileniyorsa:
+Dağıtım veya paketleme etkileniyorsa:
 
 ```bash
 npm run build:win -- --dir
 ```
 
-## Belge Kullanimi
+## Belge Kullanımı
 
-- `README.md` - urun ozeti ve kullanim
-- `mimari.md` - teknik yapi ve modul dagilimi
-- `kontrol.md` - calisma kurallari
-- `isplani.md` - kisa guncel durum
-- `yol-haritasi.md` - ozellik ve gelistirme basliklari
-- `hata-listesi.md` - acik hata ve veri dogruluk sorunlari
-- `CHANGELOG.md` - kullaniciya gorunen kayda deger degisiklikler
+- `README.md` - ürün özeti ve kullanım
+- `mimari.md` - teknik yapı ve modül dağılımı
+- `kontrol.md` - çalışma kuralları
+- `isplani.md` - kısa güncel durum
+- `yol-haritasi.md` - özellik ve geliştirme başlıkları
+- `hata-listesi.md` - açık hata ve veri doğruluk sorunları
+- `CHANGELOG.md` - kullanıcıya görünen kayda değer değişiklikler
 
-## Hangi Dosya Ne Zaman Guncellenir
+## Hangi Dosya Ne Zaman Güncellenir
 
-- `README.md`: kullanici ne yapacagini veya nereye bakacagini artik farkli ogreniyorsa
-- `CHANGELOG.md`: kullaniciya gorunen kayda deger degisiklik varsa
-- `isplani.md`: alinmis karar, tamamlanan tur veya kisa durum notu varsa
-- `yol-haritasi.md`: orta/uzun vadeli is veya surec standardi tanimlaniyorsa
-- `hata-listesi.md`: acik kalan bug veya veri dogrulugu sorunu varsa
+- `README.md`: kullanıcı ne yapacağını veya nereye bakacağını artık farklı öğreniyorsa
+- `CHANGELOG.md`: kullanıcıya görünen kayda değer değişiklik varsa
+- `isplani.md`: alınmış karar, tamamlanan tur veya kısa durum notu varsa
+- `yol-haritasi.md`: orta/uzun vadeli iş veya süreç standardı tanımlanıyorsa
+- `hata-listesi.md`: açık kalan bug veya veri doğruluğu sorunu varsa
 
-## Ozellikle Kacinilacaklar
+## Özellikle Kaçınılacaklar
 
-- public repo icinde buyuk veri dump dosyalari
-- preload mantigini geri getiren degisiklikler
-- tek seferde buyuk, aciklamasiz refactor
-- Desktop calisan akisI bozan web denemeleri
-- issue'suz buyuk kapsamli degisiklikler
+- public repo içinde büyük veri dump dosyaları
+- preload mantığını geri getiren değişiklikler
+- tek seferde büyük, açıklamasız refactor
+- Desktop çalışan akışı bozan web denemeleri
+- issue'suz büyük kapsamlı değişiklikler
