@@ -707,7 +707,7 @@ function buildStopTooltipHtml(stopMeta) {
 function buildRouteTooltipHtml(routeMeta, typeMetaEntry) {
   return window.UiUtils
     ? window.UiUtils.buildRouteTooltipHtml(routeMeta, typeMetaEntry, displayText)
-    : `<div class="tt-t">${displayText(typeMetaEntry?.i || '')} ${routeMeta.short}</div><div class="tt-s">${routeMeta.longName || 'Uzun ad yok'}</div><div class="tt-v">${typeMetaEntry?.n || '-'}</div>`;
+    : `<div class="tt-t">${displayText(typeMetaEntry?.i || '')} ${routeMeta.short}</div><div class="tt-s">${routeMeta.longName || t('routeLongNameMissing', 'Uzun ad yok')}</div><div class="tt-v">${typeMetaEntry?.n || '-'}</div>`;
 }
 function buildVehiclePanelState(trip, selectedIdx, time) {
   return window.UiUtils
@@ -975,6 +975,18 @@ const I18N_MESSAGES = {
     gtfsLargeDataWarning: '⚠️ Büyük veri: {total} seferden {loaded} tanesi yüklendi',
     gtfsReplacingPrevious: 'Önceki yüklenen veri kaldırıldı. Yeni GTFS etkinleştiriliyor.',
     gtfsImportError: 'GTFS import hatası oluştu',
+    gtfsConfirmImport: 'Sisteme Al',
+    cancel: 'İptal',
+    gtfsReportStatusError: '⚠️ Hatalar Tespit Edildi - Yine de Sisteme Alındı',
+    gtfsReportStatusWarn: '⚠️ Uyarılar Var - Sisteme Alındı',
+    gtfsReportStatusOk: '✅ Geçerli GTFS - Sisteme Alındı',
+    gtfsReportNotice: 'ℹ {errors} hata ve {warnings} uyarı tespit edildi. Simülasyon mevcut verilerle çalışmaya devam ediyor.',
+    gtfsReportFooter: '{errors} hata - {warnings} uyarı - {info} bilgi',
+    gtfsExportJson: '⬇ JSON Rapor',
+    loaderPreparingData: 'Veriler Hazırlanıyor...',
+    platformElectron: 'ELECTRON',
+    platformWeb: 'WEB TARAYICI',
+    routeLongNameMissing: 'Uzun ad yok',
   },
   en: {
     languageLabel: 'Language',
@@ -1098,6 +1110,18 @@ const I18N_MESSAGES = {
     gtfsLargeDataWarning: '⚠️ Large dataset: {loaded} of {total} trips were loaded',
     gtfsReplacingPrevious: 'Previous data was removed. Activating new GTFS.',
     gtfsImportError: 'A GTFS import error occurred',
+    gtfsConfirmImport: 'Import to System',
+    cancel: 'Cancel',
+    gtfsReportStatusError: '⚠️ Errors Detected - Imported Anyway',
+    gtfsReportStatusWarn: '⚠️ Warnings Present - Imported',
+    gtfsReportStatusOk: '✅ Valid GTFS - Imported',
+    gtfsReportNotice: 'ℹ {errors} errors and {warnings} warnings were detected. Simulation continues with the available data.',
+    gtfsReportFooter: '{errors} errors - {warnings} warnings - {info} info',
+    gtfsExportJson: '⬇ JSON Report',
+    loaderPreparingData: 'Preparing Data...',
+    platformElectron: 'ELECTRON',
+    platformWeb: 'WEB BROWSER',
+    routeLongNameMissing: 'No long name',
   },
 };
 
@@ -1202,6 +1226,8 @@ function applyStaticTranslations() {
   if (warningTitle) warningTitle.textContent = t('warningTitle');
   const warningClose = document.getElementById('gwd-close');
   if (warningClose) warningClose.title = t('close');
+  const loaderText = document.querySelector('.loader-text');
+  if (loaderText) loaderText.textContent = t('loaderPreparingData');
 }
 
 function setLanguage(lang) {

@@ -169,14 +169,14 @@ window.AppManager = (function () {
     if (!badge) return;
     if (window.IS_ELECTRON) {
       window.electronAPI?.getAppInfo?.().then((info) => {
-        badge.textContent = `ELECTRON / ${(info?.platform || '').toUpperCase()}`;
+        badge.textContent = `${translate('platformElectron', 'ELECTRON')} / ${(info?.platform || '').toUpperCase()}`;
         badge.className = 'platform-badge electron';
       }).catch(() => {
-        badge.textContent = 'ELECTRON';
+        badge.textContent = translate('platformElectron', 'ELECTRON');
         badge.className = 'platform-badge electron';
       });
     } else {
-      badge.textContent = 'WEB BROWSER';
+      badge.textContent = translate('platformWeb', 'WEB BROWSER');
       badge.className = 'platform-badge web';
     }
   }

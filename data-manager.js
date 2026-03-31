@@ -63,8 +63,8 @@ window.DataManager = (function () {
     const row = getGtfsConfirmRow();
     if (!row) return;
     row.innerHTML = messageHtml || `
-      <button id="btn-gtfs-confirm" style="flex:1;background:rgba(63,185,80,0.15);color:#3fb950;border:1px solid rgba(63,185,80,0.4);border-radius:6px;padding:8px 0;font-size:13px;font-weight:700;cursor:pointer;">✓ Sisteme Al</button>
-      <button id="btn-gtfs-cancel" style="flex:1;background:rgba(248,81,73,0.1);color:#f85149;border:1px solid rgba(248,81,73,0.3);border-radius:6px;padding:8px 0;font-size:13px;cursor:pointer;">✕ İptal</button>
+      <button id="btn-gtfs-confirm" style="flex:1;background:rgba(63,185,80,0.15);color:#3fb950;border:1px solid rgba(63,185,80,0.4);border-radius:6px;padding:8px 0;font-size:13px;font-weight:700;cursor:pointer;">✓ ${translate('gtfsConfirmImport', 'Sisteme Al')}</button>
+      <button id="btn-gtfs-cancel" style="flex:1;background:rgba(248,81,73,0.1);color:#f85149;border:1px solid rgba(248,81,73,0.3);border-radius:6px;padding:8px 0;font-size:13px;cursor:pointer;">✕ ${translate('cancel', 'İptal')}</button>
     `;
     row.classList.toggle('hidden', !visible);
     row.style.display = visible ? 'flex' : 'none';
@@ -185,15 +185,15 @@ window.DataManager = (function () {
     const warnCount = report.warnings.length;
     const status = errCount > 0 ? 'error' : warnCount > 0 ? 'warn' : 'ok';
     const statusText = {
-      error: '⚠️ Hatalar Tespit Edildi — Yine de Sisteme Alındı',
-      warn: '⚠️ Uyarılar Var — Sisteme Alındı',
-      ok: '✅ Geçerli GTFS — Sisteme Alındı',
+      error: translate('gtfsReportStatusError', '⚠️ Hatalar Tespit Edildi - Yine de Sisteme Alındı'),
+      warn: translate('gtfsReportStatusWarn', '⚠️ Uyarılar Var - Sisteme Alındı'),
+      ok: translate('gtfsReportStatusOk', '✅ Geçerli GTFS - Sisteme Alındı'),
     }[status];
     wrap.innerHTML = `
       <div class="gtfs-report-header" data-status="${status}"><span>${statusText}</span><span class="gtfs-file-name">${fileName}</span></div>
-      <div class="gtfs-notice">ℹ️ ${errCount} hata ve ${warnCount} uyarı tespit edildi. Simülasyon mevcut verilerle çalışmaya devam ediyor.</div>
+      <div class="gtfs-notice">${translate('gtfsReportNotice', 'ℹ {errors} hata ve {warnings} uyarı tespit edildi. Simülasyon mevcut verilerle çalışmaya devam ediyor.').replace('{errors}', String(errCount)).replace('{warnings}', String(warnCount))}</div>
       <div class="gtfs-report-body">${all.map((entry) => `<div class="gr-row gr-${entry.sev.toLowerCase()}"><span class="gr-sev">${entry.sev}</span><span class="gr-file">${entry.file}</span><span class="gr-msg">${entry.msg}</span></div>`).join('')}</div>
-      <div class="gtfs-report-footer"><span>${errCount} hata · ${warnCount} uyarı · ${report.info.length} bilgi</span><button class="gtfs-export-btn" id="btn-export-json">⬇ JSON Rapor</button></div>`;
+      <div class="gtfs-report-footer"><span>${translate('gtfsReportFooter', '{errors} hata - {warnings} uyarı - {info} bilgi').replace('{errors}', String(errCount)).replace('{warnings}', String(warnCount)).replace('{info}', String(report.info.length))}</span><button class="gtfs-export-btn" id="btn-export-json">${translate('gtfsExportJson', '⬇ JSON Rapor')}</button></div>`;
     getElement('btn-export-json')?.addEventListener('click', () => exportReportJSON(report, fileName));
   }
 
@@ -555,7 +555,7 @@ window.DataManager = (function () {
       if (overlay && !landingUpload) {
         overlay.classList.remove('hidden');
         if (fileList) fileList.innerHTML = `<div class="file-item">📦 ${zipFileName} açılıyor...</div>`;
-        if (loaderText) loaderText.textContent = 'GTFS Verileri Okunuyor...';
+      if (loaderText) loaderText.textContent = translate('loadingFilesReading', 'GTFS verileri okunuyor...');
       }
 
       const setProgress = (pct) => {
@@ -718,7 +718,7 @@ window.DataManager = (function () {
       if (!silentImport) renderGtfsConfirmRow('<div style="color:#f85149;padding:8px;font-size:12px;">Önce bir GTFS dosyası seç.</div>', true);
       return;
     }
-    if (!silentImport) renderGtfsConfirmRow('<div style="text-align:center;color:#58a6ff;font-size:12px;padding:8px 0;">Yükleniyor...</div>', true);
+    if (!silentImport) renderGtfsConfirmRow(`<div style="text-align:center;color:#58a6ff;font-size:12px;padding:8px 0;">${translate('loading', 'Yükleniyor...')}</div>`, true);
     let meta = buildUploadedCityMeta(files, fileName);
     if (!meta) {
       if (!silentImport) renderGtfsConfirmRow('<div style="color:#f85149;padding:8px;font-size:12px;">Şehir bilgisi çıkarılamadı.</div>', true);
@@ -761,7 +761,7 @@ window.DataManager = (function () {
         landingUploadBtn.disabled = false;
         landingUploadBtn.classList.remove('is-loading');
         landingUploadBtn.style.removeProperty('--load-pct');
-        landingUploadBtn.textContent = '📂 BAŞKA GTFS ZIP YÜKLE';
+    landingUploadBtn.textContent = `📂 ${translate('uploadAnother', 'Başka GTFS ZIP Yükle').toLocaleUpperCase(window.I18n?.getLanguage?.() === 'en' ? 'en-US' : 'tr-TR')}`;
       }
     }
     setTimeout(() => {
