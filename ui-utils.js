@@ -21,7 +21,18 @@
 
   function buildRouteTooltipHtml(routeMeta, typeMetaEntry, displayText) {
     const icon = displayText(typeMetaEntry?.i || '');
-    const typeName = typeMetaEntry?.n || '-';
+    const typeName = ({
+      '0': translate('routeTypeTram', 'Tram'),
+      '1': translate('routeTypeMetro', 'Metro'),
+      '2': translate('routeTypeTrain', 'Train'),
+      '3': translate('routeTypeBus', 'Bus'),
+      '4': translate('routeTypeFerry', 'Ferry'),
+      '5': translate('routeTypeCableCar', 'Cable Car'),
+      '6': translate('routeTypeGondola', 'Gondola'),
+      '7': translate('routeTypeFunicular', 'Funicular'),
+      '9': translate('routeTypeMinibus', 'Minibus'),
+      '10': translate('routeTypeSharedTaxi', 'Shared Taxi'),
+    }[String(routeMeta?.type ?? '').trim()]) || typeMetaEntry?.n || '-';
     return `<div class="tt-t white-text">${icon} ${routeMeta.short}</div><div class="tt-s muted-text">${routeMeta.longName || translate('routeLongNameMissing', 'Uzun ad yok')}</div><div class="tt-v mute-text">${typeName}</div>`;
   }
 
@@ -105,6 +116,18 @@
 
     const routeMeta = getRouteMeta(trip.s, trip.t, trip.c, trip.ln || trip.h || '');
     const mode = typeMeta[routeMeta.type] || typeMeta[trip.t] || {};
+    const localizedModeName = ({
+      '0': translate('routeTypeTram', 'Tram'),
+      '1': translate('routeTypeMetro', 'Metro'),
+      '2': translate('routeTypeTrain', 'Train'),
+      '3': translate('routeTypeBus', 'Bus'),
+      '4': translate('routeTypeFerry', 'Ferry'),
+      '5': translate('routeTypeCableCar', 'Cable Car'),
+      '6': translate('routeTypeGondola', 'Gondola'),
+      '7': translate('routeTypeFunicular', 'Funicular'),
+      '9': translate('routeTypeMinibus', 'Minibus'),
+      '10': translate('routeTypeSharedTaxi', 'Shared Taxi'),
+    }[String(routeMeta?.type ?? trip?.t ?? '').trim()]) || displayText(mode.n || '-');
     const duration = Math.max(trip.d || 0, 1);
     const runtimeOffsetAbs = typeof getTripRuntimeOffset === 'function'
       ? getTripRuntimeOffset(trip, simTime)
@@ -157,7 +180,7 @@
     return {
       icon: displayText(mode.i || 'bus'),
       title: routeMeta.short,
-      subtitle: routeLongName || displayText(mode.n || '-'),
+      subtitle: routeLongName || localizedModeName,
       speed: calcSpeed(trip, simTime),
       headway: calcHeadway(trips || [], selectedTripIdx, simTime, getVehiclePos, haversineM, getTripProgressAtTime),
       progress: `${Math.max(0, Math.min(100, Math.round((offset / duration) * 100)))}%`,
