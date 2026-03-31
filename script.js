@@ -751,7 +751,10 @@ function updateActiveBadge(activeCount, visTrips, visShapes) {
   if (!wrap) return;
   const routeCount = new Set(visShapes.map(s => s.s)).size;
   const tripCount = visTrips.length;
-  wrap.innerHTML = `<span id="s-active">${activeCount}</span> aktif araç · ${routeCount} hat · ${tripCount} sefer`;
+  wrap.innerHTML = t('activeBadge', '{active} aktif araç - {routes} hat - {trips} sefer')
+    .replace('{active}', `<span id="s-active">${activeCount}</span>`)
+    .replace('{routes}', String(routeCount))
+    .replace('{trips}', String(tripCount));
 }
 function pushGtfsError(code, message, details = '') {
   const entry = { code, message, details, at: new Date().toISOString() };
@@ -999,6 +1002,7 @@ const I18N_MESSAGES = {
     sidebarRouteSearch: 'Hat ara...',
     sidebarStopSearch: 'Durak ara...',
     togglePaths: 'Güzergâh Hatları',
+    toggleAnimation: 'Araç Animasyonu',
     toggleDensity: 'Durak Yoğunluğu 3D',
     toggleStops: 'Duraklar',
     toggleStopCoverage: 'Durak 300 m',
@@ -1015,6 +1019,15 @@ const I18N_MESSAGES = {
     vehicleDetailArrival: 'Varış',
     vehicleDetailTripsSameDirection: 'Aynı Yönde Sefer',
     vehicleFollowStop: 'Takibi Bırak',
+    peakMorning: 'SABAH PİK',
+    peakEvening: 'AKŞAM PİK',
+    activeBadge: '{active} aktif araç - {routes} hat - {trips} sefer',
+    mapStyleSatellite: 'UYDU',
+    mapStyleDark: 'KOYU',
+    mapStyleLight: 'AÇIK',
+    cityVisible: 'Görünür',
+    adaptedBadge: '⚠️ UYARLANDI',
+    serviceAdaptedReason: 'Bugün için servis bulunamadı, takvim geçmiş veriye uyarlandı.',
   },
   en: {
     languageLabel: 'Language',
@@ -1162,6 +1175,7 @@ const I18N_MESSAGES = {
     sidebarRouteSearch: 'Search route...',
     sidebarStopSearch: 'Search stop...',
     togglePaths: 'Route Lines',
+    toggleAnimation: 'Vehicle Animation',
     toggleDensity: 'Stop Density 3D',
     toggleStops: 'Stops',
     toggleStopCoverage: 'Stop 300 m',
@@ -1178,6 +1192,15 @@ const I18N_MESSAGES = {
     vehicleDetailArrival: 'Arrival',
     vehicleDetailTripsSameDirection: 'Trips Same Direction',
     vehicleFollowStop: 'Stop Following',
+    peakMorning: 'MORNING PEAK',
+    peakEvening: 'EVENING PEAK',
+    activeBadge: '{active} active vehicles - {routes} routes - {trips} trips',
+    mapStyleSatellite: 'SATELLITE',
+    mapStyleDark: 'DARK',
+    mapStyleLight: 'LIGHT',
+    cityVisible: 'Visible',
+    adaptedBadge: '⚠️ ADAPTED',
+    serviceAdaptedReason: 'No service was found for today, calendar was adapted from past data.',
   },
 };
 
@@ -1304,6 +1327,7 @@ function applyStaticTranslations() {
   const stopSearch = document.getElementById('stop-list-filter');
   if (stopSearch) stopSearch.placeholder = t('sidebarStopSearch');
   const toggles = document.querySelectorAll('#section-layers .tog-row');
+  if (toggles[0]) toggles[0].lastChild.textContent = t('toggleAnimation');
   if (toggles[1]) toggles[1].lastChild.textContent = t('togglePaths');
   if (toggles[2]) toggles[2].lastChild.textContent = t('toggleDensity');
   if (toggles[3]) toggles[3].lastChild.textContent = t('toggleStops');
@@ -1314,6 +1338,19 @@ function applyStaticTranslations() {
   if (toggles[8]) toggles[8].lastChild.textContent = t('toggleBunching');
   if (toggles[9]) toggles[9].lastChild.textContent = t('toggleWaiting');
   if (toggles[10]) toggles[10].lastChild.textContent = t('toggleIsochron');
+  const peakLabels = document.querySelectorAll('#peak-labels .peak-label');
+  if (peakLabels[0]) peakLabels[0].textContent = t('peakMorning');
+  if (peakLabels[1]) peakLabels[1].textContent = t('peakEvening');
+  const styleButtons = document.querySelectorAll('#map-style-btns .sstyle');
+  if (styleButtons[1]) styleButtons[1].textContent = t('mapStyleSatellite');
+  if (styleButtons[2]) styleButtons[2].textContent = t('mapStyleDark');
+  if (styleButtons[3]) styleButtons[3].textContent = t('mapStyleLight');
+  const cityVisible = document.querySelector('.city-visibility-toggle span');
+  if (cityVisible) cityVisible.textContent = t('cityVisible');
+  const adaptedBadge = document.getElementById('calendar-adapted-badge');
+  if (adaptedBadge) adaptedBadge.textContent = t('adaptedBadge');
+  const gtfsSidebarBtn = document.getElementById('btn-gtfs-upload');
+  if (gtfsSidebarBtn) gtfsSidebarBtn.textContent = t('landingUploadButton');
 }
 
 function setLanguage(lang) {
