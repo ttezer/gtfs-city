@@ -1,6 +1,6 @@
 # GTFS City
 
-GTFS City is an Electron-based analysis and visualization app for loading GTFS ZIP data and exploring a transit network on desktop.
+GTFS City is a GTFS viewer and transit analysis tool for loading GTFS ZIP data and exploring a transit network. It provides the full Electron desktop workflow and a free web demo for lightweight access in the browser.
 
 Turkish README: [README.md](./README.md)
 

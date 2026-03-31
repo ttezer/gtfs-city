@@ -1,6 +1,6 @@
 # GTFS City
 
-GTFS City, GTFS ZIP verisini yükleyip toplu taşıma ağını masaüstünde incelemek için hazırlanmış Electron tabanlı analiz ve görselleştirme uygulamasıdır.
+GTFS City, GTFS ZIP verisini yükleyip toplu taşıma ağını incelemek için geliştirilen bir GTFS viewer ve analiz aracıdır. Masaüstünde tam Electron akışını, web tarafında ise ücretsiz demo deneyimini sunar.
 
 English README: [README.en.md](./README.en.md)
 
