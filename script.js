@@ -852,6 +852,109 @@ function callManager(managerName, methodName, args = [], fallbackValue) {
   return typeof fallbackValue === 'function' ? fallbackValue() : fallbackValue;
 }
 
+const I18N_MESSAGES = {
+  tr: {
+    languageLabel: 'Dil',
+    landingSubtitle: 'Transit veri analiz ve gorsellestirme paneli',
+    landingRoutes: 'Toplam Hat',
+    landingTrips: 'Bugunku Seferler',
+    landingStops: 'Aktif Duraklar',
+    uploadGtfsZip: 'GTFS ZIP Yukle',
+    uploadAnother: 'Baska GTFS ZIP Yukle',
+    openMap: 'Haritayi Ac',
+    loadFromLink: 'Linkten Yukle',
+    linkNote: 'Yalnizca HTTPS GTFS ZIP linkleri kabul edilir. Dis baglantinin guvenligi kullanici sorumlulugundadir.',
+    homeTitle: 'Giris sayfasina don',
+    loading: 'Yukleniyor...',
+  },
+  en: {
+    languageLabel: 'Language',
+    landingSubtitle: 'Transit data analysis and visualization panel',
+    landingRoutes: 'Total Routes',
+    landingTrips: "Today's Trips",
+    landingStops: 'Active Stops',
+    uploadGtfsZip: 'Upload GTFS ZIP',
+    uploadAnother: 'Upload Another GTFS ZIP',
+    openMap: 'Open Map',
+    loadFromLink: 'Load From Link',
+    linkNote: 'Only HTTPS GTFS ZIP links are accepted. External link safety is the user responsibility.',
+    homeTitle: 'Return to landing page',
+    loading: 'Loading...',
+  },
+};
+
+let currentLanguage = (() => {
+  try {
+    const saved = localStorage.getItem('gtfs-city-language');
+    return saved === 'en' ? 'en' : 'tr';
+  } catch (_) {
+    return 'tr';
+  }
+})();
+
+function t(key, fallback = '') {
+  return I18N_MESSAGES[currentLanguage]?.[key] || I18N_MESSAGES.tr?.[key] || fallback || key;
+}
+
+function ensureLanguageSwitcher() {
+  if (document.getElementById('language-switcher')) return;
+  const wrap = document.createElement('div');
+  wrap.id = 'language-switcher';
+  wrap.innerHTML = `
+    <label id="language-switcher-label" for="language-select">${t('languageLabel', 'Language')}</label>
+    <select id="language-select" aria-label="Language">
+      <option value="tr">Turkce</option>
+      <option value="en">English</option>
+    </select>
+  `;
+  document.body.appendChild(wrap);
+  const select = document.getElementById('language-select');
+  if (select) {
+    select.value = currentLanguage;
+    select.addEventListener('change', (event) => setLanguage(event.target.value));
+  }
+}
+
+function applyStaticTranslations() {
+  document.documentElement.lang = currentLanguage;
+  ensureLanguageSwitcher();
+  const label = document.getElementById('language-switcher-label');
+  const select = document.getElementById('language-select');
+  if (label) label.textContent = t('languageLabel', 'Language');
+  if (select) select.value = currentLanguage;
+  const subtitle = document.querySelector('.lp-subtitle');
+  if (subtitle) subtitle.textContent = t('landingSubtitle');
+  const labels = document.querySelectorAll('.lp-card-lbl');
+  if (labels[0]) labels[0].textContent = t('landingRoutes');
+  if (labels[1]) labels[1].textContent = t('landingTrips');
+  if (labels[2]) labels[2].textContent = t('landingStops');
+  const uploadLink = document.getElementById('lp-btn-url');
+  if (uploadLink) uploadLink.textContent = t('loadFromLink');
+  const linkNote = document.getElementById('lp-link-note');
+  if (linkNote) linkNote.textContent = t('linkNote');
+  const homeBtn = document.getElementById('home-toggle-btn');
+  if (homeBtn) homeBtn.title = t('homeTitle');
+}
+
+function setLanguage(lang) {
+  currentLanguage = lang === 'en' ? 'en' : 'tr';
+  try {
+    localStorage.setItem('gtfs-city-language', currentLanguage);
+  } catch (_) {}
+  applyStaticTranslations();
+  window.dispatchEvent(new CustomEvent('app-language-change', { detail: { language: currentLanguage } }));
+  updateLandingPageReports();
+}
+
+window.I18n = {
+  getLanguage: () => currentLanguage,
+  setLanguage,
+  t,
+};
+
+ensureLanguageSwitcher();
+applyStaticTranslations();
+
 if ('serviceWorker' in navigator && window.PLATFORM === 'web') {
   navigator.serviceWorker.register('./sw.js').catch(() => { });
 }
@@ -977,6 +1080,8 @@ window.LegacyUIBridge = createLegacyBridge(() => ({
     displayText,
     buildRoutePanelStats,
     getActiveServiceLabel,
+    currentLanguage,
+    t,
     formatHeadwayLabel,
     colorToCss,
     computeAverageHeadwaySeconds,
@@ -1025,6 +1130,8 @@ window.LegacyServiceBridge = createLegacyBridge(() => ({
     activeServiceIds,
     calendarCache: _calendarCache,
     displayText,
+    currentLanguage,
+    t,
     showToast,
     getBuiltinGtfsPayload,
     loadGtfsIntoSim,

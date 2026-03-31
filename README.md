@@ -1,24 +1,26 @@
-﻿# GTFS City
+# GTFS City
 
-GTFS City, GTFS ZIP verisini yükleyip toplu taşıma ağını masaüstünde incelemek için hazırlanmış Electron tabanlı analiz ve görselleştirme uygulamasıdır.
+GTFS City, GTFS ZIP verisini yukleyip toplu tasima agini masaustunde incelemek icin hazirlanmis Electron tabanli analiz ve gorsellestirme uygulamasidir.
 
-## Öne Çıkanlar
+English README: [README.en.md](./README.en.md)
+
+## One Cikanlar
 
 - tek aktif GTFS veri seti
-- upload-first başlangıç akışı
-- hat, durak ve araç detay panelleri
-- headway, bekleme, yoğunluk ve kapsama katmanları
-- HTTPS GTFS ZIP linkinden yükleme (`Electron` içinde)
+- upload-first baslangic akisi
+- hat, durak ve arac detay panelleri
+- headway, bekleme, yogunluk ve kapsama katmanlari
+- HTTPS GTFS ZIP linkinden yukleme (`Electron` icinde)
 
-## Ekran Görüntüleri
+## Ekran Goruntuleri
 
-### Giriş ekranı
+### Giris ekrani
 
-![Giriş sayfası](./docs/screens/giris_sayfasi.jpg)
+![Giris sayfasi](./docs/screens/giris_sayfasi.jpg)
 
-### GTFS yükleme örneği
+### GTFS yukleme ornegi
 
-![GTFS yükleme örneği](./docs/screens/ornek_GTFS_Konya.jpg)
+![GTFS yukleme ornegi](./docs/screens/ornek_GTFS_Konya.jpg)
 
 ### Hat paneli
 
@@ -28,20 +30,20 @@ GTFS City, GTFS ZIP verisini yükleyip toplu taşıma ağını masaüstünde inc
 
 ![Durak bilgi paneli](./docs/screens/durak_bilgi.jpg)
 
-### Araç paneli
+### Arac paneli
 
-![Araç bilgi paneli](./docs/screens/arac_bilgi.jpg)
+![Arac bilgi paneli](./docs/screens/arac_bilgi.jpg)
 
-### İzokron analizi
+### Izokron analizi
 
-![Durak bazlı izokron analizi](./docs/screens/durak_bazli_izokran.jpg)
+![Durak bazli izokron analizi](./docs/screens/durak_bazli_izokran.jpg)
 
-## Çalışma Modeli
+## Calisma Modeli
 
-- Uygulama boş landing ekranla açılır.
-- Kullanıcı GTFS ZIP yükler veya HTTPS ZIP linki verir.
-- Veri hazır olunca `HARİTAYI AÇ` ile çalışma ekranına geçilir.
-- Aynı anda yalnızca tek yüklenmiş veri seti tutulur.
+- Uygulama bos landing ekranla acilir.
+- Kullanici GTFS ZIP yukler veya HTTPS ZIP linki verir.
+- Veri hazir olunca `HARITAYI AC` ile calisma ekranina gecilir.
+- Ayni anda yalnizca tek yuklenmis veri seti tutulur.
 
 ## Kurulum
 
@@ -56,9 +58,9 @@ Kurulum:
 npm install
 ```
 
-## Çalıştırma
+## Calistirma
 
-Geliştirme:
+Gelistirme:
 
 ```bash
 npm start
@@ -76,40 +78,48 @@ Windows paketleme:
 npm run build:win -- --dir
 ```
 
-## Kullanım
+## Kullanim
 
-1. Uygulamayı aç.
-2. `GTFS ZIP YÜKLE` ile dosya seç veya Electron içinde HTTPS link kullan.
-3. Yükleme tamamlanınca `HARİTAYI AÇ` ile haritaya geç.
-4. Sol menüden hat tipleri, görünürlük ve analiz katmanlarını yönet.
-5. Hat, durak ve araç panellerini kullanarak veri incelemesi yap.
+1. Uygulamayi ac.
+2. `GTFS ZIP YUKLE` ile dosya sec veya Electron icinde HTTPS link kullan.
+3. Yukleme tamamlaninca `HARITAYI AC` ile haritaya gec.
+4. Sol menuden hat tipleri, gorunurluk ve analiz katmanlarini yonet.
+5. Hat, durak ve arac panellerini kullanarak veri incelemesi yap.
+
+## Nereye Bakmaliyim?
+
+- Hata raporu icin: `Issues` uzerinde `bug` etiketiyle yeni kayit acin.
+- Bir fix ariyorsaniz: once `hata-listesi.md`, sonra `CHANGELOG.md` ve ilgili `Issues` kayitlarini kontrol edin.
+- Yeni ozellik icin: `Issues` uzerinde `feature` etiketiyle talep acin veya mevcut talepleri inceleyin.
+- Oncelikler ve sonraki isler icin: `isplani.md` ve `yol-haritasi.md` dosyalarina bakin.
+- Katki ve PR akisi icin: `CONTRIBUTING.md` dosyasini izleyin.
 
 ## Ana Dosyalar
 
-- `index.html` — arayüz iskeleti
-- `script.js` — orkestrasyon ve ortak state
-- `data-manager.js` — GTFS yükleme ve runtime apply
-- `city-manager.js` — aktif veri seti kartı ve görünürlük akışı
-- `service-manager.js` — çalışma takvimi ve servis filtresi
-- `map-manager.js` — Deck.gl katmanları
-- `ui-manager.js` — paneller ve kullanıcı etkileşimleri
-- `simulation-engine.js` — simülasyon ve replay döngüsü
-- `electron/main.js` / `electron/preload.js` — Electron köprüsü
+- `index.html` - arayuz iskeleti
+- `script.js` - orkestrasyon ve ortak state
+- `data-manager.js` - GTFS yukleme ve runtime apply
+- `city-manager.js` - aktif veri seti karti ve gorunurluk akisi
+- `service-manager.js` - calisma takvimi ve servis filtresi
+- `map-manager.js` - Deck.gl katmanlari
+- `ui-manager.js` - paneller ve kullanici etkilesimleri
+- `simulation-engine.js` - simulasyon ve replay dongusu
+- `electron/main.js` / `electron/preload.js` - Electron koprusu
 
-## Dokümanlar
+## Dokumanlar
 
-- `mimari.md` — teknik yapı
-- `kontrol.md` — çalışma kuralları
-- `isplani.md` — güncel durum ve sonraki işler
-- `yol-haritasi.md` — orta ve uzun vadeli geliştirme başlıkları
-- `hata-listesi.md` — açık hata ve veri doğruluk sorunları
-- `desktop-web-notu.md` — platform sınırları
-- `CHANGELOG.md` — kısa ürün kilometre taşları
-- `CONTRIBUTING.md` — katkı akışı
-- `docs/` — GitHub Pages vitrin dosyaları
+- `mimari.md` - teknik yapi
+- `kontrol.md` - calisma kurallari
+- `isplani.md` - guncel durum ve sonraki isler
+- `yol-haritasi.md` - orta ve uzun vadeli gelistirme basliklari
+- `hata-listesi.md` - acik hata ve veri dogruluk sorunlari
+- `desktop-web-notu.md` - platform sinirlari
+- `CHANGELOG.md` - kisa urun kilometre taslari
+- `CONTRIBUTING.md` - katki akisi
+- `docs/` - GitHub Pages vitrin dosyalari
 
 ## GitHub Pages
 
-Statik vitrin sayfası `docs/` klasöründedir.
+Statik vitrin sayfasi `docs/` klasorundedir.
 
-> Not: Ürün vitrini için Pages kullanılır; README tekrar eden kurulum talimatı dışında Pages içeriğini kopyalamaz.
+> Not: Urun vitrini icin Pages kullanilir; README tekrar eden kurulum talimati disinda Pages icerigini kopyalamaz.
