@@ -4,10 +4,10 @@ window.ServiceManager = (function () {
   const WEEKDAY_LABELS = ['Pzt', 'Sal', '\u00c7ar', 'Per', 'Cum', 'Cmt', 'Paz'];
   const SERVICE_STATUS_RANK = { active: 0, future: 1, passive: 2, expired: 3 };
   const SERVICE_STATUS_LABELS = {
-    active: 'AKTIF',
+    active: 'AKTİF',
     future: 'PLANLI',
-    expired: 'GECMIS',
-    passive: 'PASIF',
+    expired: 'GEÇMİŞ',
+    passive: 'PASİF',
   };
 
   function getCtx() {
@@ -153,7 +153,7 @@ window.ServiceManager = (function () {
     }
 
     const firstId = [...ids][0] || 'all';
-    const reason = adapted ? 'Bugun icin servis bulunamadi, takvim gecmis veriye uyarlandi.' : '';
+    const reason = adapted ? 'Bugün için servis bulunamadı, takvim geçmiş veriye uyarlandı.' : '';
     return { serviceId: firstId, adapted, serviceIds: ids, reason };
   }
 

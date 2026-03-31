@@ -855,49 +855,88 @@ function callManager(managerName, methodName, args = [], fallbackValue) {
 const I18N_MESSAGES = {
   tr: {
     languageLabel: 'Dil',
-    landingSubtitle: 'Transit veri analiz ve gorsellestirme paneli',
+    landingSubtitle: 'Transit veri analiz ve görselleştirme paneli',
     landingRoutes: 'Toplam Hat',
-    landingTrips: 'Bugunku Seferler',
+    landingTrips: 'Bugünkü Seferler',
     landingStops: 'Aktif Duraklar',
-    uploadGtfsZip: 'GTFS ZIP Yukle',
-    uploadAnother: 'Baska GTFS ZIP Yukle',
-    openMap: 'Haritayi Ac',
-    loadFromLink: 'Linkten Yukle',
-    linkNote: 'Yalnizca HTTPS GTFS ZIP linkleri kabul edilir. Dis baglantinin guvenligi kullanici sorumlulugundadir.',
-    homeTitle: 'Giris sayfasina don',
-    loading: 'Yukleniyor...',
-    routePanelSummary: 'Operasyon Ozeti',
-    routePanelServiceCalendar: 'Calisma Takvimi',
-    routePanelTripCount: 'Sefer Sayisi',
-    routePanelTripsToday: 'Bugun {count} sefer',
-    routePanelServiceHours: 'Calisma Saatleri',
-    routePanelRouteLength: 'Guzergah Uzunlugu',
-    routePanelAverageHeadway: 'Ort. Sefer Sikligi',
-    routePanelDirectionDistribution: 'Yon Dagilimi',
+    uploadGtfsZip: 'GTFS ZIP Yükle',
+    uploadAnother: 'Başka GTFS ZIP Yükle',
+    openMap: 'Haritayı Aç',
+    loadFromLink: 'Linkten Yükle',
+    linkNote: 'Yalnızca HTTPS GTFS ZIP linkleri kabul edilir. Dış bağlantının güvenliği kullanıcı sorumluluğundadır.',
+    homeTitle: 'Giriş sayfasına dön',
+    loading: 'Yükleniyor...',
+    routePanelSummary: 'Operasyon Özeti',
+    routePanelServiceCalendar: 'Çalışma Takvimi',
+    routePanelTripCount: 'Sefer Sayısı',
+    routePanelTripsToday: 'Bugün {count} sefer',
+    routePanelServiceHours: 'Çalışma Saatleri',
+    routePanelRouteLength: 'Güzergâh Uzunluğu',
+    routePanelAverageHeadway: 'Ort. Sefer Sıklığı',
+    routePanelDirectionDistribution: 'Yön Dağılımı',
     routePanelNoTripInfo: 'Sefer bilgisi yok',
-    stopPanelSimulationTime: 'Simulasyon saati',
+    stopPanelSimulationTime: 'Simülasyon saati',
     stopPanelHeaderLine: 'Hat',
-    stopPanelHeaderDirection: 'Varis Yonu',
-    stopPanelHeaderFirstVehicle: 'Ilk Arac',
-    stopPanelHeaderNextVehicle: 'Sonraki Arac',
-    stopPanelNoServiceData: 'Bu durak icin sefer verisi yok',
-    stopPanelNoServiceFound: 'Bu duraga sefer bulunamadi.',
+    stopPanelHeaderDirection: 'Varış Yönü',
+    stopPanelHeaderFirstVehicle: 'İlk Araç',
+    stopPanelHeaderNextVehicle: 'Sonraki Araç',
+    stopPanelNoServiceData: 'Bu durak için sefer verisi yok',
+    stopPanelNoServiceFound: 'Bu durağa sefer bulunamadı.',
     stopPanelSummary: '{count} hat · Ortalama headway {headway}',
-    stopPanelNoDisplayRoutes: 'Bu durak icin gosterilecek hat bulunamadi.',
+    stopPanelNoDisplayRoutes: 'Bu durak için gösterilecek hat bulunamadı.',
     stopPanelAverageWait: 'Ort. Bekleme',
     stopPanelWaiting3d: 'Bekleme 3D',
-    stopPanelLayerOpen: 'Katman acik',
-    stopPanelLayerClosed: 'Katman kapali',
+    stopPanelLayerOpen: 'Katman açık',
+    stopPanelLayerClosed: 'Katman kapalı',
     stopPanelCode: 'Kod',
-    serviceNoCalendarData: 'Calisma takvimi verisi yok · Tumu',
+    serviceNoCalendarData: 'Çalışma takvimi verisi yok · Tümü',
     serviceNoCalendarShort: 'Takvim verisi yok',
-    serviceStatusSummary: '{date} · {active} aktif · {future} planli · {expired} gecmis',
-    serviceAll: 'Tumu',
+    serviceStatusSummary: '{date} · {active} aktif · {future} planlı · {expired} geçmiş',
+    serviceAll: 'Tümü',
     serviceBadgeFuture: 'PLANLI',
-    serviceBadgeExpired: 'GECMIS',
-    serviceBadgeActive: 'AKTIF',
-    serviceBadgePassive: 'PASIF',
+    serviceBadgeExpired: 'GEÇMİŞ',
+    serviceBadgeActive: 'AKTİF',
+    serviceBadgePassive: 'PASİF',
     serviceMore: 'servis',
+    warningCriticalErrors: 'Kritik Hatalar',
+    warningDataWarnings: 'Veri Uyarıları',
+    warningErrorsPresent: 'Bazı veriler eksik veya hatalı görünüyor.',
+    warningInconsistencies: 'Veriler yüklendi ancak bazı tutarsızlıklar var.',
+    vehicleHeadway: 'Headway',
+    vehicleProgress: 'İlerleme',
+    vehicleNextStop: 'Sonraki Durak',
+    vehicleEta: 'Tahmini Varış',
+    vehicleFollow: 'Takip Et',
+    vehicleFocusRoute: 'Hattı Odakla',
+    followMode: 'Takip Modu',
+    followingRoute: 'takip',
+    plannerToggle: 'Nasıl Giderim',
+    plannerDatasetActive: '{city} · aktif veri seti',
+    plannerDatasetDefault: 'Aktif veri seti',
+    plannerFromPlaceholder: 'Nereden?',
+    plannerToPlaceholder: 'Nereye?',
+    plannerBuildRoute: 'Yol Tarifi Oluştur →',
+    plannerResultTitle: 'Rota Sonucu',
+    plannerIsochronOrigin: '📍 {name}',
+    plannerMessageErrorIcon: '⚠',
+    plannerMessageInfoIcon: 'ℹ',
+    plannerStopValidationTitle: 'Durak doğrulanamadı',
+    plannerStopValidationMessage: 'Lütfen aktif şehir verisinden başlangıç ve varış durağını yeniden seçin.',
+    plannerNoRouteTitle: 'Rota bulunamadı',
+    plannerNoRouteMessage: 'Seçilen duraklar arasında uygun bir toplu taşıma bağlantısı hesaplanamadı.',
+    plannerMissingSelectionTitle: 'Durak seçimi eksik',
+    plannerMissingSelectionMessage: 'Lütfen aktif şehirden başlangıç ve varış duraklarını seçin.',
+    routeWalk: 'Yürü',
+    routeBoardLine: '{line} hattına bin',
+    routeRideDetail: '{from} durağından bin · {to} durağında in',
+    routeWalkDetail: '{from} → {to}',
+    routeConnectionCount: '{count} bağlantı',
+    routeStopCount: '{count} durak',
+    routeTransfer: 'Aktarma',
+    routeTransferDetail: '{stop} durağında inip sonraki hatta geç',
+    routeSuggestedJourney: 'Önerilen yolculuk',
+    routeSummaryDetail: '{legs} etap · {lines} hat',
+    routeTotal: 'Toplam: {minutes} dakika',
   },
   en: {
     languageLabel: 'Language',
@@ -944,6 +983,45 @@ const I18N_MESSAGES = {
     serviceBadgeActive: 'ACTIVE',
     serviceBadgePassive: 'PASSIVE',
     serviceMore: 'services',
+    warningCriticalErrors: 'Critical Errors',
+    warningDataWarnings: 'Data Warnings',
+    warningErrorsPresent: 'Some data appears missing or invalid.',
+    warningInconsistencies: 'Data loaded, but some inconsistencies remain.',
+    vehicleHeadway: 'Headway',
+    vehicleProgress: 'Progress',
+    vehicleNextStop: 'Next Stop',
+    vehicleEta: 'Estimated Arrival',
+    vehicleFollow: 'Follow',
+    vehicleFocusRoute: 'Focus Route',
+    followMode: 'Follow Mode',
+    followingRoute: 'follow',
+    plannerToggle: 'How Do I Get There',
+    plannerDatasetActive: '{city} · active dataset',
+    plannerDatasetDefault: 'Active dataset',
+    plannerFromPlaceholder: 'From?',
+    plannerToPlaceholder: 'To?',
+    plannerBuildRoute: 'Build Route →',
+    plannerResultTitle: 'Route Result',
+    plannerIsochronOrigin: '📍 {name}',
+    plannerMessageErrorIcon: '⚠',
+    plannerMessageInfoIcon: 'ℹ',
+    plannerStopValidationTitle: 'Stop could not be validated',
+    plannerStopValidationMessage: 'Please reselect the origin and destination stops from the active city data.',
+    plannerNoRouteTitle: 'Route not found',
+    plannerNoRouteMessage: 'No suitable public transit connection could be calculated between the selected stops.',
+    plannerMissingSelectionTitle: 'Stop selection missing',
+    plannerMissingSelectionMessage: 'Please select origin and destination stops from the active city.',
+    routeWalk: 'Walk',
+    routeBoardLine: 'Board line {line}',
+    routeRideDetail: 'Board at {from} · Get off at {to}',
+    routeWalkDetail: '{from} → {to}',
+    routeConnectionCount: '{count} connections',
+    routeStopCount: '{count} stops',
+    routeTransfer: 'Transfer',
+    routeTransferDetail: 'Get off at {stop} and transfer to the next line',
+    routeSuggestedJourney: 'Suggested journey',
+    routeSummaryDetail: '{legs} legs · {lines} lines',
+    routeTotal: 'Total: {minutes} minutes',
   },
 };
 
@@ -998,6 +1076,31 @@ function applyStaticTranslations() {
   if (linkNote) linkNote.textContent = t('linkNote');
   const homeBtn = document.getElementById('home-toggle-btn');
   if (homeBtn) homeBtn.title = t('homeTitle');
+  const vehicleLabels = document.querySelectorAll('.vp-l');
+  if (vehicleLabels[1]) vehicleLabels[1].textContent = t('vehicleHeadway');
+  if (vehicleLabels[2]) vehicleLabels[2].textContent = t('vehicleProgress');
+  const vehicleNextLabels = document.querySelectorAll('.vp-next-lbl');
+  if (vehicleNextLabels[0]) vehicleNextLabels[0].textContent = t('vehicleNextStop');
+  if (vehicleNextLabels[1]) vehicleNextLabels[1].textContent = `⏱ ${t('vehicleEta')}`;
+  const followBtn = document.getElementById('vp-follow-btn');
+  if (followBtn) followBtn.textContent = `📍 ${t('vehicleFollow')}`;
+  const routeBtn = document.getElementById('vp-route-btn');
+  if (routeBtn) routeBtn.textContent = `🗺 ${t('vehicleFocusRoute')}`;
+  const followLabel = document.getElementById('follow-label');
+  if (followLabel && followTripIdx === null) followLabel.textContent = `📍 ${t('followMode')}`;
+  const plannerToggle = document.getElementById('route-planner-toggle');
+  if (plannerToggle) {
+    plannerToggle.title = t('plannerToggle');
+    plannerToggle.textContent = `🧭 ${t('plannerToggle')}`;
+  }
+  const fromInput = document.getElementById('stop-from');
+  if (fromInput) fromInput.placeholder = t('plannerFromPlaceholder');
+  const toInput = document.getElementById('stop-to');
+  if (toInput) toInput.placeholder = t('plannerToPlaceholder');
+  const routeBuildBtn = document.getElementById('btn-route');
+  if (routeBuildBtn) routeBuildBtn.textContent = t('plannerBuildRoute');
+  const resultTitle = document.querySelector('#route-result-header > span');
+  if (resultTitle) resultTitle.textContent = t('plannerResultTitle');
 }
 
 function setLanguage(lang) {
@@ -1691,7 +1794,7 @@ document.getElementById('vp-route-btn').onclick = () => {
 function startFollow(idx) {
   followTripIdx = idx;
   document.getElementById('follow-bar').classList.remove('hidden');
-  document.getElementById('follow-label').textContent = '📍 ' + TRIPS[idx].s + ' takip';
+  document.getElementById('follow-label').textContent = `📍 ${TRIPS[idx].s} ${t('followingRoute')}`;
 }
 document.getElementById('btn-unfollow').onclick = () => { followTripIdx = null; document.getElementById('follow-bar').classList.add('hidden'); };
 
@@ -2027,7 +2130,7 @@ function updateWarningDashboard() {
   const errCount = report.errors.length, warnCount = report.warnings.length;
   if (errCount === 0 && warnCount === 0) { dash.classList.add('hidden'); return; }
   dash.classList.remove('hidden');
-  content.innerHTML = `<div class="gwd-stat"><span>Kritik Hatalar</span><span class="gwd-stat-val" style="color:#f85149">${errCount}</span></div><div class="gwd-stat"><span>Veri Uyarıları</span><span class="gwd-stat-val" style="color:#d29922">${warnCount}</span></div><div style="margin-top:8px;border-top:1px solid rgba(255,255,255,0.05);padding-top:6px;font-style:italic;opacity:0.8">${errCount > 0 ? 'Bazı veriler eksik veya hatalı görünüyor.' : 'Veriler yüklendi ancak bazı tutarsızlıklar var.'}</div>`;
+  content.innerHTML = `<div class="gwd-stat"><span>${t('warningCriticalErrors')}</span><span class="gwd-stat-val" style="color:#f85149">${errCount}</span></div><div class="gwd-stat"><span>${t('warningDataWarnings')}</span><span class="gwd-stat-val" style="color:#d29922">${warnCount}</span></div><div style="margin-top:8px;border-top:1px solid rgba(255,255,255,0.05);padding-top:6px;font-style:italic;opacity:0.8">${errCount > 0 ? t('warningErrorsPresent') : t('warningInconsistencies')}</div>`;
 }
 
 document.getElementById('gwd-close')?.addEventListener('click', () => {

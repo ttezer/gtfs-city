@@ -601,31 +601,35 @@ window.UIManager = (function () {
       const div = document.createElement('div');
       div.className = 'route-step';
       const lineLabel = leg.mode === 'walk'
-        ? 'Yürü'
-        : `${leg.line} hattına bin`;
+        ? translate('routeWalk', 'Yürü')
+        : translate('routeBoardLine', '{line} hattına bin').replace('{line}', leg.line);
       const detail = leg.mode === 'walk'
-        ? `${leg.fromName} → ${leg.toName}`
-        : `${leg.fromName} durağından bin · ${leg.toName} durağında in`;
+        ? translate('routeWalkDetail', '{from} → {to}')
+            .replace('{from}', leg.fromName)
+            .replace('{to}', leg.toName)
+        : translate('routeRideDetail', '{from} durağından bin · {to} durağında in')
+            .replace('{from}', leg.fromName)
+            .replace('{to}', leg.toName);
       const meta = leg.mode === 'walk'
-        ? `${leg.stepCount} bağlantı`
-        : `${Math.max(leg.stepCount, 1)} durak`;
+        ? translate('routeConnectionCount', '{count} bağlantı').replace('{count}', String(leg.stepCount))
+        : translate('routeStopCount', '{count} durak').replace('{count}', String(Math.max(leg.stepCount, 1)));
       div.innerHTML = `<span class="step-icon">${leg.mode === 'walk' ? '🚶' : '🚌'}</span><div class="step-info"><div class="step-line">${lineLabel}</div><div class="step-detail">${detail}</div><div class="step-detail">${meta}</div></div><span class="step-time">${Math.max(1, Math.round(leg.secs / 60))}dk</span>`;
       steps.appendChild(div);
       if (leg.mode === 'ride' && index < legs.length - 1) {
         const transfer = document.createElement('div');
         transfer.className = 'route-step';
-        transfer.innerHTML = `<span class="step-icon">↺</span><div class="step-info"><div class="step-line">Aktarma</div><div class="step-detail">${leg.toName} durağında inip sonraki hatta geç</div></div><span class="step-time"></span>`;
+        transfer.innerHTML = `<span class="step-icon">↺</span><div class="step-info"><div class="step-line">${translate('routeTransfer', 'Aktarma')}</div><div class="step-detail">${translate('routeTransferDetail', '{stop} durağında inip sonraki hatta geç').replace('{stop}', leg.toName)}</div></div><span class="step-time"></span>`;
         steps.appendChild(transfer);
       }
     });
     const summary = document.createElement('div');
     summary.className = 'route-step';
     summary.style.borderBottom = '1px solid rgba(48,54,61,0.45)';
-    summary.innerHTML = `<span class="step-icon">🧭</span><div class="step-info"><div class="step-line">Önerilen yolculuk</div><div class="step-detail">${legs.length} etap · ${lines.size} hat</div></div><span class="step-time">${Math.max(1, Math.round(total / 60))}dk</span>`;
+    summary.innerHTML = `<span class="step-icon">🧭</span><div class="step-info"><div class="step-line">${translate('routeSuggestedJourney', 'Önerilen yolculuk')}</div><div class="step-detail">${translate('routeSummaryDetail', '{legs} etap · {lines} hat').replace('{legs}', String(legs.length)).replace('{lines}', String(lines.size))}</div></div><span class="step-time">${Math.max(1, Math.round(total / 60))}dk</span>`;
     steps.prepend(summary);
     const tot = document.createElement('div');
     tot.style.cssText = 'padding:6px 10px;font-size:11px;font-weight:700;color:var(--green);border-top:1px solid var(--border);';
-    tot.textContent = `Toplam: ${Math.round(total / 60)} dakika`;
+    tot.textContent = translate('routeTotal', 'Toplam: {minutes} dakika').replace('{minutes}', String(Math.round(total / 60)));
     steps.appendChild(tot);
     ctx.setRouteHighlightPath(path.map((s) => {
       const si = ctx.STOP_INFO[s.to];
