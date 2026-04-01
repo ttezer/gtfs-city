@@ -20,6 +20,8 @@
     "build:all": "electron-builder --win --mac --linux",
     "postinstall": "electron-builder install-app-deps",
     "generate-data": "node scripts/check-data-files.js",
+    "check:samples": "node scripts/check-sample-feeds.js",
+    "update:samples": "node scripts/update-sample-feeds.js",
     "prebuild": "node scripts/check-data-files.js",
     "prebuild:win": "node scripts/check-data-files.js",
     "prebuild:mac": "node scripts/check-data-files.js",

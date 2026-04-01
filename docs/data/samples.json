@@ -1,0 +1,71 @@
+{
+  "updatedAt": "2026-04-01T11:37:41.044Z",
+  "samples": [
+    {
+      "id": "konya",
+      "city": "Konya",
+      "countryCode": "TR",
+      "agency": "Konya Büyükşehir Belediyesi",
+      "remoteUrl": "https://acikveri.konya.bel.tr/dataset/c2e034e6-e015-49c6-8eec-6e2f7de9c105/resource/ec944ecd-1c1f-4687-a7f6-fcf2dc5bb5db/download/gtfs_11_2025.zip",
+      "sourcePage": "https://acikveri.konya.bel.tr/tr/dataset/toplu-tasima-gtfs-verileri/resource/ec944ecd-1c1f-4687-a7f6-fcf2dc5bb5db",
+      "localPath": "docs/data/konya-gtfs.zip",
+      "fileName": "Konya GTFS.zip",
+      "remoteMeta": {
+        "finalUrl": "https://acikveri.konya.bel.tr/dataset/c2e034e6-e015-49c6-8eec-6e2f7de9c105/resource/ec944ecd-1c1f-4687-a7f6-fcf2dc5bb5db/download/gtfs_11_2025.zip",
+        "etag": "\"1762779093.0612125-6974466-1430066931\"",
+        "lastModified": "Mon, 10 Nov 2025 12:51:33 GMT",
+        "contentLength": 6974466,
+        "checkedAt": "2026-04-01T11:37:27.330Z"
+      },
+      "localMeta": {
+        "size": 6974466,
+        "sha256": "73ba19c284fe76896bb33fb6898919104e922e14c029a622e455e835ce998a3d",
+        "mtime": "2026-04-01T11:37:29.014Z"
+      }
+    },
+    {
+      "id": "izmir-eshot",
+      "city": "İzmir ESHOT",
+      "countryCode": "TR",
+      "agency": "İzmir Büyükşehir Belediyesi",
+      "remoteUrl": "https://www.eshot.gov.tr/gtfs/bus-eshot-gtfs.zip",
+      "sourcePage": "https://acikveri.bizizmir.com/tr/dataset/toplu-ulasim-gtfs-verileri",
+      "localPath": "docs/data/izmir-eshot-gtfs.zip",
+      "fileName": "Izmir ESHOT GTFS.zip",
+      "remoteMeta": {
+        "finalUrl": "https://www.eshot.gov.tr/gtfs/bus-eshot-gtfs.zip",
+        "etag": "\"cf1d4550ddda1:0\"",
+        "lastModified": "Tue, 23 Jul 2024 12:58:31 GMT",
+        "contentLength": 18886467,
+        "checkedAt": "2026-04-01T11:37:29.131Z"
+      },
+      "localMeta": {
+        "size": 18886467,
+        "sha256": "fddd70a9837cfa81fdd8f6190a3ad90a5c76344adb70c301840c42bf8d8dc528",
+        "mtime": "2026-04-01T11:37:34.587Z"
+      }
+    },
+    {
+      "id": "bordeaux",
+      "city": "Bordeaux",
+      "countryCode": "FR",
+      "agency": "Bordeaux Métropole",
+      "remoteUrl": "https://bdx.mecatran.com/utw/ws/gtfsfeed/static/bordeaux?apiKey=opendata-bordeaux-metropole-flux-gtfs-rt",
+      "sourcePage": "https://transport.data.gouv.fr/resources/83024?locale=en",
+      "localPath": "docs/data/bordeaux-gtfs.zip",
+      "fileName": "Bordeaux GTFS.zip",
+      "remoteMeta": {
+        "finalUrl": "https://bdx.mecatran.com/utw/ws/gtfsfeed/static/bordeaux?apiKey=opendata-bordeaux-metropole-flux-gtfs-rt",
+        "etag": "mecatran-bordeaux-databundle-gtfs-23595-1775012031429-64759726",
+        "lastModified": "",
+        "contentLength": 0,
+        "checkedAt": "2026-04-01T11:37:34.919Z"
+      },
+      "localMeta": {
+        "size": 23834600,
+        "sha256": "6537545f99ba8c63ba14592ac8354858703dbbc10e993f503580ab273d562486",
+        "mtime": "2026-04-01T11:37:41.044Z"
+      }
+    }
+  ]
+}
