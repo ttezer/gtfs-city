@@ -28,6 +28,7 @@ Bu belge, ürünün orta ve uzun vadeli geliştirme başlıklarını toplar. Hed
 | Headway Çizgileri | Geliştirme | Orta | Her ikisi | Planlandı | Çizgi atılacak araç sayısını kullanıcıya seçtirmek |
 | Araç İzleri Yerine Kuyruklama Analizi | Yeni özellik | Orta | Her ikisi | Planlandı | Fade iz yerine daha anlamlı operasyon analizi sunmak |
 | İzokron Analizi Puanlama | Yeni özellik | Orta | Her ikisi | Planlandı | Veriye göre seçili durağa skor üretmek |
+| Durak Puanlama | Yeni özellik | Orta | Her ikisi | Planlandı | Seçili durak panelinde erişilen durak sayısı, erişilen hat sayısı ve sefer yoğunluğu üzerinden anlaşılır skor üretmek; puanı zaman animasyonuna bağlı olarak simüle etmek |
 
 ## Web Yol Haritası
 
