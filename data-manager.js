@@ -222,6 +222,16 @@ window.DataManager = (function () {
     return null;
   }
 
+  function deriveZipNameFromUrl(url, fallback = 'download.zip') {
+    try {
+      const pathname = new URL(url).pathname || '';
+      const rawName = pathname.split('/').pop() || fallback;
+      return /\.zip$/i.test(rawName) ? rawName : `${rawName || 'download'}.zip`;
+    } catch (_) {
+      return fallback;
+    }
+  }
+
   async function handleGTFSFile(file) {
     const ctx = getCtx();
     const landingUpload = isLandingVisible();
@@ -289,7 +299,7 @@ window.DataManager = (function () {
     }
   }
 
-  async function handleGTFSUrl(urlValue) {
+  async function handleGTFSUrl(urlValue, options = {}) {
     const rawUrl = typeof urlValue === 'string' ? urlValue : (getElement('lp-gtfs-url')?.value || '');
     const url = String(rawUrl || '').trim();
     if (!url) {
@@ -300,19 +310,31 @@ window.DataManager = (function () {
       showToast(translate('gtfsOnlyHttpsAllowed', 'Yalnızca HTTPS GTFS ZIP linklerine izin verilir.'), 'error');
       return;
     }
-    if (!window.electronAPI?.downloadGTFSFromUrl) {
-      showToast(translate('gtfsElectronOnly', 'Linkten indirme yalnızca Electron sürümünde desteklenir.'), 'error');
+    const fileName = options?.fileName || deriveZipNameFromUrl(url);
+    if (window.electronAPI?.downloadGTFSFromUrl) {
+      updateLandingLoadingState(5, localizedUploadLabel('loadingLinkCheckingShort', 'LİNK DOĞRULANIYOR'));
+      const result = await window.electronAPI.downloadGTFSFromUrl(url);
+      if (!result?.success) {
+        window.AppManager?.setLandingUploadState?.({ loading: false });
+        showToast(result?.error || translate('gtfsUrlDownloadFailed', 'GTFS ZIP linki indirilemedi.'), 'error');
+        return;
+      }
+      if (!result.name) result.name = fileName;
+      updateLandingLoadingState(20, localizedUploadLabel('loadingZipDownloadedShort', 'ZIP İNDİRİLDİ'));
+      await handleGTFSFile(result);
       return;
     }
     updateLandingLoadingState(5, localizedUploadLabel('loadingLinkCheckingShort', 'LİNK DOĞRULANIYOR'));
-    const result = await window.electronAPI.downloadGTFSFromUrl(url);
-    if (!result?.success) {
+    try {
+      const response = await fetch(url, { method: 'GET', mode: 'cors' });
+      if (!response.ok) throw new Error(`${response.status} ${response.statusText}`.trim());
+      const buffer = await response.arrayBuffer();
+      updateLandingLoadingState(20, localizedUploadLabel('loadingZipDownloadedShort', 'ZIP İNDİRİLDİ'));
+      await handleGTFSFile({ name: fileName, buffer });
+    } catch (error) {
       window.AppManager?.setLandingUploadState?.({ loading: false });
-      showToast(result?.error || translate('gtfsUrlDownloadFailed', 'GTFS ZIP linki indirilemedi.'), 'error');
-      return;
+      showToast(error?.message || translate('gtfsUrlDownloadFailed', 'GTFS ZIP linki indirilemedi.'), 'error');
     }
-    updateLandingLoadingState(20, localizedUploadLabel('loadingZipDownloadedShort', 'ZIP İNDİRİLDİ'));
-    await handleGTFSFile(result);
   }
 
   function buildUploadedCityMeta(files, zipFileName) {

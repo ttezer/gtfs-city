@@ -145,6 +145,13 @@ window.AppManager = (function () {
     getElement('lp-btn-url')?.addEventListener('click', () => {
       window.DataManager?.handleGTFSUrl?.();
     });
+    document.querySelectorAll('.lp-example-load').forEach((button) => {
+      button.addEventListener('click', () => {
+        const url = button.dataset.url || '';
+        const fileName = button.dataset.name || '';
+        window.DataManager?.handleGTFSUrl?.(url, { fileName });
+      });
+    });
     getElement('lp-gtfs-url')?.addEventListener('keydown', (event) => {
       if (event.key === 'Enter') {
         event.preventDefault();
