@@ -155,3 +155,9 @@ Bu dosya uzun tarihçe değil, güncel durum belgesidir. Yeni işler buraya kıs
 - Örnek veri kartlarına ülke bayrağı rozeti eklendi.
 - Bordeaux üçüncü örnek veri kartı olarak landing akışına dahil edildi.
 - `docs/data` altındaki örnek ZIP'ler için kaynak karşılaştırmalı bakım script'i hazırlama işi başlatıldı.
+
+### Faz S - Kayıt ve Kontrol Turu 13 (1 Nisan 2026)
+
+- `yol-haritasi.md` içinde tamamlanan `Hat Seçiminde Yön Filtresi` ve `Araç İkonu Üzerinde Hat Kodu / Yön` başlıkları `Tamamlandı` durumuna çekildi.
+- Repo içinde unutma riskini azaltmak için kalıcı çalışma checklist'i `KONTROL.md` eklendi.
+- PR açarken label önerisi verme ve merge sonrası `main` üzerinde test çalıştırma akışı standart olarak benimsendi.
