@@ -886,6 +886,10 @@ const I18N_MESSAGES = {
     uploadAnother: 'Başka GTFS ZIP Yükle',
     openMap: 'Haritayı Aç',
     loadFromLink: 'Linkten Yükle',
+    landingExamplesTitle: 'Örnek veriyle dene',
+    landingExamplesSubtitle: 'Konya ve İzmir ESHOT açık veri GTFS kaynaklarıyla hızlı başlangıç yap.',
+    landingExampleLoad: 'Örneği Yükle',
+    landingExampleSource: 'Kaynağa Git',
     linkNote: 'Yalnızca HTTPS GTFS ZIP linkleri kabul edilir. Dış bağlantının güvenliği kullanıcı sorumluluğundadır.',
     homeTitle: 'Giriş sayfasına dön',
     loading: 'Yükleniyor...',
@@ -1085,6 +1089,10 @@ const I18N_MESSAGES = {
     uploadAnother: 'Upload Another GTFS ZIP',
     openMap: 'Open Map',
     loadFromLink: 'Load From Link',
+    landingExamplesTitle: 'Try with sample data',
+    landingExamplesSubtitle: 'Start quickly with open GTFS feeds from Konya and Izmir ESHOT.',
+    landingExampleLoad: 'Load Sample',
+    landingExampleSource: 'Open Source',
     linkNote: 'Only HTTPS GTFS ZIP links are accepted. External link safety is the user responsibility.',
     homeTitle: 'Return to landing page',
     loading: 'Loading...',
@@ -1329,6 +1337,12 @@ function applyStaticTranslations() {
   if (startBtn) startBtn.textContent = t('landingStartButton');
   const linkNote = document.getElementById('lp-link-note');
   if (linkNote) linkNote.textContent = t('linkNote');
+  const examplesTitle = document.getElementById('lp-examples-title');
+  if (examplesTitle) examplesTitle.textContent = t('landingExamplesTitle');
+  const examplesSubtitle = document.getElementById('lp-examples-subtitle');
+  if (examplesSubtitle) examplesSubtitle.textContent = t('landingExamplesSubtitle');
+  document.querySelectorAll('.lp-example-load').forEach((button) => { button.textContent = t('landingExampleLoad'); });
+  document.querySelectorAll('.lp-example-source').forEach((link) => { link.textContent = t('landingExampleSource'); });
   const homeBtn = document.getElementById('home-toggle-btn');
   if (homeBtn) homeBtn.title = t('homeTitle');
   const vehicleLabels = document.querySelectorAll('.vp-l');
