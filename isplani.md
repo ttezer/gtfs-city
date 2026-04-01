@@ -149,3 +149,9 @@ Bu dosya uzun tarihçe değil, güncel durum belgesidir. Yeni işler buraya kıs
 - Konya ve İzmir ESHOT için doğrudan yüklenebilir GTFS örnek kartları bağlandı.
 - Web demo tarafında URL'den ZIP çekerek örnek veri yükleme akışı açıldı.
 - `isplani.md` ve `yol-haritasi.md` içinde açık veri örnek akışı kayıt altına alındı.
+
+### Faz S - Örnek Veri Bakım Turu 12 (1 Nisan 2026)
+
+- Örnek veri kartlarına ülke bayrağı rozeti eklendi.
+- Bordeaux üçüncü örnek veri kartı olarak landing akışına dahil edildi.
+- `docs/data` altındaki örnek ZIP'ler için kaynak karşılaştırmalı bakım script'i hazırlama işi başlatıldı.
