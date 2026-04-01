@@ -9,6 +9,7 @@ Kararlı kabul edilen temel davranışlar:
 - upload-first başlangıç akışı
 - tek aktif GTFS veri seti
 - `Haritayı Aç` ile harita ekranına geçiş
+- landing ekranında Konya ve İzmir ESHOT için `Örnek veriyle dene` akışı
 - route, stop ve vehicle panel akışları
 - hat tipi filtresi, odaklı hat ve ilgili katman filtreleri
 - headway, bekleme, yoğunluk ve kapsama katmanları
@@ -141,3 +142,10 @@ Bu dosya uzun tarihçe değil, güncel durum belgesidir. Yeni işler buraya kıs
 - `README.en.md` eklenerek README için ayrı bir İngilizce sürüm oluşturuldu.
 - Uygulama arayüzüne ilk etap İngilizce dil seçeneği eklendi; landing akışı ve temel giriş metinleri TR/EN değiştirilebilir hale getirildi.
 - Sonraki adım olarak panel, servis ve ileri seviye dinamik metinlerin tam i18n kapsamına alınması not edildi.
+
+### Faz S - Örnek Veriyle Çalışma Turu 11 (1 Nisan 2026)
+
+- Landing ekranına `Örnek veriyle dene` bölümü eklendi.
+- Konya ve İzmir ESHOT için doğrudan yüklenebilir GTFS örnek kartları bağlandı.
+- Web demo tarafında URL'den ZIP çekerek örnek veri yükleme akışı açıldı.
+- `isplani.md` ve `yol-haritasi.md` içinde açık veri örnek akışı kayıt altına alındı.
