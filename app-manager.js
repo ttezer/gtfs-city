@@ -167,8 +167,18 @@ window.AppManager = (function () {
   }
 
   function syncLandingSourceControls() {
-    toggleHidden(getElement('lp-link-row'), !window.IS_ELECTRON);
-    toggleHidden(getElement('lp-link-note'), !window.IS_ELECTRON);
+    const isElectron = !!window.IS_ELECTRON;
+    const linkNote = getElement('lp-link-note');
+    toggleHidden(getElement('lp-link-row'), !isElectron);
+    toggleHidden(linkNote, false);
+    if (linkNote) {
+      linkNote.textContent = translate(
+        isElectron ? 'linkNote' : 'linkNoteWeb',
+        isElectron
+          ? 'Yalnızca HTTPS GTFS ZIP linkleri kabul edilir. Dış bağlantının güvenliği kullanıcı sorumluluğundadır.'
+          : 'Web demosunda dış bağlantılar CORS nedeniyle engellenebilir. Hazır örnek veri kartlarını kullanın.'
+      );
+    }
   }
 
   function initPlatformBadge() {
@@ -224,10 +234,11 @@ window.AppManager = (function () {
     initPlatformBadge();
     syncLandingSourceControls();
     updateStartButtonState();
-    window.addEventListener('app-language-change', () => {
-      updateStartButtonState();
-      updateLandingPageReports();
-    });
+      window.addEventListener('app-language-change', () => {
+        updateStartButtonState();
+        updateLandingPageReports();
+        syncLandingSourceControls();
+      });
     setTimeout(updateLandingPageReports, 1500);
   }
 
