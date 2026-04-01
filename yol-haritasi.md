@@ -15,10 +15,10 @@ Bu belge, ürünün orta ve uzun vadeli geliştirme başlıklarını toplar. Hed
 |---|---|---|---|---|---|
 | GTFS-RT Entegrasyonu | Yeni özellik | Yüksek | Desktop | Planlandı | Canlı araç konumu, gecikme ve gerçek zamanlı operasyon görünürlüğü |
 | Nasıl Giderim / Yol Tarifi | Geliştirme | Yüksek | Her ikisi | Planlandı | Hat ve aktarma mantığıyla çalışan anlaşılır yol tarifi üretmek |
-| Hat Seçiminde Yön Filtresi | Yeni özellik | Yüksek | Her ikisi | Planlandı | `direction_id` bazlı yön seçimi ile durak, araç ve panelleri birlikte filtrelemek |
+| Hat Seçiminde Yön Filtresi | Yeni özellik | Yüksek | Her ikisi | Tamamlandı | `direction_id` bazlı yön seçimi ile durak, araç ve panelleri birlikte filtrelemek |
 | Hat ve Durak Bazlı Sorgulama | Yeni özellik | Yüksek | Her ikisi | Planlandı | Seçili hat, durak, yön ve zaman bağlamında hedefli sorgulama sunmak |
 | Sefer Saatleri | Yeni özellik | Yüksek | Her ikisi | Planlandı | Hat bazlı sefer saatlerini okunabilir biçimde göstermek |
-| Araç İkonu Üzerinde Hat Kodu / Yön | Yeni özellik | Yüksek | Her ikisi | Planlandı | Araç ikonunun üstünde hat kodu ve yön bilgisini görünür kılmak |
+| Araç İkonu Üzerinde Hat Kodu / Yön | Yeni özellik | Yüksek | Her ikisi | Tamamlandı | Araç ikonunun üstünde hat kodu ve yön bilgisini görünür kılmak |
 | 3D Bina Katmanı | Yeni özellik | Orta | Desktop | Planlandı | Harita bağlamını güçlendirmek |
 | Sinematik Geliştirmeleri | Geliştirme | Orta | Her ikisi | Planlandı | Açı, yön, hız ve kamera geçişlerini veri odaklı hale getirmek |
 | Yoğunluk Heatmap | Geliştirme | Orta | Her ikisi | Planlandı | Çap ve renk parametrelerini kullanıcıya açmak |
