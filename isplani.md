@@ -161,3 +161,8 @@ Bu dosya uzun tarihçe değil, güncel durum belgesidir. Yeni işler buraya kıs
 - `yol-haritasi.md` içinde tamamlanan `Hat Seçiminde Yön Filtresi` ve `Araç İkonu Üzerinde Hat Kodu / Yön` başlıkları `Tamamlandı` durumuna çekildi.
 - Repo içinde unutma riskini azaltmak için kalıcı çalışma checklist'i `KONTROL.md` eklendi.
 - PR açarken label önerisi verme ve merge sonrası `main` üzerinde test çalıştırma akışı standart olarak benimsendi.
+
+### Faz S - Durak Puanlama Plan Kaydı 14 (1 Nisan 2026)
+
+- `Durak Puanlama` başlığı ürün planına eklendi.
+- İlk kapsam, erişilen durak sayısı, erişilen hat sayısı ve sefer yoğunluğu üzerinden anlaşılır skor üretmek olarak sınırlandı.
