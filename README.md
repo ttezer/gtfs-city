@@ -124,6 +124,17 @@ npm run build:win -- --dir
 - `CONTRIBUTING.md` - katkı akışı
 - `docs/` - GitHub Pages vitrin dosyaları
 
+## Türkiye'deki Açık Veri GTFS Kaynakları
+
+- Konya Büyükşehir Belediyesi: [Toplu Taşıma GTFS Verileri](https://acikveri.konya.bel.tr/tr/dataset/toplu-tasima-gtfs-verileri)
+- İzmir Büyükşehir Belediyesi: [Toplu Ulaşım GTFS Verileri](https://acikveri.bizizmir.com/tr/dataset/toplu-ulasim-gtfs-verileri)
+- Gaziantep Büyükşehir Belediyesi: [Toplu Ulaşım GTFS Verileri](https://acikveri.gaziantep.bel.tr/dataset/toplu-ulasim-gtfs-verileri)
+- Kocaeli Büyükşehir Belediyesi: [GTFS veri kaynağı](https://veri.kocaeli.bel.tr/datasets/e2a87342-d39a-4742-ae25-165e10d2bc72)
+- İETT: [GTFS Verisi](https://data.ibb.gov.tr/dataset/iett-gtfs-verisi)
+- İstanbul Büyükşehir Belediyesi: [Public Transport GTFS Data](https://data.ibb.gov.tr/dataset/public-transport-gtfs-data)
+
+> Not: Bu bağlantılar dış açık veri portallarına aittir. Erişilebilirlik, dosya formatı ve güncellik ilgili kurumların sorumluluğundadır.
+
 ## GitHub Pages
 
 Statik vitrin sayfası `docs/` klasöründedir.
