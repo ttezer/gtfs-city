@@ -752,6 +752,20 @@ body.cinematic-mode #btn-cinematic{
 .lp-url-input { width:min(620px, 72vw); padding:16px 18px; border-radius:8px; border:1px solid var(--border); background:rgba(13,17,23,0.9); color:var(--text); font-size:14px; }
 .lp-url-input:focus { outline:none; border-color:var(--accent); box-shadow:0 0 0 2px rgba(88,166,255,0.18); }
 .lp-link-note { text-align:center; color:var(--text-muted); font-size:12px; letter-spacing:0.4px; }
+.lp-examples { display:flex; flex-direction:column; gap:18px; }
+.lp-examples-head { text-align:center; display:flex; flex-direction:column; gap:6px; }
+.lp-examples-title { font-size:16px; font-weight:700; letter-spacing:0.8px; text-transform:uppercase; color:var(--text); }
+.lp-examples-subtitle { font-size:13px; color:var(--text-muted); max-width:720px; margin:0 auto; }
+.lp-examples-grid { display:grid; grid-template-columns:repeat(auto-fit, minmax(280px, 1fr)); gap:18px; }
+.lp-example-card { background:linear-gradient(180deg, rgba(22,27,34,0.94), rgba(13,17,23,0.92)); border:1px solid var(--border); border-radius:12px; padding:20px; display:flex; flex-direction:column; gap:12px; }
+.lp-example-top { display:flex; align-items:center; justify-content:space-between; gap:12px; }
+.lp-example-city { font-family:'Space Mono',monospace; font-size:20px; font-weight:700; color:var(--text); }
+.lp-example-badge { font-size:11px; font-weight:700; letter-spacing:1px; text-transform:uppercase; color:#0d1117; background:var(--accent); border-radius:999px; padding:4px 10px; }
+.lp-example-org { color:var(--text-muted); font-size:13px; min-height:18px; }
+.lp-example-actions { display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; }
+.lp-example-load { padding:12px 20px; font-size:12px; letter-spacing:1px; }
+.lp-example-source { color:var(--accent); text-decoration:none; font-size:12px; font-weight:700; letter-spacing:0.4px; }
+.lp-example-source:hover { text-decoration:underline; }
 .lp-btn { padding: 16px 32px; border-radius: 8px; font-size: 14px; font-weight: 700; text-transform: uppercase; letter-spacing: 1.5px; cursor: pointer; transition: all 0.2s; display: flex; align-items: center; gap: 10px; border: 1px solid transparent; }
 .lp-btn.primary { background: var(--accent); color: #0d1117; }
 .lp-btn.primary:hover { background: #79b8ff; transform: scale(1.05); }
