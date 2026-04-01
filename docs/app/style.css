@@ -759,6 +759,8 @@ body.cinematic-mode #btn-cinematic{
 .lp-examples-grid { display:grid; grid-template-columns:repeat(auto-fit, minmax(280px, 1fr)); gap:18px; }
 .lp-example-card { background:linear-gradient(180deg, rgba(22,27,34,0.94), rgba(13,17,23,0.92)); border:1px solid var(--border); border-radius:12px; padding:20px; display:flex; flex-direction:column; gap:12px; }
 .lp-example-top { display:flex; align-items:center; justify-content:space-between; gap:12px; }
+.lp-example-place { display:flex; align-items:center; gap:10px; min-width:0; }
+.lp-example-flag { width:28px; height:28px; border-radius:999px; display:inline-flex; align-items:center; justify-content:center; font-size:15px; background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.12); box-shadow:0 0 0 1px rgba(13,17,23,0.45) inset; flex:none; }
 .lp-example-city { font-family:'Space Mono',monospace; font-size:20px; font-weight:700; color:var(--text); }
 .lp-example-badge { font-size:11px; font-weight:700; letter-spacing:1px; text-transform:uppercase; color:#0d1117; background:var(--accent); border-radius:999px; padding:4px 10px; }
 .lp-example-org { color:var(--text-muted); font-size:13px; min-height:18px; }

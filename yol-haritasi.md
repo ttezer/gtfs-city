@@ -33,7 +33,7 @@ Bu belge, ürünün orta ve uzun vadeli geliştirme başlıklarını toplar. Hed
 
 | Başlık | Tür | Öncelik | Platform | Durum | Hedef |
 |---|---|---|---|---|---|
-| Açık Kaynak GTFS Link Havuzu | Yeni özellik | Orta | Web | Tamamlandı | Web sürümünde Konya ve İzmir ESHOT için örnek açık veri kartları sunmak |
+| Açık Kaynak GTFS Link Havuzu | Yeni özellik | Orta | Web | Geliştiriliyor | Web sürümünde Konya, İzmir ESHOT ve Bordeaux için örnek açık veri kartları sunmak ve bu örnekleri güncel tutmak |
 | Web Demo Olgunlaştırma | Geliştirme | Orta | Web | Geliştiriliyor | Pages demosunu daha tam özellikli ama güvenli kapsamda tutmak |
 | GitHub Pages Sayfa Tasarımı | Geliştirme | Orta | Web | Planlandı | Vitrin sayfasını daha profesyonel ve ürün kimliğine uygun hale getirmek |
 
