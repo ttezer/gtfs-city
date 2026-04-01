@@ -1,44 +1,47 @@
-﻿# GTFS City — Çalışma Kuralları
+# GTFS City - Çalışma Kontrol Listesi
 
-## Öncelik Belgeleri
+Bu dosya, repo içinde tekrar eden unutmaları azaltmak için tutulur. Her iş turunda önce bu dosya, sonra ilgili issue ve plan belgeleri kontrol edilir.
 
-- `README.md` — ürün ve kullanım özeti
-- `mimari.md` — teknik yapı
-- `isplani.md` — mevcut durum, kararlar ve sonraki işler
+## Tur Öncesi
 
-## Çalışma İlkeleri
+- `README.md`, `isplani.md`, `yol-haritasi.md`, `CHANGELOG.md` ve gerekirse `hata-listesi.md` kontrol edilir.
+- İş zaten tamamlandıysa yeniden açılmaz.
+- Yol haritasındaki ilgili başlığın durumu doğrulanır.
 
-- Davranışı değiştiren işlerde önce etkilenmiş akış netleştirilir.
-- Türkçe metinlerde UTF-8 korunur.
-- `README.md`, `mimari.md`, `kontrol.md`, `isplani.md`, `docs/*.html`, `docs/*.md`, `package.json` gibi metin dosyalarına shell üzerinden here-string ile çok satırlı içerik yazılmaz.
-- Türkçe içeren metin dosyalarında yalnızca güvenli yama akışı kullanılır.
-- Büyük refactor yerine hedefli değişiklik tercih edilir.
-- Yeni iş mantığı ilgili manager veya util dosyasına eklenir.
-- `script.js` gereksiz büyütülmez; orkestrasyon ve ortak state katmanı olarak tutulur.
+## Uygulama Sırasında
 
-## Veri İlkeleri
+- Değişiklik odaklı ve küçük tutulur.
+- Desktop ve web etkisi birlikte düşünülür.
+- Web demo kopyaları gerekiyorsa senkronlanır.
+- Türkçe karakter ve encoding riski olan dosyalarda dikkatli ilerlenir.
 
-- Tek aktif GTFS veri seti modeli korunur.
-- Upload-first akış bozulmaz.
-- Büyük örnek veri dump'ları repo içine yeniden sokulmaz.
-- Linkten yükleme yalnızca HTTPS ile ve Electron içinde yapılır.
+## PR Öncesi
 
-## Doğrulama
+- Gerekli kayıtlar işlenir:
+  - `isplani.md`
+  - `yol-haritasi.md`
+  - `CHANGELOG.md`
+- Gerekirse README veya CONTRIBUTING güncellenir.
+- Testler çalıştırılır.
 
-En az:
+## PR Mesajı İçin Zorunlu Hatırlatma
 
-```bash
-node --test --test-concurrency=1 --test-isolation=none
-```
+- PR linki verilir.
+- Önerilen label'lar mutlaka yazılır.
+- Merge öncesi hangi testlerin geçtiği belirtilir.
 
-Paketleme veya dağıtım öncesi:
+## Merge Sonrası
 
-```bash
-npm run build:win -- --dir
-```
+- `main` branch güncellenir.
+- Merge sonrası `main` üzerinde tekrar çalıştırılır:
+  - `npm run check:text`
+  - `npm test`
+  - gerekiyorsa ilgili ek kontrol komutu
+- Lokal çalışma branch'i silinir.
+- Yol haritasında tamamlanan iş varsa `Tamamlandı` durumuna çekilir.
 
-Ek metin doğrulaması:
+## Örnek Veri Bakımı
 
-```bash
-npm run check:text
-```
+- `npm run check:samples` ile örnek veri güncelliği kontrol edilir.
+- Fark varsa `npm run update:samples` çalıştırılır.
+- Script fark gördüğünde kullanıcıdan ayrıca onay istemeden log ile bilgi verir ve günceller.
