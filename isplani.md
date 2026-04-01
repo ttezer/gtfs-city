@@ -166,3 +166,4 @@ Bu dosya uzun tarihçe değil, güncel durum belgesidir. Yeni işler buraya kıs
 
 - `Durak Puanlama` başlığı ürün planına eklendi.
 - İlk kapsam, erişilen durak sayısı, erişilen hat sayısı ve sefer yoğunluğu üzerinden anlaşılır skor üretmek olarak sınırlandı.
+- Puanın seçili durak bilgi penceresinde gösterilmesi ve zaman animasyonuna bağlı anlık simülasyonla güncellenmesi hedef olarak netleştirildi.
