@@ -4,6 +4,7 @@ Ydek/
 .idea/
 .vscode/
 *.zip
+!docs/data/*.zip
 *.docx
 Data/*.zip
 *.tmp

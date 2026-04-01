@@ -301,14 +301,28 @@ window.DataManager = (function () {
 
   async function handleGTFSUrl(urlValue, options = {}) {
     const rawUrl = typeof urlValue === 'string' ? urlValue : (getElement('lp-gtfs-url')?.value || '');
-    const url = String(rawUrl || '').trim();
-    if (!url) {
+    const inputUrl = String(rawUrl || '').trim();
+    if (!inputUrl) {
       showToast(translate('gtfsEnterHttpsUrl', 'Önce HTTPS GTFS ZIP linki gir.'), 'warn');
       return;
     }
-    if (!/^https:\/\//i.test(url)) {
-      showToast(translate('gtfsOnlyHttpsAllowed', 'Yalnızca HTTPS GTFS ZIP linklerine izin verilir.'), 'error');
-      return;
+    let url = inputUrl;
+    if (window.IS_ELECTRON) {
+      if (!/^https:\/\//i.test(url)) {
+        showToast(translate('gtfsOnlyHttpsAllowed', 'Yalnızca HTTPS GTFS ZIP linklerine izin verilir.'), 'error');
+        return;
+      }
+    } else {
+      try {
+        url = new URL(inputUrl, window.location.href).toString();
+      } catch (_) {
+        showToast(translate('gtfsOnlyHttpsAllowed', 'Yalnızca HTTPS GTFS ZIP linklerine izin verilir.'), 'error');
+        return;
+      }
+      if (!/^https:\/\//i.test(url)) {
+        showToast(translate('gtfsOnlyHttpsAllowed', 'Yalnızca HTTPS GTFS ZIP linklerine izin verilir.'), 'error');
+        return;
+      }
     }
     const fileName = options?.fileName || deriveZipNameFromUrl(url);
     if (window.electronAPI?.downloadGTFSFromUrl) {
