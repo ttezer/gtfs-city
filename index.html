@@ -200,6 +200,47 @@
     <label class="tog-row"><input type="checkbox" id="tog-density" checked><span class="tog-track"><span class="tog-thumb"></span></span>Durak Yoğunluğu 3D</label>
     <label class="tog-row"><input type="checkbox" id="tog-stops" checked><span class="tog-track"><span class="tog-thumb"></span></span>Duraklar</label>
     <label class="tog-row"><input type="checkbox" id="tog-stop-coverage"><span class="tog-track"><span class="tog-thumb"></span></span>Durak 300 m</label>
+    <div id="stop-coverage-controls" class="layer-subpanel hidden">
+      <div class="layer-subpanel-grid">
+        <label class="layer-control">
+          <span id="stop-coverage-radius-label">Yarıçap</span>
+          <div class="range-with-value">
+            <input type="range" id="stop-coverage-radius" min="100" max="1000" step="50" value="300">
+            <strong id="stop-coverage-radius-value">300 m</strong>
+          </div>
+        </label>
+        <label class="layer-control">
+          <span id="stop-coverage-mode-label">Görünüm</span>
+          <select id="stop-coverage-mode">
+            <option value="fill-stroke">Dolgu + Çizgi</option>
+            <option value="fill">Sadece Dolgu</option>
+            <option value="stroke">Sadece Çizgi</option>
+          </select>
+        </label>
+        <label class="layer-control">
+          <span id="stop-coverage-fill-color-label">Dolgu rengi</span>
+          <input type="color" id="stop-coverage-fill-color" value="#58a6ff">
+        </label>
+        <label class="layer-control">
+          <span id="stop-coverage-fill-opacity-label">Dolgu saydamlığı</span>
+          <div class="range-with-value">
+            <input type="range" id="stop-coverage-fill-opacity" min="0" max="100" step="5" value="14">
+            <strong id="stop-coverage-fill-opacity-value">%14</strong>
+          </div>
+        </label>
+        <label class="layer-control">
+          <span id="stop-coverage-stroke-color-label">Çizgi rengi</span>
+          <input type="color" id="stop-coverage-stroke-color" value="#58a6ff">
+        </label>
+        <label class="layer-control">
+          <span id="stop-coverage-stroke-width-label">Çizgi kalınlığı</span>
+          <div class="range-with-value">
+            <input type="range" id="stop-coverage-stroke-width" min="1" max="8" step="1" value="2">
+            <strong id="stop-coverage-stroke-width-value">2 px</strong>
+          </div>
+        </label>
+      </div>
+    </div>
     <!-- Heatmap toggle (İş-06) -->
     <label class="tog-row"><input type="checkbox" id="tog-heatmap"><span class="tog-track"><span class="tog-thumb"></span></span>Yoğunluk Heatmap</label>
     <label class="tog-row"><input type="checkbox" id="tog-trail"><span class="tog-track"><span class="tog-thumb"></span></span>Araç İzleri (Fade)</label>
