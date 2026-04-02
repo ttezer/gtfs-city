@@ -125,6 +125,12 @@ window.MapManager = (function () {
       ctx.showPaths ? 1 : 0,
       ctx.showStops ? 1 : 0,
       ctx.showStopCoverage ? 1 : 0,
+      ctx.stopCoverageRadiusM || 300,
+      (ctx.stopCoverageFillColor || []).join(','),
+      ctx.stopCoverageFillOpacityPct || 0,
+      (ctx.stopCoverageStrokeColor || []).join(','),
+      ctx.stopCoverageStrokeWidthPx || 0,
+      ctx.stopCoverageMode || 'fill-stroke',
       ctx.showDensity ? 1 : 0,
       ctx.showHeatmap ? 1 : 0,
       ctx.heatmapHour,
@@ -327,16 +333,23 @@ window.MapManager = (function () {
       }));
     }
 
-    if (ctx.showStopCoverage && !ctx.showIsochron && stopData.length) {
+    if (ctx.showStopCoverage && stopData.length) {
+      const fillAlpha = Math.round(Math.min(100, Math.max(0, ctx.stopCoverageFillOpacityPct ?? 14)) * 255 / 100);
+      const fillColor = [...(ctx.stopCoverageFillColor || [88, 166, 255]), fillAlpha];
+      const strokeColor = [...(ctx.stopCoverageStrokeColor || [88, 166, 255]), 255];
+      const mode = ctx.stopCoverageMode || 'fill-stroke';
       layers.push(new ScatterplotLayer({
         id: 'stop-coverage',
         data: stopData,
         getPosition: (d) => Array.isArray(d) ? [d[0], d[1]] : d.pos,
-        getRadius: 300,
+        getRadius: ctx.stopCoverageRadiusM || 300,
         radiusUnits: 'meters',
         radiusMinPixels: 8,
-        getFillColor: ctx.focusedRoute ? [...focusedRouteColor, 46] : [88, 166, 255, 34],
-        stroked: false,
+        getFillColor: fillColor,
+        getLineColor: strokeColor,
+        filled: mode !== 'stroke',
+        stroked: mode !== 'fill',
+        lineWidthMinPixels: ctx.stopCoverageStrokeWidthPx || 2,
         pickable: false,
       }));
     }

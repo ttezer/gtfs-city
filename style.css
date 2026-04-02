@@ -162,6 +162,54 @@ body{font-family:'Barlow Condensed','Segoe UI Emoji','Apple Color Emoji','Noto C
 .tog-thumb{position:absolute;top:2px;left:2px;width:12px;height:12px;border-radius:50%;background:var(--text-muted);transition:all .2s;}
 .tog-row input:checked~.tog-track{background:var(--accent);}
 .tog-row input:checked~.tog-track .tog-thumb{left:16px;background:#fff;}
+.layer-subpanel{
+  margin:2px 0 8px 38px;
+  padding:10px 12px;
+  border:1px solid rgba(88,166,255,.14);
+  border-radius:10px;
+  background:rgba(88,166,255,.06);
+}
+.layer-subpanel-grid{display:grid;grid-template-columns:1fr;gap:10px;}
+.layer-control{
+  display:grid;
+  gap:6px;
+  font-size:11px;
+  font-weight:700;
+  color:var(--text-muted);
+  text-transform:uppercase;
+  letter-spacing:.6px;
+}
+.layer-control select,
+.layer-control input[type="color"],
+.layer-control input[type="range"]{width:100%;}
+.layer-control select{
+  min-height:34px;
+  border:1px solid var(--border);
+  border-radius:8px;
+  background:rgba(22,27,34,.92);
+  color:var(--text);
+  padding:8px 10px;
+}
+.layer-control input[type="color"]{
+  height:34px;
+  border:1px solid var(--border);
+  border-radius:8px;
+  background:rgba(22,27,34,.92);
+  padding:4px;
+}
+.range-with-value{
+  display:grid;
+  grid-template-columns:1fr auto;
+  gap:10px;
+  align-items:center;
+}
+.range-with-value strong{
+  min-width:54px;
+  text-align:right;
+  font-family:var(--font-mono);
+  font-size:11px;
+  color:var(--text);
+}
 
 /* TYPE BUTTONS */
 #type-btns{display:flex;flex-wrap:wrap;gap:3px;}
