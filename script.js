@@ -966,7 +966,7 @@ const I18N_MESSAGES = {
     openMap: 'Haritayı Aç',
     loadFromLink: 'Linkten Yükle',
     landingExamplesTitle: 'Örnek veriyle dene',
-    landingExamplesSubtitle: 'Konya, İzmir ESHOT ve Bordeaux açık veri GTFS kaynaklarıyla hızlı başlangıç yap.',
+    landingExamplesSubtitle: 'Konya, Gaziantep, İzmir ESHOT, Bordeaux ve Houston açık veri GTFS kaynaklarıyla hızlı başlangıç yap.',
     landingExampleLoad: 'Örneği Yükle',
     landingExampleSource: 'Kaynağa Git',
     linkNote: 'Yalnızca HTTPS GTFS ZIP linkleri kabul edilir. Dış bağlantının güvenliği kullanıcı sorumluluğundadır.',
@@ -1179,7 +1179,7 @@ const I18N_MESSAGES = {
     openMap: 'Open Map',
     loadFromLink: 'Load From Link',
     landingExamplesTitle: 'Try with sample data',
-    landingExamplesSubtitle: 'Start quickly with open GTFS feeds from Konya, Izmir ESHOT, and Bordeaux.',
+    landingExamplesSubtitle: 'Start quickly with open GTFS feeds from Konya, Gaziantep, Izmir ESHOT, Bordeaux, and Houston.',
     landingExampleLoad: 'Load Sample',
     landingExampleSource: 'Open Source',
     linkNote: 'Only HTTPS GTFS ZIP links are accepted. External link safety is the user responsibility.',
@@ -1599,7 +1599,7 @@ const DEPLOY = {
 const mapgl = new maplibregl.Map({
   container: 'map', style: PHASE_CFG.night.style,
   center: activeCity?.center || [-0.5792, 44.8378], zoom: activeCity?.zoom || 11.6, pitch: activeCity?.pitch || 52, bearing: activeCity?.bearing || -10,
-  antialias: true, attributionControl: false
+  antialias: true, attributionControl: false, canvasContextAttributes: { preserveDrawingBuffer: true }
 });
 mapgl.addControl(new maplibregl.NavigationControl(), 'bottom-right');
 mapgl.addControl(new maplibregl.AttributionControl({ compact: true }), 'bottom-right');
@@ -2889,7 +2889,7 @@ function setActiveCapturePreset(preset) {
 function openCaptureModal() {
   const modal = document.getElementById('capture-modal');
   const fileNameInput = document.getElementById('capture-file-name');
-  if (!modal || !window.IS_ELECTRON) return;
+  if (!modal) return;
   modal.classList.remove('hidden');
   document.body.classList.add('capture-modal-open');
   setActiveCapturePreset(activeCapturePreset || 'original');
@@ -2931,11 +2931,6 @@ function resetCaptureClasses() {
 }
 
 async function saveCurrentViewportCapture() {
-  if (!window.IS_ELECTRON || typeof window.electronAPI?.saveCapturedImage !== 'function') {
-    showToast('Bu özellik yalnızca Electron uygulamasında kullanılabilir.', 'warn');
-    return;
-  }
-
   const includeSidebar = document.getElementById('capture-include-sidebar')?.checked !== false;
   const includeOverlays = document.getElementById('capture-include-overlays')?.checked !== false;
   const fileName = document.getElementById('capture-file-name')?.value?.trim() || getCaptureDefaultFileName();
@@ -2947,12 +2942,45 @@ async function saveCurrentViewportCapture() {
   try {
     closeCaptureModal();
     await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
-    const result = await window.electronAPI.saveCapturedImage({ fileName, scale });
-    if (result?.success) {
-      showToast(`Ekran görüntüsü kaydedildi: ${result.path}`, 'ok');
-    } else if (!result?.canceled) {
-      showToast(result?.error || 'Ekran görüntüsü kaydedilemedi.', 'err');
+    if (window.IS_ELECTRON && typeof window.electronAPI?.saveCapturedImage === 'function') {
+      const result = await window.electronAPI.saveCapturedImage({ fileName, scale });
+      if (result?.success) {
+        showToast(`Ekran görüntüsü kaydedildi: ${result.path}`, 'ok');
+      } else if (!result?.canceled) {
+        showToast(result?.error || 'Ekran görüntüsü kaydedilemedi.', 'err');
+      }
+      return;
     }
+
+    if (typeof window.html2canvas !== 'function') {
+      showToast('Ekran görüntüsü aracı yüklenemedi.', 'err');
+      return;
+    }
+
+    const canvas = await window.html2canvas(document.body, {
+      useCORS: true,
+      allowTaint: true,
+      backgroundColor: null,
+      scale,
+      logging: false,
+      windowWidth: window.innerWidth,
+      windowHeight: window.innerHeight,
+    });
+
+    const blob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/png'));
+    if (!blob) {
+      showToast('Ekran görüntüsü kaydedilemedi.', 'err');
+      return;
+    }
+    const objectUrl = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = objectUrl;
+    link.download = /\.png$/i.test(fileName) ? fileName : `${fileName}.png`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(objectUrl);
+    showToast('Ekran görüntüsü indirildi.', 'ok');
   } catch (err) {
     showToast(err?.message || 'Ekran görüntüsü kaydedilemedi.', 'err');
   } finally {
@@ -3608,8 +3636,6 @@ async function printStopTariff() {
 }
 
 function initializeCaptureUi() {
-  if (!window.IS_ELECTRON) return;
-
   const toggleButton = document.getElementById('capture-toggle-btn');
   const closeButton = document.getElementById('capture-modal-close');
   const cancelButton = document.getElementById('capture-cancel-btn');
@@ -3640,7 +3666,6 @@ function initializeCaptureUi() {
 }
 
 function initializeTariffUi() {
-  if (!window.IS_ELECTRON) return;
   document.getElementById('route-tariff-toggle-btn')?.classList.remove('hidden');
   document.getElementById('stop-tariff-toggle-btn')?.classList.remove('hidden');
   document.getElementById('route-tariff-toggle-btn')?.addEventListener('click', () => {
