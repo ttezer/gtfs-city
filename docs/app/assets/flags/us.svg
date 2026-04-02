@@ -1,0 +1,43 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="United States flag">
+  <rect width="64" height="64" rx="32" fill="#fff"/>
+  <clipPath id="clip">
+    <rect width="64" height="64" rx="32"/>
+  </clipPath>
+  <g clip-path="url(#clip)">
+    <rect width="64" height="64" fill="#fff"/>
+    <rect y="0" width="64" height="4.923" fill="#b22234"/>
+    <rect y="9.846" width="64" height="4.923" fill="#b22234"/>
+    <rect y="19.692" width="64" height="4.923" fill="#b22234"/>
+    <rect y="29.538" width="64" height="4.923" fill="#b22234"/>
+    <rect y="39.384" width="64" height="4.923" fill="#b22234"/>
+    <rect y="49.23" width="64" height="4.923" fill="#b22234"/>
+    <rect y="59.076" width="64" height="4.924" fill="#b22234"/>
+    <rect width="28" height="34.461" fill="#3c3b6e"/>
+    <g fill="#fff">
+      <circle cx="4" cy="4.5" r="1.1"/>
+      <circle cx="10" cy="4.5" r="1.1"/>
+      <circle cx="16" cy="4.5" r="1.1"/>
+      <circle cx="22" cy="4.5" r="1.1"/>
+      <circle cx="7" cy="9.5" r="1.1"/>
+      <circle cx="13" cy="9.5" r="1.1"/>
+      <circle cx="19" cy="9.5" r="1.1"/>
+      <circle cx="25" cy="9.5" r="1.1"/>
+      <circle cx="4" cy="14.5" r="1.1"/>
+      <circle cx="10" cy="14.5" r="1.1"/>
+      <circle cx="16" cy="14.5" r="1.1"/>
+      <circle cx="22" cy="14.5" r="1.1"/>
+      <circle cx="7" cy="19.5" r="1.1"/>
+      <circle cx="13" cy="19.5" r="1.1"/>
+      <circle cx="19" cy="19.5" r="1.1"/>
+      <circle cx="25" cy="19.5" r="1.1"/>
+      <circle cx="4" cy="24.5" r="1.1"/>
+      <circle cx="10" cy="24.5" r="1.1"/>
+      <circle cx="16" cy="24.5" r="1.1"/>
+      <circle cx="22" cy="24.5" r="1.1"/>
+      <circle cx="7" cy="29.5" r="1.1"/>
+      <circle cx="13" cy="29.5" r="1.1"/>
+      <circle cx="19" cy="29.5" r="1.1"/>
+      <circle cx="25" cy="29.5" r="1.1"/>
+    </g>
+  </g>
+</svg>

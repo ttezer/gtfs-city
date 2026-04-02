@@ -8,6 +8,7 @@
 <script src="https://unpkg.com/maplibre-gl@4.1.2/dist/maplibre-gl.js"></script>
 <script src="https://unpkg.com/deck.gl@9.0.3/dist.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <link rel="stylesheet" href="style.css">
 <link rel="icon" type="image/x-icon" href="./favicon.ico">
 
@@ -55,7 +56,7 @@
     <div class="lp-examples">
       <div class="lp-examples-head">
         <div class="lp-examples-title" id="lp-examples-title">Örnek veriyle dene</div>
-        <div class="lp-examples-subtitle" id="lp-examples-subtitle">Konya, İzmir ESHOT ve Bordeaux açık veri GTFS kaynaklarıyla hızlı başlangıç yap.</div>
+        <div class="lp-examples-subtitle" id="lp-examples-subtitle">Konya, Gaziantep, İzmir ESHOT, Bordeaux ve Houston açık veri GTFS kaynaklarıyla hızlı başlangıç yap.</div>
       </div>
       <div class="lp-examples-grid">
         <article class="lp-example-card">
@@ -68,7 +69,7 @@
           </div>
           <div class="lp-example-org">Konya Büyükşehir Belediyesi</div>
           <div class="lp-example-actions">
-            <button class="lp-btn outline lp-example-load" data-url="../data/konya-gtfs.zip" data-name="Konya GTFS.zip">Örneği Yükle</button>
+            <button class="lp-btn outline lp-example-load" data-url="https://acikveri.konya.bel.tr/dataset/c2e034e6-e015-49c6-8eec-6e2f7de9c105/resource/ec944ecd-1c1f-4687-a7f6-fcf2dc5bb5db/download/gtfs_11_2025.zip" data-name="Konya GTFS.zip">Örneği Yükle</button>
             <a class="lp-example-source" href="https://acikveri.konya.bel.tr/tr/dataset/toplu-tasima-gtfs-verileri/resource/ec944ecd-1c1f-4687-a7f6-fcf2dc5bb5db" target="_blank" rel="noreferrer">Kaynağa Git</a>
           </div>
         </article>
@@ -82,8 +83,22 @@
           </div>
           <div class="lp-example-org">İzmir Büyükşehir Belediyesi</div>
           <div class="lp-example-actions">
-            <button class="lp-btn outline lp-example-load" data-url="../data/izmir-eshot-gtfs.zip" data-name="Izmir ESHOT GTFS.zip">Örneği Yükle</button>
+            <button class="lp-btn outline lp-example-load" data-url="https://www.eshot.gov.tr/gtfs/bus-eshot-gtfs.zip" data-name="Izmir ESHOT GTFS.zip">Örneği Yükle</button>
             <a class="lp-example-source" href="https://acikveri.bizizmir.com/tr/dataset/toplu-ulasim-gtfs-verileri" target="_blank" rel="noreferrer">Kaynağa Git</a>
+          </div>
+        </article>
+        <article class="lp-example-card">
+          <div class="lp-example-top">
+            <div class="lp-example-place">
+              <img class="lp-example-flag" src="./assets/flags/tr.svg" alt="Türkiye bayrağı">
+              <span class="lp-example-city">Gaziantep</span>
+            </div>
+            <span class="lp-example-badge">GTFS</span>
+          </div>
+          <div class="lp-example-org">Gaziantep Büyükşehir Belediyesi</div>
+          <div class="lp-example-actions">
+            <button class="lp-btn outline lp-example-load" data-url="https://acikveri.gaziantep.bel.tr/dataset/12d26c98-edc5-4be3-8988-c753764b84f4/resource/b3254aa0-359e-4b7c-87a3-d5d56ad27353/download/attached_gtfs.zip" data-name="Gaziantep GTFS.zip">Örneği Yükle</button>
+            <a class="lp-example-source" href="https://acikveri.gaziantep.bel.tr/el/dataset/toplu-ulasim-gtfs-verileri" target="_blank" rel="noreferrer">Kaynağa Git</a>
           </div>
         </article>
         <article class="lp-example-card">
@@ -96,8 +111,22 @@
           </div>
           <div class="lp-example-org">Bordeaux Métropole</div>
           <div class="lp-example-actions">
-            <button class="lp-btn outline lp-example-load" data-url="../data/bordeaux-gtfs.zip" data-name="Bordeaux GTFS.zip">Örneği Yükle</button>
+            <button class="lp-btn outline lp-example-load" data-url="https://bdx.mecatran.com/utw/ws/gtfsfeed/static/bordeaux?apiKey=opendata-bordeaux-metropole-flux-gtfs-rt" data-name="Bordeaux GTFS.zip">Örneği Yükle</button>
             <a class="lp-example-source" href="https://transport.data.gouv.fr/resources/83024?locale=en" target="_blank" rel="noreferrer">Kaynağa Git</a>
+          </div>
+        </article>
+        <article class="lp-example-card">
+          <div class="lp-example-top">
+            <div class="lp-example-place">
+              <img class="lp-example-flag" src="./assets/flags/us.svg" alt="ABD bayrağı">
+              <span class="lp-example-city">Houston</span>
+            </div>
+            <span class="lp-example-badge">GTFS</span>
+          </div>
+          <div class="lp-example-org">METRO Houston</div>
+          <div class="lp-example-actions">
+            <button class="lp-btn outline lp-example-load" data-url="https://metro.resourcespace.com/pages/download.php?ref=4835&ext=zip" data-name="Houston GTFS.zip">Örneği Yükle</button>
+            <a class="lp-example-source" href="https://www.transit.land/feeds/f-9vk-metropolitantransitauthorityofharriscounty" target="_blank" rel="noreferrer">Kaynağa Git</a>
           </div>
         </article>
       </div>
@@ -119,7 +148,11 @@
 </div>
 
 <button id="home-toggle-btn" class="hidden" title="Giriş Sayfasına Dön">🏠</button>
+<button id="capture-toggle-btn" class="hidden" title="Ekran Görüntüsü Al">📸</button>
+<button id="route-tariff-toggle-btn" class="hidden" title="Hat Tarifesi">🚌</button>
+<button id="stop-tariff-toggle-btn" class="hidden" title="Durak Tarifesi">📍</button>
 <div id="legend" style="display:none;"></div>
+<div id="capture-credit" class="hidden">© GTFS City tarafından üretilmiştir • https://ttezer.github.io/gtfs-city/app/</div>
 
 <!-- ══ SIDEBAR ══════════════════════════════════════════ -->
 <div id="sidebar">
@@ -196,6 +229,47 @@
     <label class="tog-row"><input type="checkbox" id="tog-density" checked><span class="tog-track"><span class="tog-thumb"></span></span>Durak Yoğunluğu 3D</label>
     <label class="tog-row"><input type="checkbox" id="tog-stops" checked><span class="tog-track"><span class="tog-thumb"></span></span>Duraklar</label>
     <label class="tog-row"><input type="checkbox" id="tog-stop-coverage"><span class="tog-track"><span class="tog-thumb"></span></span>Durak 300 m</label>
+    <div id="stop-coverage-controls" class="layer-subpanel hidden">
+      <div class="layer-subpanel-grid">
+        <label class="layer-control">
+          <span id="stop-coverage-radius-label">Yarıçap</span>
+          <div class="range-with-value">
+            <input type="range" id="stop-coverage-radius" min="100" max="1000" step="50" value="300">
+            <strong id="stop-coverage-radius-value">300 m</strong>
+          </div>
+        </label>
+        <label class="layer-control">
+          <span id="stop-coverage-mode-label">Görünüm</span>
+          <select id="stop-coverage-mode">
+            <option value="fill-stroke">Dolgu + Çizgi</option>
+            <option value="fill">Sadece Dolgu</option>
+            <option value="stroke">Sadece Çizgi</option>
+          </select>
+        </label>
+        <label class="layer-control">
+          <span id="stop-coverage-fill-color-label">Dolgu rengi</span>
+          <input type="color" id="stop-coverage-fill-color" value="#58a6ff">
+        </label>
+        <label class="layer-control">
+          <span id="stop-coverage-fill-opacity-label">Dolgu saydamlığı</span>
+          <div class="range-with-value">
+            <input type="range" id="stop-coverage-fill-opacity" min="0" max="100" step="5" value="14">
+            <strong id="stop-coverage-fill-opacity-value">%14</strong>
+          </div>
+        </label>
+        <label class="layer-control">
+          <span id="stop-coverage-stroke-color-label">Çizgi rengi</span>
+          <input type="color" id="stop-coverage-stroke-color" value="#58a6ff">
+        </label>
+        <label class="layer-control">
+          <span id="stop-coverage-stroke-width-label">Çizgi kalınlığı</span>
+          <div class="range-with-value">
+            <input type="range" id="stop-coverage-stroke-width" min="1" max="8" step="1" value="2">
+            <strong id="stop-coverage-stroke-width-value">2 px</strong>
+          </div>
+        </label>
+      </div>
+    </div>
     <!-- Heatmap toggle (İş-06) -->
     <label class="tog-row"><input type="checkbox" id="tog-heatmap"><span class="tog-track"><span class="tog-thumb"></span></span>Yoğunluk Heatmap</label>
     <label class="tog-row"><input type="checkbox" id="tog-trail"><span class="tog-track"><span class="tog-thumb"></span></span>Araç İzleri (Fade)</label>
@@ -455,6 +529,160 @@
 
 <!-- TOOLTIP -->
 <div id="tooltip"></div>
+
+<!-- SCREENSHOT MODAL -->
+<div id="capture-modal" class="hidden">
+  <div id="capture-modal-box">
+    <div id="capture-modal-header">
+      <span>📸 Ekran Görüntüsü</span>
+      <button id="capture-modal-close" type="button">✕</button>
+    </div>
+    <div class="capture-modal-body">
+      <label class="capture-field">
+        <span>Dosya adı</span>
+        <input type="text" id="capture-file-name" placeholder="metro-poster">
+      </label>
+      <label class="capture-field">
+        <span>Çözünürlük</span>
+        <select id="capture-resolution">
+          <option value="1">Standart (1x)</option>
+          <option value="2" selected>Yüksek (2x)</option>
+          <option value="3">Poster (3x)</option>
+        </select>
+      </label>
+
+      <div class="capture-field">
+        <span>Hazır görünüm</span>
+        <div class="capture-preset-grid" id="capture-preset-grid">
+          <button type="button" class="capture-preset-btn active" data-preset="original">Orijinal</button>
+          <button type="button" class="capture-preset-btn" data-preset="official">Kurumsal</button>
+          <button type="button" class="capture-preset-btn" data-preset="poster">Poster</button>
+          <button type="button" class="capture-preset-btn" data-preset="blueprint">Blueprint</button>
+          <button type="button" class="capture-preset-btn" data-preset="mono">Yüksek Kontrast</button>
+          <button type="button" class="capture-preset-btn" data-preset="transit-poster">Transit Poster</button>
+          <button type="button" class="capture-preset-btn" data-preset="cartoon-map">Cartoon Map</button>
+          <button type="button" class="capture-preset-btn" data-preset="minimal-white">Minimal White</button>
+          <button type="button" class="capture-preset-btn" data-preset="schematic">Schematic</button>
+          <button type="button" class="capture-preset-btn" data-preset="print-friendly">Print Friendly</button>
+          <button type="button" class="capture-preset-btn" data-preset="neo-transit">Neo Transit</button>
+          <button type="button" class="capture-preset-btn" data-preset="vintage-metro">Vintage Metro</button>
+          <button type="button" class="capture-preset-btn" data-preset="heat-poster">Heat Poster</button>
+          <button type="button" class="capture-preset-btn" data-preset="comic-panel">Comic Panel</button>
+        </div>
+      </div>
+
+      <div class="capture-field">
+        <span>Kriterler</span>
+        <label class="capture-check">
+          <input type="checkbox" id="capture-include-sidebar" checked>
+          <span>Sol panel dahil olsun</span>
+        </label>
+        <label class="capture-check">
+          <input type="checkbox" id="capture-include-overlays" checked>
+          <span>Açık bilgi panelleri dahil olsun</span>
+        </label>
+      </div>
+
+      <div class="capture-help">
+        Geçerli filtreler ve o anda ekranda görünen harita görünümü PNG olarak kaydedilir.
+      </div>
+    </div>
+    <div id="capture-modal-actions">
+      <button type="button" class="cbtn" id="capture-cancel-btn">Vazgeç</button>
+      <button type="button" class="cbtn accent" id="capture-confirm-btn">Tamam ve Kaydet</button>
+    </div>
+  </div>
+</div>
+
+<!-- ROUTE TARIFF MODAL -->
+<div id="route-tariff-modal" class="hidden">
+  <div class="tariff-modal-box">
+    <div class="tariff-modal-header">
+      <span>🚌 Hat Tarifesi</span>
+      <button id="route-tariff-close" type="button">✕</button>
+    </div>
+    <div class="tariff-modal-body">
+      <label class="capture-field">
+        <span>Hat seç</span>
+        <input type="text" id="route-tariff-input" list="route-tariff-list" placeholder="Hat ara...">
+        <datalist id="route-tariff-list"></datalist>
+      </label>
+      <label class="capture-field">
+        <span>Tarih</span>
+        <input type="date" id="route-tariff-date">
+      </label>
+      <label class="capture-field">
+        <span>Yön</span>
+        <select id="route-tariff-direction">
+          <option value="all">Tüm yönler</option>
+          <option value="0">Gidiş</option>
+          <option value="1">Dönüş</option>
+        </select>
+      </label>
+      <label class="capture-field">
+        <span>Görünüm stili</span>
+        <select id="route-tariff-style">
+          <option value="classic">Klasik resmi</option>
+          <option value="modern">Modern infografik</option>
+          <option value="poster">Posterize / cartoon</option>
+        </select>
+      </label>
+      <div class="tariff-summary" id="route-tariff-summary">Bir hat seçildiğinde burada kısa özet görünecek.</div>
+    </div>
+    <div class="tariff-modal-actions">
+      <button type="button" class="cbtn" id="route-tariff-preview">Önizleme</button>
+      <button type="button" class="cbtn accent" id="route-tariff-generate">A4 Oluştur</button>
+    </div>
+  </div>
+</div>
+
+<!-- STOP TARIFF MODAL -->
+<div id="stop-tariff-modal" class="hidden">
+  <div class="tariff-modal-box">
+    <div class="tariff-modal-header">
+      <span>📍 Durak Tarifesi</span>
+      <button id="stop-tariff-close" type="button">✕</button>
+    </div>
+    <div class="tariff-modal-body">
+      <label class="capture-field">
+        <span>Durak seç</span>
+        <input type="text" id="stop-tariff-input" list="stop-tariff-list" placeholder="Durak ara...">
+        <datalist id="stop-tariff-list"></datalist>
+      </label>
+      <label class="capture-field">
+        <span>Tarih</span>
+        <input type="date" id="stop-tariff-date">
+      </label>
+      <label class="capture-field">
+        <span>Görünüm stili</span>
+        <select id="stop-tariff-style">
+          <option value="classic">Klasik resmi</option>
+          <option value="modern">Modern infografik</option>
+          <option value="poster">Posterize / cartoon</option>
+        </select>
+      </label>
+      <div class="tariff-summary" id="stop-tariff-summary">Bir durak seçildiğinde burada kısa özet görünecek.</div>
+    </div>
+    <div class="tariff-modal-actions">
+      <button type="button" class="cbtn" id="stop-tariff-preview">Önizleme</button>
+      <button type="button" class="cbtn accent" id="stop-tariff-generate">A4 Oluştur</button>
+    </div>
+  </div>
+</div>
+
+<!-- OUTPUT PREVIEW -->
+<div id="tariff-output-modal" class="hidden">
+  <div id="tariff-output-box">
+    <div id="tariff-output-header">
+      <span id="tariff-output-title">Çıktı Önizleme</span>
+      <div class="tariff-output-actions">
+        <button type="button" class="cbtn" id="tariff-output-print">Yazdır</button>
+        <button type="button" class="cbtn" id="tariff-output-close">Kapat</button>
+      </div>
+    </div>
+    <div id="tariff-output-content"></div>
+  </div>
+</div>
 
 <!-- HAT PANELİ -->
 <div id="route-panel" class="drawer hidden">

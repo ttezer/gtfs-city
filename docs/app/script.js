@@ -258,6 +258,12 @@ const SPEEDS = [1, 10, 30, 60, 120, 300, 600];
 let simTime = 6 * 3600, simPaused = false, lastTs = null;
 let speedIdx = 3, simSpeed = 60;
 let showAnim = true, showPaths = true, showDensity = true, showStops = true, showStopCoverage = false;
+let stopCoverageRadiusM = 300;
+let stopCoverageFillColorHex = '#58a6ff';
+let stopCoverageFillOpacityPct = 14;
+let stopCoverageStrokeColorHex = '#58a6ff';
+let stopCoverageStrokeWidthPx = 2;
+let stopCoverageMode = 'fill-stroke';
 let showHeatmap = false, heatmapHour = 8, heatmapFollowSim = false;
 let showTrail = false;
 let currentMapStyle = 'auto'; // 'auto', 'satellite', 'dark', 'light'
@@ -667,6 +673,79 @@ function refreshLayersNow() {
   _staticLayerKey = '';
   if (deckgl) deckgl.setProps({ layers: buildLayers() });
 }
+function hexToRgb(hex, fallback = [88, 166, 255]) {
+  const normalized = String(hex || '').trim();
+  const match = normalized.match(/^#?([0-9a-f]{6})$/i);
+  if (!match) return fallback;
+  const value = match[1];
+  return [
+    Number.parseInt(value.slice(0, 2), 16),
+    Number.parseInt(value.slice(2, 4), 16),
+    Number.parseInt(value.slice(4, 6), 16),
+  ];
+}
+function clampStopCoverageValue(value, min, max, fallback) {
+  const parsed = Number.parseFloat(value);
+  if (!Number.isFinite(parsed)) return fallback;
+  return Math.min(max, Math.max(min, parsed));
+}
+function updateStopCoverageControlValues() {
+  const radiusValue = document.getElementById('stop-coverage-radius-value');
+  const fillOpacityValue = document.getElementById('stop-coverage-fill-opacity-value');
+  const strokeWidthValue = document.getElementById('stop-coverage-stroke-width-value');
+  if (radiusValue) radiusValue.textContent = `${stopCoverageRadiusM} m`;
+  if (fillOpacityValue) fillOpacityValue.textContent = `%${stopCoverageFillOpacityPct}`;
+  if (strokeWidthValue) strokeWidthValue.textContent = `${stopCoverageStrokeWidthPx} px`;
+}
+function updateStopCoverageControlsVisibility() {
+  const panel = document.getElementById('stop-coverage-controls');
+  if (!panel) return;
+  panel.classList.toggle('hidden', !showStopCoverage);
+}
+function initStopCoverageControls() {
+  const radius = document.getElementById('stop-coverage-radius');
+  const mode = document.getElementById('stop-coverage-mode');
+  const fillColor = document.getElementById('stop-coverage-fill-color');
+  const fillOpacity = document.getElementById('stop-coverage-fill-opacity');
+  const strokeColor = document.getElementById('stop-coverage-stroke-color');
+  const strokeWidth = document.getElementById('stop-coverage-stroke-width');
+  if (!radius || !mode || !fillColor || !fillOpacity || !strokeColor || !strokeWidth) return;
+  radius.value = String(stopCoverageRadiusM);
+  mode.value = stopCoverageMode;
+  fillColor.value = stopCoverageFillColorHex;
+  fillOpacity.value = String(stopCoverageFillOpacityPct);
+  strokeColor.value = stopCoverageStrokeColorHex;
+  strokeWidth.value = String(stopCoverageStrokeWidthPx);
+  updateStopCoverageControlValues();
+  updateStopCoverageControlsVisibility();
+  radius.addEventListener('input', () => {
+    stopCoverageRadiusM = clampStopCoverageValue(radius.value, 100, 1000, 300);
+    updateStopCoverageControlValues();
+    refreshLayersNow();
+  });
+  mode.addEventListener('change', () => {
+    stopCoverageMode = mode.value || 'fill-stroke';
+    refreshLayersNow();
+  });
+  fillColor.addEventListener('input', () => {
+    stopCoverageFillColorHex = fillColor.value || '#58a6ff';
+    refreshLayersNow();
+  });
+  fillOpacity.addEventListener('input', () => {
+    stopCoverageFillOpacityPct = clampStopCoverageValue(fillOpacity.value, 0, 100, 14);
+    updateStopCoverageControlValues();
+    refreshLayersNow();
+  });
+  strokeColor.addEventListener('input', () => {
+    stopCoverageStrokeColorHex = strokeColor.value || '#58a6ff';
+    refreshLayersNow();
+  });
+  strokeWidth.addEventListener('input', () => {
+    stopCoverageStrokeWidthPx = clampStopCoverageValue(strokeWidth.value, 1, 8, 2);
+    updateStopCoverageControlValues();
+    refreshLayersNow();
+  });
+}
 function getFocusedStopsData() {
   if (!focusedRoute) return null;
   if (_focusedStopIdsCache?.route === focusedRoute && _focusedStopIdsCache?.direction === selectedRouteDirection) return _focusedStopIdsCache.data;
@@ -887,7 +966,7 @@ const I18N_MESSAGES = {
     openMap: 'Haritayı Aç',
     loadFromLink: 'Linkten Yükle',
     landingExamplesTitle: 'Örnek veriyle dene',
-    landingExamplesSubtitle: 'Konya, İzmir ESHOT ve Bordeaux açık veri GTFS kaynaklarıyla hızlı başlangıç yap.',
+    landingExamplesSubtitle: 'Konya, Gaziantep, İzmir ESHOT, Bordeaux ve Houston açık veri GTFS kaynaklarıyla hızlı başlangıç yap.',
     landingExampleLoad: 'Örneği Yükle',
     landingExampleSource: 'Kaynağa Git',
     linkNote: 'Yalnızca HTTPS GTFS ZIP linkleri kabul edilir. Dış bağlantının güvenliği kullanıcı sorumluluğundadır.',
@@ -1033,6 +1112,15 @@ const I18N_MESSAGES = {
     toggleDensity: 'Durak Yoğunluğu 3D',
     toggleStops: 'Duraklar',
     toggleStopCoverage: 'Durak 300 m',
+    stopCoverageRadius: 'Yarıçap',
+    stopCoverageMode: 'Görünüm',
+    stopCoverageModeFillStroke: 'Dolgu + Çizgi',
+    stopCoverageModeFill: 'Sadece Dolgu',
+    stopCoverageModeStroke: 'Sadece Çizgi',
+    stopCoverageFillColor: 'Dolgu rengi',
+    stopCoverageFillOpacity: 'Dolgu saydamlığı',
+    stopCoverageStrokeColor: 'Çizgi rengi',
+    stopCoverageStrokeWidth: 'Çizgi kalınlığı',
     toggleHeadway: 'Headway Çizgileri',
     toggleBunching: 'Bunching Alarmı',
     toggleWaiting: 'Bekleme Süresi 3D',
@@ -1091,7 +1179,7 @@ const I18N_MESSAGES = {
     openMap: 'Open Map',
     loadFromLink: 'Load From Link',
     landingExamplesTitle: 'Try with sample data',
-    landingExamplesSubtitle: 'Start quickly with open GTFS feeds from Konya, Izmir ESHOT, and Bordeaux.',
+    landingExamplesSubtitle: 'Start quickly with open GTFS feeds from Konya, Gaziantep, Izmir ESHOT, Bordeaux, and Houston.',
     landingExampleLoad: 'Load Sample',
     landingExampleSource: 'Open Source',
     linkNote: 'Only HTTPS GTFS ZIP links are accepted. External link safety is the user responsibility.',
@@ -1237,6 +1325,15 @@ const I18N_MESSAGES = {
     toggleDensity: 'Stop Density 3D',
     toggleStops: 'Stops',
     toggleStopCoverage: 'Stop 300 m',
+    stopCoverageRadius: 'Radius',
+    stopCoverageMode: 'Appearance',
+    stopCoverageModeFillStroke: 'Fill + Stroke',
+    stopCoverageModeFill: 'Fill Only',
+    stopCoverageModeStroke: 'Stroke Only',
+    stopCoverageFillColor: 'Fill Color',
+    stopCoverageFillOpacity: 'Fill Opacity',
+    stopCoverageStrokeColor: 'Stroke Color',
+    stopCoverageStrokeWidth: 'Stroke Width',
     toggleHeadway: 'Headway Lines',
     toggleBunching: 'Bunching Alerts',
     toggleWaiting: 'Waiting Time 3D',
@@ -1423,6 +1520,24 @@ function applyStaticTranslations() {
   if (toggles[2]) toggles[2].lastChild.textContent = t('toggleDensity');
   if (toggles[3]) toggles[3].lastChild.textContent = t('toggleStops');
   if (toggles[4]) toggles[4].lastChild.textContent = t('toggleStopCoverage');
+  const stopCoverageRadiusLabel = document.getElementById('stop-coverage-radius-label');
+  if (stopCoverageRadiusLabel) stopCoverageRadiusLabel.textContent = t('stopCoverageRadius');
+  const stopCoverageModeLabel = document.getElementById('stop-coverage-mode-label');
+  if (stopCoverageModeLabel) stopCoverageModeLabel.textContent = t('stopCoverageMode');
+  const stopCoverageFillColorLabel = document.getElementById('stop-coverage-fill-color-label');
+  if (stopCoverageFillColorLabel) stopCoverageFillColorLabel.textContent = t('stopCoverageFillColor');
+  const stopCoverageFillOpacityLabel = document.getElementById('stop-coverage-fill-opacity-label');
+  if (stopCoverageFillOpacityLabel) stopCoverageFillOpacityLabel.textContent = t('stopCoverageFillOpacity');
+  const stopCoverageStrokeColorLabel = document.getElementById('stop-coverage-stroke-color-label');
+  if (stopCoverageStrokeColorLabel) stopCoverageStrokeColorLabel.textContent = t('stopCoverageStrokeColor');
+  const stopCoverageStrokeWidthLabel = document.getElementById('stop-coverage-stroke-width-label');
+  if (stopCoverageStrokeWidthLabel) stopCoverageStrokeWidthLabel.textContent = t('stopCoverageStrokeWidth');
+  const stopCoverageModeSelect = document.getElementById('stop-coverage-mode');
+  if (stopCoverageModeSelect?.options?.length >= 3) {
+    stopCoverageModeSelect.options[0].textContent = t('stopCoverageModeFillStroke');
+    stopCoverageModeSelect.options[1].textContent = t('stopCoverageModeFill');
+    stopCoverageModeSelect.options[2].textContent = t('stopCoverageModeStroke');
+  }
   if (toggles[5]) toggles[5].lastChild.textContent = t('toggleHeatmap');
   if (toggles[6]) toggles[6].lastChild.textContent = t('toggleTrail');
   if (toggles[7]) toggles[7].lastChild.textContent = t('toggleHeadway');
@@ -1484,11 +1599,12 @@ const DEPLOY = {
 const mapgl = new maplibregl.Map({
   container: 'map', style: PHASE_CFG.night.style,
   center: activeCity?.center || [-0.5792, 44.8378], zoom: activeCity?.zoom || 11.6, pitch: activeCity?.pitch || 52, bearing: activeCity?.bearing || -10,
-  antialias: true, attributionControl: false
+  antialias: true, attributionControl: false, canvasContextAttributes: { preserveDrawingBuffer: true }
 });
 mapgl.addControl(new maplibregl.NavigationControl(), 'bottom-right');
 mapgl.addControl(new maplibregl.AttributionControl({ compact: true }), 'bottom-right');
 mapgl.on('load', () => {
+  bindMapRecoveryHandlers();
   startDeck();
   if (window.SimulationEngine?.start) window.SimulationEngine.start();
   else requestAnimationFrame(animate);
@@ -1499,6 +1615,8 @@ mapgl.on('load', () => {
 
 // ── DECK.GL ───────────────────────────────────────────────
 let deckgl;
+let deckRecoveryBound = false;
+let mapRecoveryBound = false;
 
 window.LegacyMapBridge = createLegacyBridge(() => ({
   TRIPS,
@@ -1516,6 +1634,12 @@ window.LegacyMapBridge = createLegacyBridge(() => ({
   showPaths,
   showStops,
   showStopCoverage,
+  stopCoverageRadiusM,
+  stopCoverageFillColor: hexToRgb(stopCoverageFillColorHex),
+  stopCoverageFillOpacityPct,
+  stopCoverageStrokeColor: hexToRgb(stopCoverageStrokeColorHex),
+  stopCoverageStrokeWidthPx,
+  stopCoverageMode,
   showDensity,
   showHeatmap,
   heatmapHour,
@@ -1806,6 +1930,7 @@ window.LegacyDataBridge = createLegacyBridge(() => ({
       showAnim = true;
       showStops = false;
       showStopCoverage = false;
+      updateStopCoverageControlsVisibility();
       showDensity = false;
       showWaiting = false;
       showPaths = true;
@@ -1902,9 +2027,66 @@ window.LegacySimulationBridge = {
   },
 };
 
-function startDeck() {
+function detachDeckOverlay() {
+  if (!deckgl) return;
+  try {
+    mapgl.removeControl(deckgl);
+  } catch (_) {}
+  try {
+    deckgl.finalize?.();
+  } catch (_) {}
+  deckgl = null;
+}
+
+function bindDeckRecoveryHandlers() {
+  if (!deckgl || deckRecoveryBound) return;
+  const canvas = deckgl.getCanvas?.();
+  if (!canvas) return;
+  canvas.addEventListener('webglcontextlost', (event) => {
+    event.preventDefault();
+    showToast('WebGL bağlamı kayboldu. Katmanlar yeniden hazırlanıyor...', 'warn');
+  });
+  canvas.addEventListener('webglcontextrestored', () => {
+    setTimeout(() => {
+      startDeck(true);
+      refreshLayersNow();
+      mapgl.resize();
+      mapgl.triggerRepaint?.();
+    }, 120);
+  });
+  deckRecoveryBound = true;
+}
+
+function bindMapRecoveryHandlers() {
+  if (mapRecoveryBound) return;
+  const canvas = mapgl.getCanvas?.();
+  if (!canvas) return;
+  canvas.addEventListener('webglcontextlost', (event) => {
+    event.preventDefault();
+    showToast('Harita WebGL bağlamı kayboldu. Geri yükleniyor...', 'warn');
+  });
+  canvas.addEventListener('webglcontextrestored', () => {
+    setTimeout(() => {
+      try {
+        mapgl.resize();
+        mapgl.triggerRepaint?.();
+      } catch (_) {}
+      startDeck(true);
+      refreshLayersNow();
+    }, 180);
+  });
+  mapRecoveryBound = true;
+}
+
+function startDeck(forceRecreate = false) {
   const canvas = document.getElementById('deck-canvas');
   if (canvas) canvas.style.display = 'none';
+  if (forceRecreate) {
+    deckRecoveryBound = false;
+    detachDeckOverlay();
+  } else if (deckgl) {
+    return deckgl;
+  }
 
   deckgl = new MapboxOverlay({
     getCursor: ({ isHovering }) => isHovering ? 'pointer' : 'default',
@@ -1915,6 +2097,8 @@ function startDeck() {
   });
 
   mapgl.addControl(deckgl);
+  bindDeckRecoveryHandlers();
+  return deckgl;
 }
 
 // ── TOOLTIP ───────────────────────────────────────────────
@@ -2302,7 +2486,11 @@ const togMap = {
   'paths': v => showPaths = v,
   'density': v => { showDensity = v; updateDensityGrid(); },
   'stops': v => showStops = v,
-  'stop-coverage': v => showStopCoverage = v,
+  'stop-coverage': v => {
+    showStopCoverage = v;
+    updateStopCoverageControlsVisibility();
+    refreshLayersNow();
+  },
   'heatmap': v => { showHeatmap = v; document.getElementById('heatmap-ctrl').classList.toggle('hidden', !v); },
   'headway': v => showHeadway = v,
   'bunching': v => { showBunching = v; if (!v) document.getElementById('bunching-panel').classList.add('hidden'); },
@@ -2316,6 +2504,7 @@ const togMap = {
   }
 };
 Object.keys(togMap).forEach(id => { const el = document.getElementById('tog-' + id); if (el) el.onchange = function () { togMap[id](this.checked); }; });
+initStopCoverageControls();
 
 function setTypeFilter(t) {
   const parsedType = Number.parseInt(String(t ?? '').trim(), 10);
@@ -2489,7 +2678,9 @@ function patchTripsAbsoluteTime(trips, stopDeps) {
 }
 
 function applyGtfsRuntimeData(runtimeData) {
-  return callManager('DataManager', 'applyGtfsRuntimeData', [runtimeData]);
+  const result = callManager('DataManager', 'applyGtfsRuntimeData', [runtimeData]);
+  resetTariffUiState();
+  return result;
 }
 
 function updateWarningDashboard() {
@@ -2650,6 +2841,868 @@ show3D = false;
 
 window.IS_ELECTRON = typeof window !== 'undefined' && !!window.electronAPI;
 
+const CAPTURE_PRESET_CLASSES = [
+  'capture-preset-official',
+  'capture-preset-poster',
+  'capture-preset-blueprint',
+  'capture-preset-mono',
+  'capture-preset-transit-poster',
+  'capture-preset-cartoon-map',
+  'capture-preset-minimal-white',
+  'capture-preset-schematic',
+  'capture-preset-print-friendly',
+  'capture-preset-neo-transit',
+  'capture-preset-vintage-metro',
+  'capture-preset-heat-poster',
+  'capture-preset-comic-panel',
+];
+
+let activeCapturePreset = 'original';
+const GTFS_CITY_CREDIT = '© GTFS City tarafından üretilmiştir • https://ttezer.github.io/gtfs-city/app/';
+
+function tariffText(tr, en) {
+  return (window.I18n?.getLanguage?.() === 'en') ? en : tr;
+}
+
+function getCaptureDefaultFileName() {
+  const filterLabel = typeFilter === 'all'
+    ? 'tum-ag'
+    : ({
+      '1': 'metro',
+      '3': 'otobus',
+      '0': 'tramvay',
+      '4': 'feribot',
+      '7': 'funicular',
+      '9': 'minibus',
+      '10': 'dolmus',
+    }[String(typeFilter)] || 'secim');
+  return `gtfs-city-${filterLabel}-${activeCapturePreset}`;
+}
+
+function setActiveCapturePreset(preset) {
+  activeCapturePreset = preset || 'original';
+  document.querySelectorAll('.capture-preset-btn').forEach((button) => {
+    button.classList.toggle('active', button.dataset.preset === activeCapturePreset);
+  });
+}
+
+function openCaptureModal() {
+  const modal = document.getElementById('capture-modal');
+  const fileNameInput = document.getElementById('capture-file-name');
+  if (!modal) return;
+  modal.classList.remove('hidden');
+  document.body.classList.add('capture-modal-open');
+  setActiveCapturePreset(activeCapturePreset || 'original');
+  if (fileNameInput) {
+    fileNameInput.value = getCaptureDefaultFileName();
+    fileNameInput.focus();
+    fileNameInput.select();
+  }
+}
+
+function closeCaptureModal() {
+  const modal = document.getElementById('capture-modal');
+  if (!modal) return;
+  modal.classList.add('hidden');
+  document.body.classList.remove('capture-modal-open');
+}
+
+function applyCaptureClasses({ includeSidebar, includeOverlays, preset }) {
+  document.body.classList.remove(...CAPTURE_PRESET_CLASSES);
+  document.body.classList.toggle('capture-hide-sidebar', !includeSidebar);
+  document.body.classList.toggle('capture-hide-overlays', !includeOverlays);
+  if (preset === 'official') document.body.classList.add('capture-preset-official');
+  if (preset === 'poster') document.body.classList.add('capture-preset-poster');
+  if (preset === 'blueprint') document.body.classList.add('capture-preset-blueprint');
+  if (preset === 'mono') document.body.classList.add('capture-preset-mono');
+  if (preset === 'transit-poster') document.body.classList.add('capture-preset-transit-poster');
+  if (preset === 'cartoon-map') document.body.classList.add('capture-preset-cartoon-map');
+  if (preset === 'minimal-white') document.body.classList.add('capture-preset-minimal-white');
+  if (preset === 'schematic') document.body.classList.add('capture-preset-schematic');
+  if (preset === 'print-friendly') document.body.classList.add('capture-preset-print-friendly');
+  if (preset === 'neo-transit') document.body.classList.add('capture-preset-neo-transit');
+  if (preset === 'vintage-metro') document.body.classList.add('capture-preset-vintage-metro');
+  if (preset === 'heat-poster') document.body.classList.add('capture-preset-heat-poster');
+  if (preset === 'comic-panel') document.body.classList.add('capture-preset-comic-panel');
+}
+
+function resetCaptureClasses() {
+  document.body.classList.remove('capture-hide-sidebar', 'capture-hide-overlays', ...CAPTURE_PRESET_CLASSES);
+}
+
+async function saveCurrentViewportCapture() {
+  const includeSidebar = document.getElementById('capture-include-sidebar')?.checked !== false;
+  const includeOverlays = document.getElementById('capture-include-overlays')?.checked !== false;
+  const fileName = document.getElementById('capture-file-name')?.value?.trim() || getCaptureDefaultFileName();
+  const scale = Number.parseInt(document.getElementById('capture-resolution')?.value || '2', 10) || 2;
+
+  applyCaptureClasses({ includeSidebar, includeOverlays, preset: activeCapturePreset });
+  document.body.classList.add('capture-watermark');
+
+  try {
+    closeCaptureModal();
+    await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+    if (window.IS_ELECTRON && typeof window.electronAPI?.saveCapturedImage === 'function') {
+      const result = await window.electronAPI.saveCapturedImage({ fileName, scale });
+      if (result?.success) {
+        showToast(`Ekran görüntüsü kaydedildi: ${result.path}`, 'ok');
+      } else if (!result?.canceled) {
+        showToast(result?.error || 'Ekran görüntüsü kaydedilemedi.', 'err');
+      }
+      return;
+    }
+
+    if (typeof window.html2canvas !== 'function') {
+      showToast('Ekran görüntüsü aracı yüklenemedi.', 'err');
+      return;
+    }
+
+    const canvas = await window.html2canvas(document.body, {
+      useCORS: true,
+      allowTaint: true,
+      backgroundColor: null,
+      scale,
+      logging: false,
+      windowWidth: window.innerWidth,
+      windowHeight: window.innerHeight,
+    });
+
+    const blob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/png'));
+    if (!blob) {
+      showToast('Ekran görüntüsü kaydedilemedi.', 'err');
+      return;
+    }
+    const objectUrl = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = objectUrl;
+    link.download = /\.png$/i.test(fileName) ? fileName : `${fileName}.png`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(objectUrl);
+    showToast('Ekran görüntüsü indirildi.', 'ok');
+  } catch (err) {
+    showToast(err?.message || 'Ekran görüntüsü kaydedilemedi.', 'err');
+  } finally {
+    document.body.classList.remove('capture-watermark');
+    resetCaptureClasses();
+  }
+}
+
+function getCalendarDateBounds() {
+  const cache = _calendarCache || { rows: [], dateRows: [] };
+  const latest = window.ServiceManager?.getLatestDateInCalendar?.(cache.rows || []) || new Date().toISOString().slice(0, 10);
+  let minDate = '';
+  for (const row of (cache.rows || [])) {
+    const candidate = window.ServiceManager?.parseGtfsDateToIso?.(row.start_date);
+    if (candidate && (!minDate || candidate < minDate)) minDate = candidate;
+  }
+  return { minDate, maxDate: latest };
+}
+
+function syncTariffDateInputs() {
+  const { minDate, maxDate } = getCalendarDateBounds();
+  const currentPickerValue = document.getElementById('service-date-picker')?.value || maxDate || new Date().toISOString().slice(0, 10);
+  ['route-tariff-date', 'stop-tariff-date'].forEach((id) => {
+    const input = document.getElementById(id);
+    if (!input) return;
+    input.min = minDate || '';
+    input.max = maxDate || '';
+    if (!input.value) input.value = currentPickerValue;
+  });
+}
+
+function buildRouteTariffOptions() {
+  const list = document.getElementById('route-tariff-list');
+  if (!list) return;
+  const routes = [...new Map(TRIPS.map((trip) => [trip.s, trip])).values()]
+    .sort((left, right) => String(left.s || '').localeCompare(String(right.s || ''), 'tr'));
+  list.innerHTML = routes.map((trip) => {
+    const meta = getRouteMeta(trip.s, trip.t, trip.c, trip.ln || trip.h || '');
+    const label = `${meta.short} | ${displayText(meta.longName || trip.h || '')}`;
+    return `<option value="${label}" data-route="${trip.s}"></option>`;
+  }).join('');
+}
+
+function buildStopTariffOptions() {
+  const list = document.getElementById('stop-tariff-list');
+  if (!list) return;
+  const stops = Object.entries(STOP_INFO || {})
+    .map(([sid, info]) => ({ sid, name: displayText(info?.[2] || sid), code: displayText(info?.[3] || sid) }))
+    .sort((left, right) => left.name.localeCompare(right.name, 'tr'));
+  list.innerHTML = stops.map((stop) => `<option value="${stop.name} | ${stop.code}" data-stop="${stop.sid}"></option>`).join('');
+}
+
+function resolveRouteInputValue() {
+  const input = document.getElementById('route-tariff-input');
+  const value = input?.value?.trim() || '';
+  if (!value) return '';
+  const direct = TRIPS.find((trip) => trip.s === value);
+  if (direct) return direct.s;
+  const token = value.split('|')[0]?.trim();
+  const match = TRIPS.find((trip) => trip.s === token);
+  return match?.s || '';
+}
+
+function resolveStopInputValue() {
+  const input = document.getElementById('stop-tariff-input');
+  const value = input?.value?.trim() || '';
+  if (!value) return '';
+  if (STOP_INFO[value]) return value;
+  const token = value.split('|')[0]?.trim().toLowerCase();
+  const match = Object.entries(STOP_INFO || {}).find(([, info]) => displayText(info?.[2] || '').toLowerCase() === token);
+  return match?.[0] || '';
+}
+
+function getActiveTariffDate(type) {
+  return document.getElementById(type === 'route' ? 'route-tariff-date' : 'stop-tariff-date')?.value
+    || document.getElementById('service-date-picker')?.value
+    || new Date().toISOString().slice(0, 10);
+}
+
+async function ensureTariffDateLoaded(dateStr) {
+  const currentDate = document.getElementById('service-date-picker')?.value || '';
+  if (!dateStr || dateStr === currentDate) return true;
+  if (typeof window.ServiceManager?.handleDateChange !== 'function') return true;
+  await window.ServiceManager.handleDateChange(dateStr);
+  return true;
+}
+
+function buildRouteTariffData(routeShort, directionValue) {
+  const routeTrips = TRIPS.filter((trip) => trip.s === routeShort && (directionValue === 'all' || String(trip.dir) === String(directionValue)));
+  const directionGroups = new Map();
+  routeTrips.forEach((trip) => {
+    const label = inferTripDirectionLabel(trip);
+    const startSec = trip.ts?.[0];
+    if (!Number.isFinite(startSec)) return;
+    if (!directionGroups.has(label)) directionGroups.set(label, []);
+    directionGroups.get(label).push(secsToHHMM(startSec % 86400));
+  });
+  directionGroups.forEach((times, label) => {
+    directionGroups.set(label, [...new Set(times)].sort());
+  });
+  return { routeTrips, directionGroups };
+}
+
+function buildStopTariffData(stopId) {
+  const deps = STOP_DEPS?.[stopId] || [];
+  const grouped = new Map();
+  deps.forEach(([tripIdx, offset, routeShort]) => {
+    const trip = TRIPS[tripIdx];
+    if (!trip) return;
+    const absSec = getAbsoluteDepartureSec(trip, offset);
+    if (!Number.isFinite(absSec)) return;
+    const key = `${routeShort || trip.s}|${inferTripDirectionLabel(trip)}`;
+    if (!grouped.has(key)) {
+      grouped.set(key, {
+        routeShort: routeShort || trip.s,
+        direction: inferTripDirectionLabel(trip),
+        longName: displayText(trip.ln || trip.h || ''),
+        times: [],
+      });
+    }
+    grouped.get(key).times.push(secsToHHMM(absSec % 86400));
+  });
+  grouped.forEach((entry) => {
+    entry.times = [...new Set(entry.times)].sort();
+  });
+  return [...grouped.values()].sort((left, right) => left.routeShort.localeCompare(right.routeShort, 'tr'));
+}
+
+function updateRouteTariffSummary() {
+  const summary = document.getElementById('route-tariff-summary');
+  if (!summary) return;
+  const routeShort = resolveRouteInputValue();
+  if (!routeShort) {
+    summary.textContent = 'Bir hat seçildiğinde burada kısa özet görünecek.';
+    return;
+  }
+  const { routeTrips, directionGroups } = buildRouteTariffData(routeShort, document.getElementById('route-tariff-direction')?.value || 'all');
+  const times = Array.from(directionGroups.values()).flat();
+  summary.innerHTML = `
+    <strong>${routeShort}</strong><br>
+    Toplam sefer: ${routeTrips.length}<br>
+    Yön sayısı: ${directionGroups.size}<br>
+    İlk saat: ${times[0] || '—'}<br>
+    Son saat: ${times[times.length - 1] || '—'}
+  `;
+}
+
+function updateStopTariffSummary() {
+  const summary = document.getElementById('stop-tariff-summary');
+  if (!summary) return;
+  const stopId = resolveStopInputValue();
+  if (!stopId) {
+    summary.textContent = 'Bir durak seçildiğinde burada kısa özet görünecek.';
+    return;
+  }
+  const info = STOP_INFO?.[stopId];
+  const rows = buildStopTariffData(stopId);
+  const allTimes = rows.flatMap((row) => row.times);
+  summary.innerHTML = `
+    <strong>${displayText(info?.[2] || stopId)}</strong><br>
+    Geçen hat sayısı: ${new Set(rows.map((row) => row.routeShort)).size}<br>
+    Satır sayısı: ${rows.length}<br>
+    İlk saat: ${allTimes[0] || '—'}<br>
+    Son saat: ${allTimes[allTimes.length - 1] || '—'}
+  `;
+}
+
+function openTariffOutput(title, html) {
+  const modal = document.getElementById('tariff-output-modal');
+  const titleEl = document.getElementById('tariff-output-title');
+  const contentEl = document.getElementById('tariff-output-content');
+  if (!modal || !titleEl || !contentEl) return;
+  titleEl.textContent = title;
+  contentEl.innerHTML = html;
+  modal.classList.remove('hidden');
+}
+
+function closeTariffOutput() {
+  document.getElementById('tariff-output-modal')?.classList.add('hidden');
+}
+
+function renderTariffFooter() {
+  return `
+    <div class="tariff-footer">
+      <span>© GTFS City tarafından üretilmiştir</span>
+      <span>https://ttezer.github.io/gtfs-city/app/</span>
+    </div>
+  `;
+}
+
+function buildRouteTariffSheet() {
+  const routeShort = resolveRouteInputValue();
+  if (!routeShort) throw new Error('Hat seçilmedi.');
+  const style = document.getElementById('route-tariff-style')?.value || 'classic';
+  const dateStr = getActiveTariffDate('route');
+  const directionValue = document.getElementById('route-tariff-direction')?.value || 'all';
+  const sampleTrip = TRIPS.find((trip) => trip.s === routeShort);
+  const routeMeta = getRouteMeta(routeShort, sampleTrip?.t, sampleTrip?.c, sampleTrip?.ln || sampleTrip?.h || '');
+  const { routeTrips, directionGroups } = buildRouteTariffData(routeShort, directionValue);
+  const directionRows = [...directionGroups.entries()].map(([label, times]) => `
+    <tr>
+      <td>${label}</td>
+      <td>${times.length}</td>
+      <td><div class="tariff-times">${times.map((time) => `<span class="tariff-chip">${time}</span>`).join('')}</div></td>
+    </tr>
+  `).join('');
+  return `
+    <article class="tariff-sheet ${style}">
+      <div class="tariff-brand">
+        <div>
+          <div class="tariff-brand-mark">GTFS CITY</div>
+          <div class="tariff-code-badge"><span class="tariff-code-label">${tariffText('Hat Kodu', 'Route Code')}</span><span class="tariff-code-value">${routeMeta.short}</span></div>
+          <h1 class="tariff-headline">${tariffText('Hat Planı', 'Route Schedule')}</h1>
+          <div class="tariff-subline">${displayText(routeMeta.longName || sampleTrip?.h || tariffText('Planlı hat geçişleri', 'Planned route departures'))}</div>
+        </div>
+      </div>
+      <div class="tariff-meta-grid">
+        <div class="tariff-meta-card"><div class="tariff-meta-label">${tariffText('Tarih', 'Date')}</div><div class="tariff-meta-value">${dateStr}</div></div>
+        <div class="tariff-meta-card"><div class="tariff-meta-label">${tariffText('Yön', 'Direction')}</div><div class="tariff-meta-value">${directionValue === 'all' ? tariffText('Tüm yönler', 'All directions') : directionValue === '0' ? tariffText('Gidiş', 'Outbound') : tariffText('Dönüş', 'Inbound')}</div></div>
+        <div class="tariff-meta-card"><div class="tariff-meta-label">${tariffText('Sefer', 'Trips')}</div><div class="tariff-meta-value">${routeTrips.length}</div></div>
+      </div>
+      <div class="tariff-section-title">${tariffText('Planlı Geçiş Saatleri', 'Planned Departure Times')}</div>
+      <table class="tariff-table">
+        <thead><tr><th>${tariffText('Yön', 'Direction')}</th><th>${tariffText('Sefer', 'Trips')}</th><th>${tariffText('Saatler', 'Times')}</th></tr></thead>
+        <tbody>${directionRows || `<tr><td colspan="3">${tariffText('Bu seçim için saat bulunamadı.', 'No times found for this selection.')}</td></tr>`}</tbody>
+      </table>
+      ${renderTariffFooter()}
+    </article>
+  `;
+}
+
+function buildStopTariffSheet() {
+  const stopId = resolveStopInputValue();
+  if (!stopId) throw new Error('Durak seçilmedi.');
+  const style = document.getElementById('stop-tariff-style')?.value || 'classic';
+  const dateStr = getActiveTariffDate('stop');
+  const info = STOP_INFO?.[stopId];
+  const rows = buildStopTariffData(stopId);
+  const tableRows = rows.map((row) => `
+    <tr>
+      <td>${row.routeShort}</td>
+      <td>${row.direction}</td>
+      <td>${displayText(row.longName || '—')}</td>
+      <td><div class="tariff-times">${row.times.map((time) => `<span class="tariff-chip">${time}</span>`).join('')}</div></td>
+    </tr>
+  `).join('');
+  return `
+    <article class="tariff-sheet tariff-sheet-stop ${style}">
+      <div class="tariff-brand">
+        <div>
+          <div class="tariff-brand-mark">GTFS CITY</div>
+          <div class="stop-sign-board">
+            <div class="stop-sign-type">${tariffText('DURAK', 'STOP')}</div>
+            <h1 class="tariff-headline">${displayText(info?.[2] || stopId)}</h1>
+            <div class="tariff-subline">${tariffText('Kod', 'Code')}: ${displayText(info?.[3] || stopId)}</div>
+          </div>
+        </div>
+      </div>
+      <div class="tariff-meta-grid">
+        <div class="tariff-meta-card"><div class="tariff-meta-label">${tariffText('Tarih', 'Date')}</div><div class="tariff-meta-value">${dateStr}</div></div>
+        <div class="tariff-meta-card"><div class="tariff-meta-label">${tariffText('Hat', 'Routes')}</div><div class="tariff-meta-value">${new Set(rows.map((row) => row.routeShort)).size}</div></div>
+        <div class="tariff-meta-card"><div class="tariff-meta-label">${tariffText('Satır', 'Rows')}</div><div class="tariff-meta-value">${rows.length}</div></div>
+      </div>
+      <div class="tariff-section-title">${tariffText('Duraktan Geçen Planlı Seferler', 'Planned Services at This Stop')}</div>
+      <table class="tariff-table">
+        <thead><tr><th>${tariffText('Hat', 'Route')}</th><th>${tariffText('Yön', 'Direction')}</th><th>${tariffText('Açıklama', 'Description')}</th><th>${tariffText('Saatler', 'Times')}</th></tr></thead>
+        <tbody>${tableRows || `<tr><td colspan="4">${tariffText('Bu seçim için saat bulunamadı.', 'No times found for this selection.')}</td></tr>`}</tbody>
+      </table>
+      ${renderTariffFooter()}
+    </article>
+  `;
+}
+
+async function previewRouteTariff() {
+  const dateStr = getActiveTariffDate('route');
+  await ensureTariffDateLoaded(dateStr);
+  updateRouteTariffSummary();
+  openTariffOutput(tariffText('Hat Önizleme', 'Route Preview'), buildRouteTariffSheet());
+}
+
+async function previewStopTariff() {
+  const dateStr = getActiveTariffDate('stop');
+  await ensureTariffDateLoaded(dateStr);
+  updateStopTariffSummary();
+  openTariffOutput(tariffText('Durak Önizleme', 'Stop Preview'), buildStopTariffSheet());
+}
+
+async function printRouteTariff() {
+  await previewRouteTariff();
+  window.print();
+}
+
+async function printStopTariff() {
+  await previewStopTariff();
+  window.print();
+}
+
+function buildStopTariffSheet() {
+  const stopId = resolveStopInputValue();
+  if (!stopId) throw new Error('Durak seçilmedi.');
+  const style = document.getElementById('stop-tariff-style')?.value || 'classic';
+  const dateStr = getActiveTariffDate('stop');
+  const info = STOP_INFO?.[stopId];
+  const rows = buildStopTariffData(stopId);
+  const tableRows = rows.map((row) => `
+    <tr>
+      <td>${row.routeShort}</td>
+      <td>${row.direction}</td>
+      <td>${displayText(row.longName || '—')}</td>
+      <td><div class="tariff-times">${row.times.map((time) => `<span class="tariff-chip">${time}</span>`).join('')}</div></td>
+    </tr>
+  `).join('');
+  return `
+    <article class="tariff-sheet tariff-sheet-stop ${style}">
+      <div class="tariff-brand">
+        <div>
+          <div class="stop-sign-board">
+            <div class="stop-sign-row">
+              <span class="stop-sign-icon">📍</span>
+              <div class="stop-sign-type">${tariffText('DURAK', 'STOP')}</div>
+            </div>
+            <h1 class="tariff-headline">${displayText(info?.[2] || stopId)}</h1>
+            <div class="tariff-subline">${tariffText('Kod', 'Code')}: ${displayText(info?.[3] || stopId)}</div>
+          </div>
+        </div>
+      </div>
+      <div class="tariff-meta-grid">
+        <div class="tariff-meta-card"><div class="tariff-meta-label">${tariffText('Tarih', 'Date')}</div><div class="tariff-meta-value">${dateStr}</div></div>
+        <div class="tariff-meta-card"><div class="tariff-meta-label">${tariffText('Hat', 'Routes')}</div><div class="tariff-meta-value">${new Set(rows.map((row) => row.routeShort)).size}</div></div>
+        <div class="tariff-meta-card"><div class="tariff-meta-label">${tariffText('Sefer', 'Trips')}</div><div class="tariff-meta-value">${rows.length}</div></div>
+      </div>
+      <div class="tariff-section-title">${tariffText('Duraktan Geçen Planlı Seferler', 'Planned Services at This Stop')}</div>
+      <table class="tariff-table">
+        <thead><tr><th>${tariffText('Hat', 'Route')}</th><th>${tariffText('Yön', 'Direction')}</th><th>${tariffText('Açıklama', 'Description')}</th><th>${tariffText('Saatler', 'Times')}</th></tr></thead>
+        <tbody>${tableRows || `<tr><td colspan="4">${tariffText('Bu seçim için saat bulunamadı.', 'No times found for this selection.')}</td></tr>`}</tbody>
+      </table>
+      ${renderTariffFooter()}
+    </article>
+  `;
+}
+
+function openTariffModal(type) {
+  document.getElementById(type === 'route' ? 'route-tariff-modal' : 'stop-tariff-modal')?.classList.remove('hidden');
+}
+
+function closeTariffModal(type) {
+  document.getElementById(type === 'route' ? 'route-tariff-modal' : 'stop-tariff-modal')?.classList.add('hidden');
+}
+
+function resetTariffUiState() {
+  document.getElementById('route-tariff-input') && (document.getElementById('route-tariff-input').value = '');
+  document.getElementById('stop-tariff-input') && (document.getElementById('stop-tariff-input').value = '');
+  document.getElementById('route-tariff-summary') && (document.getElementById('route-tariff-summary').textContent = 'Bir hat seçildiğinde burada kısa özet görünecek.');
+  document.getElementById('stop-tariff-summary') && (document.getElementById('stop-tariff-summary').textContent = 'Bir durak seçildiğinde burada kısa özet görünecek.');
+  document.getElementById('route-tariff-list') && (document.getElementById('route-tariff-list').innerHTML = '');
+  document.getElementById('stop-tariff-list') && (document.getElementById('stop-tariff-list').innerHTML = '');
+  closeTariffOutput();
+  closeTariffModal('route');
+  closeTariffModal('stop');
+}
+
+function buildStopTariffData(stopId) {
+  const deps = STOP_DEPS?.[stopId] || [];
+  const grouped = new Map();
+  const tripIds = new Set();
+  deps.forEach(([tripIdx, offset, routeShort]) => {
+    const trip = TRIPS[tripIdx];
+    if (!trip) return;
+    const absSec = getAbsoluteDepartureSec(trip, offset);
+    if (!Number.isFinite(absSec)) return;
+    tripIds.add(`${tripIdx}|${absSec}`);
+    const key = `${routeShort || trip.s}|${inferTripDirectionLabel(trip)}`;
+    if (!grouped.has(key)) {
+      grouped.set(key, {
+        routeShort: routeShort || trip.s,
+        direction: inferTripDirectionLabel(trip),
+        longName: displayText(trip.ln || trip.h || ''),
+        times: [],
+      });
+    }
+    grouped.get(key).times.push(secsToHHMM(absSec % 86400));
+  });
+  grouped.forEach((entry) => {
+    entry.times = [...new Set(entry.times)].sort();
+  });
+  return {
+    rows: [...grouped.values()].sort((left, right) => left.routeShort.localeCompare(right.routeShort, 'tr')),
+    tripCount: tripIds.size,
+  };
+}
+
+function updateStopTariffSummary() {
+  const summary = document.getElementById('stop-tariff-summary');
+  if (!summary) return;
+  const stopId = resolveStopInputValue();
+  if (!stopId) {
+    summary.textContent = 'Bir durak seçildiğinde burada kısa özet görünecek.';
+    return;
+  }
+  const info = STOP_INFO?.[stopId];
+  const { rows, tripCount } = buildStopTariffData(stopId);
+  const allTimes = rows.flatMap((row) => row.times);
+  summary.innerHTML = `
+    <strong>${displayText(info?.[2] || stopId)}</strong><br>
+    Geçen hat sayısı: ${new Set(rows.map((row) => row.routeShort)).size}<br>
+    Toplam sefer: ${tripCount}<br>
+    İlk saat: ${allTimes[0] || '—'}<br>
+    Son saat: ${allTimes[allTimes.length - 1] || '—'}
+  `;
+}
+
+function buildRouteTariffSheet() {
+  const routeShort = resolveRouteInputValue();
+  if (!routeShort) throw new Error('Hat seçilmedi.');
+  const style = document.getElementById('route-tariff-style')?.value || 'classic';
+  const dateStr = getActiveTariffDate('route');
+  const directionValue = document.getElementById('route-tariff-direction')?.value || 'all';
+  const sampleTrip = TRIPS.find((trip) => trip.s === routeShort);
+  const routeMeta = getRouteMeta(routeShort, sampleTrip?.t, sampleTrip?.c, sampleTrip?.ln || sampleTrip?.h || '');
+  const { routeTrips, directionGroups } = buildRouteTariffData(routeShort, directionValue);
+  const directionOrder = { 'Gidiş': 0, Outbound: 0, 'Dönüş': 1, Inbound: 1 };
+  const directionRows = [...directionGroups.entries()]
+    .sort((left, right) => (directionOrder[left[0]] ?? 99) - (directionOrder[right[0]] ?? 99) || left[0].localeCompare(right[0], 'tr'))
+    .map(([label, times]) => `
+      <tr>
+        <td>${label}</td>
+        <td>${times.length}</td>
+        <td><div class="tariff-times">${times.map((time) => `<span class="tariff-chip">${time}</span>`).join('')}</div></td>
+      </tr>
+    `).join('');
+  return `
+    <article class="tariff-sheet ${style}">
+      <div class="tariff-brand">
+        <div>
+          <div class="tariff-code-badge"><span class="tariff-code-label">${tariffText('Hat Kodu', 'Route Code')}</span><span class="tariff-code-value">${routeMeta.short}</span></div>
+          <h1 class="tariff-headline">${tariffText('Hat Planı', 'Route Schedule')}</h1>
+          <div class="tariff-subline">${displayText(routeMeta.longName || sampleTrip?.h || tariffText('Planlı hat geçişleri', 'Planned route departures'))}</div>
+        </div>
+      </div>
+      <div class="tariff-meta-grid">
+        <div class="tariff-meta-card"><div class="tariff-meta-label">${tariffText('Tarih', 'Date')}</div><div class="tariff-meta-value">${dateStr}</div></div>
+        <div class="tariff-meta-card"><div class="tariff-meta-label">${tariffText('Yön', 'Direction')}</div><div class="tariff-meta-value">${directionValue === 'all' ? tariffText('Tüm yönler', 'All directions') : directionValue === '0' ? tariffText('Gidiş', 'Outbound') : tariffText('Dönüş', 'Inbound')}</div></div>
+        <div class="tariff-meta-card"><div class="tariff-meta-label">${tariffText('Sefer', 'Trips')}</div><div class="tariff-meta-value">${routeTrips.length}</div></div>
+      </div>
+      <div class="tariff-section-title">${tariffText('Planlı Geçiş Saatleri', 'Planned Departure Times')}</div>
+      <table class="tariff-table">
+        <thead><tr><th>${tariffText('Yön', 'Direction')}</th><th>${tariffText('Sefer', 'Trips')}</th><th>${tariffText('Saatler', 'Times')}</th></tr></thead>
+        <tbody>${directionRows || `<tr><td colspan="3">${tariffText('Bu seçim için saat bulunamadı.', 'No times found for this selection.')}</td></tr>`}</tbody>
+      </table>
+      ${renderTariffFooter()}
+    </article>
+  `;
+}
+
+function buildStopTariffSheet() {
+  const stopId = resolveStopInputValue();
+  if (!stopId) throw new Error('Durak seçilmedi.');
+  const style = document.getElementById('stop-tariff-style')?.value || 'classic';
+  const dateStr = getActiveTariffDate('stop');
+  const info = STOP_INFO?.[stopId];
+  const { rows, tripCount } = buildStopTariffData(stopId);
+  const tableRows = rows.map((row) => `
+    <tr>
+      <td>${row.routeShort}</td>
+      <td>${row.direction}</td>
+      <td>${displayText(row.longName || '—')}</td>
+      <td><div class="tariff-times">${row.times.map((time) => `<span class="tariff-chip">${time}</span>`).join('')}</div></td>
+    </tr>
+  `).join('');
+  return `
+    <article class="tariff-sheet tariff-sheet-stop ${style}">
+      <div class="tariff-brand">
+        <div>
+          <div class="stop-sign-board">
+            <div class="stop-sign-row">
+              <span class="stop-sign-icon">D</span>
+              <div class="stop-sign-type">${tariffText('DURAK', 'STOP')}</div>
+            </div>
+            <h1 class="tariff-headline">${displayText(info?.[2] || stopId)}</h1>
+            <div class="tariff-subline">${tariffText('Kod', 'Code')}: ${displayText(info?.[3] || stopId)}</div>
+          </div>
+        </div>
+      </div>
+      <div class="tariff-meta-grid">
+        <div class="tariff-meta-card"><div class="tariff-meta-label">${tariffText('Tarih', 'Date')}</div><div class="tariff-meta-value">${dateStr}</div></div>
+        <div class="tariff-meta-card"><div class="tariff-meta-label">${tariffText('Hat', 'Routes')}</div><div class="tariff-meta-value">${new Set(rows.map((row) => row.routeShort)).size}</div></div>
+        <div class="tariff-meta-card"><div class="tariff-meta-label">${tariffText('Sefer', 'Trips')}</div><div class="tariff-meta-value">${tripCount}</div></div>
+      </div>
+      <div class="tariff-section-title">${tariffText('Hatların Duraktan Geçiş Saatleri', 'Route Passing Times at the Stop')}</div>
+      <table class="tariff-table">
+        <thead><tr><th>${tariffText('Hat', 'Route')}</th><th>${tariffText('Yön', 'Direction')}</th><th>${tariffText('Açıklama', 'Description')}</th><th>${tariffText('Saatler', 'Times')}</th></tr></thead>
+        <tbody>${tableRows || `<tr><td colspan="4">${tariffText('Bu seçim için saat bulunamadı.', 'No times found for this selection.')}</td></tr>`}</tbody>
+      </table>
+      ${renderTariffFooter()}
+    </article>
+  `;
+}
+
+async function previewRouteTariff() {
+  updateRouteTariffSummary();
+  openTariffOutput(tariffText('Hat Önizleme', 'Route Preview'), buildRouteTariffSheet());
+}
+
+async function previewStopTariff() {
+  updateStopTariffSummary();
+  openTariffOutput(tariffText('Durak Önizleme', 'Stop Preview'), buildStopTariffSheet());
+}
+
+function openTariffModal(type) {
+  closeTariffModal(type === 'route' ? 'stop' : 'route');
+  closeTariffOutput();
+  document.getElementById(type === 'route' ? 'route-tariff-modal' : 'stop-tariff-modal')?.classList.remove('hidden');
+}
+
+function buildRouteTariffSheet() {
+  const routeShort = resolveRouteInputValue();
+  if (!routeShort) throw new Error('Hat seçilmedi.');
+  const style = document.getElementById('route-tariff-style')?.value || 'classic';
+  const dateStr = getActiveTariffDate('route');
+  const directionValue = document.getElementById('route-tariff-direction')?.value || 'all';
+  const sampleTrip = TRIPS.find((trip) => trip.s === routeShort);
+  const routeMeta = getRouteMeta(routeShort, sampleTrip?.t, sampleTrip?.c, sampleTrip?.ln || sampleTrip?.h || '');
+  const { routeTrips, directionGroups } = buildRouteTariffData(routeShort, directionValue);
+  const directionOrder = { 'Gidiş': 0, Outbound: 0, 'Dönüş': 1, Inbound: 1 };
+  const directionRows = [...directionGroups.entries()]
+    .sort((left, right) => (directionOrder[left[0]] ?? 99) - (directionOrder[right[0]] ?? 99) || left[0].localeCompare(right[0], 'tr'))
+    .map(([label, times]) => `
+      <tr>
+        <td>${label}</td>
+        <td>${times.length}</td>
+        <td><div class="tariff-times">${times.map((time) => `<span class="tariff-chip">${time}</span>`).join('')}</div></td>
+      </tr>
+    `).join('');
+  return `
+    <article class="tariff-sheet ${style}">
+      <div class="tariff-brand">
+        <div>
+          <div class="tariff-code-badge"><span class="tariff-code-label">${tariffText('Hat Kodu', 'Route Code')}</span><span class="tariff-code-value">${routeMeta.short}</span></div>
+          <h1 class="tariff-headline">${tariffText('Hat Sefer Saatleri', 'Route Trip Times')}</h1>
+          <div class="tariff-subline">${displayText(routeMeta.longName || sampleTrip?.h || tariffText('Planlı hat geçişleri', 'Planned route departures'))}</div>
+        </div>
+      </div>
+      <div class="tariff-meta-grid">
+        <div class="tariff-meta-card"><div class="tariff-meta-label">${tariffText('Tarih', 'Date')}</div><div class="tariff-meta-value">${dateStr}</div></div>
+        <div class="tariff-meta-card"><div class="tariff-meta-label">${tariffText('Yön', 'Direction')}</div><div class="tariff-meta-value">${directionValue === 'all' ? tariffText('Tüm yönler', 'All directions') : directionValue === '0' ? tariffText('Gidiş', 'Outbound') : tariffText('Dönüş', 'Inbound')}</div></div>
+        <div class="tariff-meta-card"><div class="tariff-meta-label">${tariffText('Sefer', 'Trips')}</div><div class="tariff-meta-value">${routeTrips.length}</div></div>
+      </div>
+      <table class="tariff-table">
+        <thead><tr><th>${tariffText('Yön', 'Direction')}</th><th>${tariffText('Sefer', 'Trips')}</th><th>${tariffText('Saatler', 'Times')}</th></tr></thead>
+        <tbody>${directionRows || `<tr><td colspan="3">${tariffText('Bu seçim için saat bulunamadı.', 'No times found for this selection.')}</td></tr>`}</tbody>
+      </table>
+      ${renderTariffFooter()}
+    </article>
+  `;
+}
+
+function buildStopTariffSheet() {
+  const stopId = resolveStopInputValue();
+  if (!stopId) throw new Error('Durak seçilmedi.');
+  const style = document.getElementById('stop-tariff-style')?.value || 'classic';
+  const dateStr = getActiveTariffDate('stop');
+  const info = STOP_INFO?.[stopId];
+  const { rows, tripCount } = buildStopTariffData(stopId);
+  const tableRows = rows.map((row) => `
+    <tr>
+      <td>${row.routeShort}</td>
+      <td>${row.direction}</td>
+      <td>${displayText(row.longName || '—')}</td>
+      <td><div class="tariff-times">${row.times.map((time) => `<span class="tariff-chip">${time}</span>`).join('')}</div></td>
+    </tr>
+  `).join('');
+  return `
+    <article class="tariff-sheet tariff-sheet-stop ${style}">
+      <div class="tariff-brand">
+        <div>
+          <div class="stop-sign-board">
+            <div class="stop-sign-row">
+              <span class="stop-sign-icon" aria-hidden="true">
+                <svg viewBox="0 0 64 64" role="img" focusable="false">
+                  <rect x="2" y="2" width="60" height="60" rx="10" fill="#1d95cf"></rect>
+                  <rect x="12" y="9" width="40" height="44" rx="7" fill="#ffffff"></rect>
+                  <rect x="18" y="16" width="28" height="4" rx="1.5" fill="#1d95cf"></rect>
+                  <rect x="15" y="24" width="34" height="16" rx="4" fill="#1d95cf"></rect>
+                  <circle cx="22" cy="46" r="4" fill="#1d95cf"></circle>
+                  <circle cx="42" cy="46" r="4" fill="#1d95cf"></circle>
+                  <rect x="20" y="50" width="6" height="9" rx="3" fill="#ffffff"></rect>
+                  <rect x="38" y="50" width="6" height="9" rx="3" fill="#ffffff"></rect>
+                </svg>
+              </span>
+            </div>
+            <h1 class="tariff-headline">${displayText(info?.[2] || stopId)}</h1>
+            <div class="tariff-subline">${tariffText('Kod', 'Code')}: ${displayText(info?.[3] || stopId)}</div>
+          </div>
+        </div>
+      </div>
+      <div class="tariff-meta-grid">
+        <div class="tariff-meta-card"><div class="tariff-meta-label">${tariffText('Tarih', 'Date')}</div><div class="tariff-meta-value">${dateStr}</div></div>
+        <div class="tariff-meta-card"><div class="tariff-meta-label">${tariffText('Hat', 'Routes')}</div><div class="tariff-meta-value">${new Set(rows.map((row) => row.routeShort)).size}</div></div>
+        <div class="tariff-meta-card"><div class="tariff-meta-label">${tariffText('Sefer', 'Trips')}</div><div class="tariff-meta-value">${tripCount}</div></div>
+      </div>
+      <div class="tariff-section-title">${tariffText('Hatların Duraktan Geçiş Saatleri', 'Route Passing Times at the Stop')}</div>
+      <table class="tariff-table">
+        <thead><tr><th>${tariffText('Hat', 'Route')}</th><th>${tariffText('Yön', 'Direction')}</th><th>${tariffText('Açıklama', 'Description')}</th><th>${tariffText('Saatler', 'Times')}</th></tr></thead>
+        <tbody>${tableRows || `<tr><td colspan="4">${tariffText('Bu seçim için saat bulunamadı.', 'No times found for this selection.')}</td></tr>`}</tbody>
+      </table>
+      ${renderTariffFooter()}
+    </article>
+  `;
+}
+
+function suspendMapForTariffOutput() {
+  document.body.classList.add('tariff-output-open');
+}
+
+function resumeMapAfterTariffOutput() {
+  document.body.classList.remove('tariff-output-open');
+  try {
+    mapgl?.resize?.();
+    refreshLayersNow?.();
+  } catch (_) {}
+  setTimeout(() => {
+    try {
+      mapgl?.resize?.();
+      refreshLayersNow?.();
+    } catch (_) {}
+  }, 120);
+}
+
+function openTariffOutput(title, html) {
+  const modal = document.getElementById('tariff-output-modal');
+  const titleEl = document.getElementById('tariff-output-title');
+  const contentEl = document.getElementById('tariff-output-content');
+  if (!modal || !titleEl || !contentEl) return;
+  titleEl.textContent = title;
+  contentEl.innerHTML = html;
+  suspendMapForTariffOutput();
+  modal.classList.remove('hidden');
+}
+
+function closeTariffOutput() {
+  document.getElementById('tariff-output-modal')?.classList.add('hidden');
+  resumeMapAfterTariffOutput();
+}
+
+async function printRouteTariff() {
+  await previewRouteTariff();
+  window.print();
+}
+
+async function printStopTariff() {
+  await previewStopTariff();
+  window.print();
+}
+
+function initializeCaptureUi() {
+  const toggleButton = document.getElementById('capture-toggle-btn');
+  const closeButton = document.getElementById('capture-modal-close');
+  const cancelButton = document.getElementById('capture-cancel-btn');
+  const confirmButton = document.getElementById('capture-confirm-btn');
+  const modal = document.getElementById('capture-modal');
+  const fileNameInput = document.getElementById('capture-file-name');
+
+  toggleButton?.classList.remove('hidden');
+  toggleButton?.addEventListener('click', openCaptureModal);
+  closeButton?.addEventListener('click', closeCaptureModal);
+  cancelButton?.addEventListener('click', closeCaptureModal);
+  confirmButton?.addEventListener('click', saveCurrentViewportCapture);
+  modal?.addEventListener('click', (event) => {
+    if (event.target === modal) closeCaptureModal();
+  });
+  document.querySelectorAll('.capture-preset-btn').forEach((button) => {
+    button.addEventListener('click', () => {
+      setActiveCapturePreset(button.dataset.preset || 'original');
+      if (fileNameInput) fileNameInput.value = getCaptureDefaultFileName();
+    });
+  });
+  fileNameInput?.addEventListener('keydown', (event) => {
+    if (event.key === 'Enter') saveCurrentViewportCapture();
+  });
+  document.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape' && !modal?.classList.contains('hidden')) closeCaptureModal();
+  });
+}
+
+function initializeTariffUi() {
+  document.getElementById('route-tariff-toggle-btn')?.classList.remove('hidden');
+  document.getElementById('stop-tariff-toggle-btn')?.classList.remove('hidden');
+  document.getElementById('route-tariff-toggle-btn')?.addEventListener('click', () => {
+    syncTariffDateInputs();
+    buildRouteTariffOptions();
+    openTariffModal('route');
+  });
+  document.getElementById('stop-tariff-toggle-btn')?.addEventListener('click', () => {
+    syncTariffDateInputs();
+    buildStopTariffOptions();
+    openTariffModal('stop');
+  });
+  document.getElementById('route-tariff-close')?.addEventListener('click', () => closeTariffModal('route'));
+  document.getElementById('stop-tariff-close')?.addEventListener('click', () => closeTariffModal('stop'));
+  document.getElementById('route-tariff-preview')?.addEventListener('click', previewRouteTariff);
+  document.getElementById('stop-tariff-preview')?.addEventListener('click', previewStopTariff);
+  document.getElementById('route-tariff-generate')?.addEventListener('click', printRouteTariff);
+  document.getElementById('stop-tariff-generate')?.addEventListener('click', printStopTariff);
+  document.getElementById('route-tariff-input')?.addEventListener('input', updateRouteTariffSummary);
+  document.getElementById('route-tariff-direction')?.addEventListener('change', updateRouteTariffSummary);
+  document.getElementById('stop-tariff-input')?.addEventListener('input', updateStopTariffSummary);
+  document.getElementById('tariff-output-close')?.addEventListener('click', closeTariffOutput);
+  document.getElementById('tariff-output-print')?.addEventListener('click', () => window.print());
+  document.getElementById('route-tariff-modal')?.addEventListener('click', (event) => {
+    if (event.target?.id === 'route-tariff-modal') closeTariffModal('route');
+  });
+  document.getElementById('stop-tariff-modal')?.addEventListener('click', (event) => {
+    if (event.target?.id === 'stop-tariff-modal') closeTariffModal('stop');
+  });
+  document.getElementById('tariff-output-modal')?.addEventListener('click', (event) => {
+    if (event.target?.id === 'tariff-output-modal') closeTariffOutput();
+  });
+  window.addEventListener('afterprint', () => {
+    closeTariffOutput();
+  });
+}
+
 function updateLandingPageReports() {
   return callManager('AppManager', 'updateLandingPageReports');
 }
@@ -2671,6 +3724,8 @@ window.ServiceManager?.init?.();
 window.PlannerManager?.init?.();
 window.DataManager?.init?.();
 window.AppManager?.init?.();
+initializeCaptureUi();
+initializeTariffUi();
 window.CityManager?.init?.().catch((err) => {
   console.warn('[Init] Başlangıç yüklemesi başarısız:', err);
 }).finally(() => {

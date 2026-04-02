@@ -8,6 +8,7 @@
 <script src="https://unpkg.com/maplibre-gl@4.1.2/dist/maplibre-gl.js"></script>
 <script src="https://unpkg.com/deck.gl@9.0.3/dist.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <link rel="stylesheet" href="style.css">
 <link rel="icon" type="image/x-icon" href="./favicon.ico">
 
@@ -55,7 +56,7 @@
     <div class="lp-examples">
       <div class="lp-examples-head">
         <div class="lp-examples-title" id="lp-examples-title">Örnek veriyle dene</div>
-        <div class="lp-examples-subtitle" id="lp-examples-subtitle">Konya, İzmir ESHOT ve Bordeaux açık veri GTFS kaynaklarıyla hızlı başlangıç yap.</div>
+        <div class="lp-examples-subtitle" id="lp-examples-subtitle">Konya, Gaziantep, İzmir ESHOT, Bordeaux ve Houston açık veri GTFS kaynaklarıyla hızlı başlangıç yap.</div>
       </div>
       <div class="lp-examples-grid">
         <article class="lp-example-card">
@@ -89,6 +90,20 @@
         <article class="lp-example-card">
           <div class="lp-example-top">
             <div class="lp-example-place">
+              <img class="lp-example-flag" src="./assets/flags/tr.svg" alt="Türkiye bayrağı">
+              <span class="lp-example-city">Gaziantep</span>
+            </div>
+            <span class="lp-example-badge">GTFS</span>
+          </div>
+          <div class="lp-example-org">Gaziantep Büyükşehir Belediyesi</div>
+          <div class="lp-example-actions">
+            <button class="lp-btn outline lp-example-load" data-url="https://acikveri.gaziantep.bel.tr/dataset/12d26c98-edc5-4be3-8988-c753764b84f4/resource/b3254aa0-359e-4b7c-87a3-d5d56ad27353/download/attached_gtfs.zip" data-name="Gaziantep GTFS.zip">Örneği Yükle</button>
+            <a class="lp-example-source" href="https://acikveri.gaziantep.bel.tr/el/dataset/toplu-ulasim-gtfs-verileri" target="_blank" rel="noreferrer">Kaynağa Git</a>
+          </div>
+        </article>
+        <article class="lp-example-card">
+          <div class="lp-example-top">
+            <div class="lp-example-place">
               <img class="lp-example-flag" src="./assets/flags/fr.svg" alt="Fransa bayrağı">
               <span class="lp-example-city">Bordeaux</span>
             </div>
@@ -98,6 +113,20 @@
           <div class="lp-example-actions">
             <button class="lp-btn outline lp-example-load" data-url="https://bdx.mecatran.com/utw/ws/gtfsfeed/static/bordeaux?apiKey=opendata-bordeaux-metropole-flux-gtfs-rt" data-name="Bordeaux GTFS.zip">Örneği Yükle</button>
             <a class="lp-example-source" href="https://transport.data.gouv.fr/resources/83024?locale=en" target="_blank" rel="noreferrer">Kaynağa Git</a>
+          </div>
+        </article>
+        <article class="lp-example-card">
+          <div class="lp-example-top">
+            <div class="lp-example-place">
+              <img class="lp-example-flag" src="./assets/flags/us.svg" alt="ABD bayrağı">
+              <span class="lp-example-city">Houston</span>
+            </div>
+            <span class="lp-example-badge">GTFS</span>
+          </div>
+          <div class="lp-example-org">METRO Houston</div>
+          <div class="lp-example-actions">
+            <button class="lp-btn outline lp-example-load" data-url="https://metro.resourcespace.com/pages/download.php?ref=4835&ext=zip" data-name="Houston GTFS.zip">Örneği Yükle</button>
+            <a class="lp-example-source" href="https://www.transit.land/feeds/f-9vk-metropolitantransitauthorityofharriscounty" target="_blank" rel="noreferrer">Kaynağa Git</a>
           </div>
         </article>
       </div>
