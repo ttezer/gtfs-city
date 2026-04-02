@@ -344,7 +344,7 @@ window.MapManager = (function () {
         getPosition: (d) => Array.isArray(d) ? [d[0], d[1]] : d.pos,
         getRadius: ctx.stopCoverageRadiusM || 300,
         radiusUnits: 'meters',
-        radiusMinPixels: 8,
+        radiusMinPixels: 1,
         getFillColor: fillColor,
         getLineColor: strokeColor,
         filled: mode !== 'stroke',
