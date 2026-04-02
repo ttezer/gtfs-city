@@ -119,7 +119,11 @@
 </div>
 
 <button id="home-toggle-btn" class="hidden" title="Giriş Sayfasına Dön">🏠</button>
+<button id="capture-toggle-btn" class="hidden" title="Ekran Görüntüsü Al">📸</button>
+<button id="route-tariff-toggle-btn" class="hidden" title="Hat Tarifesi">🚌</button>
+<button id="stop-tariff-toggle-btn" class="hidden" title="Durak Tarifesi">📍</button>
 <div id="legend" style="display:none;"></div>
+<div id="capture-credit" class="hidden">© GTFS City tarafından üretilmiştir • https://ttezer.github.io/gtfs-city/app/</div>
 
 <!-- ══ SIDEBAR ══════════════════════════════════════════ -->
 <div id="sidebar">
@@ -455,6 +459,160 @@
 
 <!-- TOOLTIP -->
 <div id="tooltip"></div>
+
+<!-- SCREENSHOT MODAL -->
+<div id="capture-modal" class="hidden">
+  <div id="capture-modal-box">
+    <div id="capture-modal-header">
+      <span>📸 Ekran Görüntüsü</span>
+      <button id="capture-modal-close" type="button">✕</button>
+    </div>
+    <div class="capture-modal-body">
+      <label class="capture-field">
+        <span>Dosya adı</span>
+        <input type="text" id="capture-file-name" placeholder="metro-poster">
+      </label>
+      <label class="capture-field">
+        <span>Çözünürlük</span>
+        <select id="capture-resolution">
+          <option value="1">Standart (1x)</option>
+          <option value="2" selected>Yüksek (2x)</option>
+          <option value="3">Poster (3x)</option>
+        </select>
+      </label>
+
+      <div class="capture-field">
+        <span>Hazır görünüm</span>
+        <div class="capture-preset-grid" id="capture-preset-grid">
+          <button type="button" class="capture-preset-btn active" data-preset="original">Orijinal</button>
+          <button type="button" class="capture-preset-btn" data-preset="official">Kurumsal</button>
+          <button type="button" class="capture-preset-btn" data-preset="poster">Poster</button>
+          <button type="button" class="capture-preset-btn" data-preset="blueprint">Blueprint</button>
+          <button type="button" class="capture-preset-btn" data-preset="mono">Yüksek Kontrast</button>
+          <button type="button" class="capture-preset-btn" data-preset="transit-poster">Transit Poster</button>
+          <button type="button" class="capture-preset-btn" data-preset="cartoon-map">Cartoon Map</button>
+          <button type="button" class="capture-preset-btn" data-preset="minimal-white">Minimal White</button>
+          <button type="button" class="capture-preset-btn" data-preset="schematic">Schematic</button>
+          <button type="button" class="capture-preset-btn" data-preset="print-friendly">Print Friendly</button>
+          <button type="button" class="capture-preset-btn" data-preset="neo-transit">Neo Transit</button>
+          <button type="button" class="capture-preset-btn" data-preset="vintage-metro">Vintage Metro</button>
+          <button type="button" class="capture-preset-btn" data-preset="heat-poster">Heat Poster</button>
+          <button type="button" class="capture-preset-btn" data-preset="comic-panel">Comic Panel</button>
+        </div>
+      </div>
+
+      <div class="capture-field">
+        <span>Kriterler</span>
+        <label class="capture-check">
+          <input type="checkbox" id="capture-include-sidebar" checked>
+          <span>Sol panel dahil olsun</span>
+        </label>
+        <label class="capture-check">
+          <input type="checkbox" id="capture-include-overlays" checked>
+          <span>Açık bilgi panelleri dahil olsun</span>
+        </label>
+      </div>
+
+      <div class="capture-help">
+        Geçerli filtreler ve o anda ekranda görünen harita görünümü PNG olarak kaydedilir.
+      </div>
+    </div>
+    <div id="capture-modal-actions">
+      <button type="button" class="cbtn" id="capture-cancel-btn">Vazgeç</button>
+      <button type="button" class="cbtn accent" id="capture-confirm-btn">Tamam ve Kaydet</button>
+    </div>
+  </div>
+</div>
+
+<!-- ROUTE TARIFF MODAL -->
+<div id="route-tariff-modal" class="hidden">
+  <div class="tariff-modal-box">
+    <div class="tariff-modal-header">
+      <span>🚌 Hat Tarifesi</span>
+      <button id="route-tariff-close" type="button">✕</button>
+    </div>
+    <div class="tariff-modal-body">
+      <label class="capture-field">
+        <span>Hat seç</span>
+        <input type="text" id="route-tariff-input" list="route-tariff-list" placeholder="Hat ara...">
+        <datalist id="route-tariff-list"></datalist>
+      </label>
+      <label class="capture-field">
+        <span>Tarih</span>
+        <input type="date" id="route-tariff-date">
+      </label>
+      <label class="capture-field">
+        <span>Yön</span>
+        <select id="route-tariff-direction">
+          <option value="all">Tüm yönler</option>
+          <option value="0">Gidiş</option>
+          <option value="1">Dönüş</option>
+        </select>
+      </label>
+      <label class="capture-field">
+        <span>Görünüm stili</span>
+        <select id="route-tariff-style">
+          <option value="classic">Klasik resmi</option>
+          <option value="modern">Modern infografik</option>
+          <option value="poster">Posterize / cartoon</option>
+        </select>
+      </label>
+      <div class="tariff-summary" id="route-tariff-summary">Bir hat seçildiğinde burada kısa özet görünecek.</div>
+    </div>
+    <div class="tariff-modal-actions">
+      <button type="button" class="cbtn" id="route-tariff-preview">Önizleme</button>
+      <button type="button" class="cbtn accent" id="route-tariff-generate">A4 Oluştur</button>
+    </div>
+  </div>
+</div>
+
+<!-- STOP TARIFF MODAL -->
+<div id="stop-tariff-modal" class="hidden">
+  <div class="tariff-modal-box">
+    <div class="tariff-modal-header">
+      <span>📍 Durak Tarifesi</span>
+      <button id="stop-tariff-close" type="button">✕</button>
+    </div>
+    <div class="tariff-modal-body">
+      <label class="capture-field">
+        <span>Durak seç</span>
+        <input type="text" id="stop-tariff-input" list="stop-tariff-list" placeholder="Durak ara...">
+        <datalist id="stop-tariff-list"></datalist>
+      </label>
+      <label class="capture-field">
+        <span>Tarih</span>
+        <input type="date" id="stop-tariff-date">
+      </label>
+      <label class="capture-field">
+        <span>Görünüm stili</span>
+        <select id="stop-tariff-style">
+          <option value="classic">Klasik resmi</option>
+          <option value="modern">Modern infografik</option>
+          <option value="poster">Posterize / cartoon</option>
+        </select>
+      </label>
+      <div class="tariff-summary" id="stop-tariff-summary">Bir durak seçildiğinde burada kısa özet görünecek.</div>
+    </div>
+    <div class="tariff-modal-actions">
+      <button type="button" class="cbtn" id="stop-tariff-preview">Önizleme</button>
+      <button type="button" class="cbtn accent" id="stop-tariff-generate">A4 Oluştur</button>
+    </div>
+  </div>
+</div>
+
+<!-- OUTPUT PREVIEW -->
+<div id="tariff-output-modal" class="hidden">
+  <div id="tariff-output-box">
+    <div id="tariff-output-header">
+      <span id="tariff-output-title">Çıktı Önizleme</span>
+      <div class="tariff-output-actions">
+        <button type="button" class="cbtn" id="tariff-output-print">Yazdır</button>
+        <button type="button" class="cbtn" id="tariff-output-close">Kapat</button>
+      </div>
+    </div>
+    <div id="tariff-output-content"></div>
+  </div>
+</div>
 
 <!-- HAT PANELİ -->
 <div id="route-panel" class="drawer hidden">

@@ -102,12 +102,25 @@ window.AppManager = (function () {
     const sidebar = getElement('sidebar');
     const homeBtn = getElement('home-toggle-btn');
     const overlay = getElement('loading-overlay');
+    const ctx = getCtx();
     if (showMap) {
       toggleHidden(lp, true);
       toggleHidden(sidebar, false);
       toggleHidden(homeBtn, false);
       toggleHidden(overlay, true);
       triggerResize();
+      setTimeout(() => {
+        try {
+          ctx?.mapgl?.resize?.();
+          ctx?.refreshLayersNow?.();
+        } catch (_) {}
+      }, 0);
+      setTimeout(() => {
+        try {
+          ctx?.mapgl?.resize?.();
+          ctx?.refreshLayersNow?.();
+        } catch (_) {}
+      }, 150);
       return true;
     }
 
