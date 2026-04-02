@@ -10,24 +10,26 @@
 
 // Worker ortamında ES module import() desteklenmediğinden importScripts kullanılıyor.
 // gtfs-math-utils.js yüklendikten sonra self.GtfsMathUtils üzerinden erişilir.
-try {
-  importScripts('gtfs-math-utils.js');
-} catch (e) {
-  // importScripts başarısız olursa (farklı origin, path sorunu vb.) inline fallback
-  console.warn('[GTFS Worker] gtfs-math-utils.js yüklenemedi, inline fallback kullanılıyor:', e);
-  self.GtfsMathUtils = {
-    havMeters(a, b) {
-      const R = 6371000, toR = Math.PI / 180;
-      const dLat = (b[1] - a[1]) * toR, dLon = (b[0] - a[0]) * toR;
-      const x = Math.sin(dLat / 2) ** 2 + Math.cos(a[1] * toR) * Math.cos(b[1] * toR) * Math.sin(dLon / 2) ** 2;
-      return R * 2 * Math.asin(Math.sqrt(x));
-    },
-    simplifyPathPoints(pts, max) {
-      if (pts.length <= max) return pts;
-      const step = pts.length / max;
-      return Array.from({ length: max }, (_, i) => pts[Math.min(Math.floor(i * step), pts.length - 1)]);
-    }
-  };
+if (!self.GtfsMathUtils) {
+  try {
+    importScripts('gtfs-math-utils.js');
+  } catch (e) {
+    // importScripts başarısız olursa (farklı origin, path sorunu vb.) inline fallback
+    console.warn('[GTFS Worker] gtfs-math-utils.js yüklenemedi, inline fallback kullanılıyor:', e);
+    self.GtfsMathUtils = {
+      havMeters(a, b) {
+        const R = 6371000, toR = Math.PI / 180;
+        const dLat = (b[1] - a[1]) * toR, dLon = (b[0] - a[0]) * toR;
+        const x = Math.sin(dLat / 2) ** 2 + Math.cos(a[1] * toR) * Math.cos(b[1] * toR) * Math.sin(dLon / 2) ** 2;
+        return R * 2 * Math.asin(Math.sqrt(x));
+      },
+      simplifyPathPoints(pts, max) {
+        if (pts.length <= max) return pts;
+        const step = pts.length / max;
+        return Array.from({ length: max }, (_, i) => pts[Math.min(Math.floor(i * step), pts.length - 1)]);
+      }
+    };
+  }
 }
 
 const { havMeters, simplifyPathPoints } = self.GtfsMathUtils;
