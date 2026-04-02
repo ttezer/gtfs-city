@@ -9,10 +9,13 @@ Kararlı kabul edilen temel davranışlar:
 - upload-first başlangıç akışı
 - tek aktif GTFS veri seti
 - `Haritayı Aç` ile harita ekranına geçiş
-- landing ekranında Konya ve İzmir ESHOT için `Örnek veriyle dene` akışı
+- landing ekranında Konya, İzmir ESHOT, Bordeaux, Gaziantep ve Houston için `Örnek veriyle dene` akışı
 - route, stop ve vehicle panel akışları
 - hat tipi filtresi, odaklı hat ve ilgili katman filtreleri
 - headway, bekleme, yoğunluk ve kapsama katmanları
+- ekran görüntüsü aracı, çoklu çıktı stili ve marka metni
+- hat baskısı ve durak baskısı için önizleme / A4 çıktısı
+- Durak 300 m için yarıçap, görünüm ve stil kontrolleri
 - HTTPS GTFS ZIP linkten yükleme, yalnızca Electron sürümünde
 - logo, landing ve temel ürün kimliği
 
@@ -167,3 +170,48 @@ Bu dosya uzun tarihçe değil, güncel durum belgesidir. Yeni işler buraya kıs
 - `Durak Puanlama` başlığı ürün planına eklendi.
 - İlk kapsam, erişilen durak sayısı, erişilen hat sayısı ve sefer yoğunluğu üzerinden anlaşılır skor üretmek olarak sınırlandı.
 - Puanın seçili durak bilgi penceresinde gösterilmesi ve zaman animasyonuna bağlı anlık simülasyonla güncellenmesi hedef olarak netleştirildi.
+
+### Faz T - Baskı, Örnek Veri ve Web Demo Senkronizasyonu (2 Nisan 2026)
+
+- Electron için ekran görüntüsü akışı geliştirildi; çözünürlük seçimi, çoklu çıktı stili ve marka metni eklendi.
+- Hat baskısı ve durak baskısı araçları ayrı butonlar olarak eklendi; önizleme / A4 çıktısı akışı tamamlandı.
+- Hat baskısında yön sırası, başlık ve görsel düzen güncellendi; durak baskısında tabela tarzı görünüm geliştirildi.
+- ZIP değiştiğinde hat/durak baskı ekranlarında eski verinin kalması sorunu giderildi.
+- `Haritayı Aç` sonrası boş harita ve print preview sırasındaki WebGL context kaybı için toparlama mantığı eklendi.
+- Durak 300 m katmanı izokrondan bağımsız hale getirildi; yarıçap, görünüm modu, dolgu ve çizgi kontrolleri eklendi.
+- Gaziantep ve Houston örnek veri setleri bundled örnek kart olarak eklendi; örnek veri kartları Konya, İzmir ESHOT ve Bordeaux ile aynı akışa alındı.
+- Kök uygulama ile `docs/app` içeriği web demo için yeniden senkronlandı; örnek veri kartları ve ilgili araçlar web tarafına taşındı.
+- `README.md`, `README.en.md`, `yol-haritasi.md` ve `isplani.md` kapanış güncellemesi gerektiren belgeler olarak not edildi.
+
+### Faz T - Gün Sonu Kapanış Özeti (2 Nisan 2026)
+
+- Electron için ekran görüntüsü akışı geliştirildi.
+- Ekran görüntüsü stilleri çoğaltıldı: `Orijinal`, `Kurumsal`, `Poster`, `Blueprint`, `Yüksek Kontrast`, `Transit Poster`, `Cartoon Map`, `Minimal White`, `Schematic`, `Print Friendly`, `Neo Transit`, `Vintage Metro`, `Heat Poster`, `Comic Panel`.
+- Ekran görüntüsüne çözünürlük seçeneği eklendi.
+- Çıktılara marka metni eklendi: `© GTFS City tarafından üretilmiştir • https://ttezer.github.io/gtfs-city/app/`
+- Hat ve durak baskı araçları ayrı butonlar olarak eklendi.
+- Hat ve durak baskı önizleme / A4 çıktısı akışı eklendi.
+- Hat baskısında başlık ve görsel düzen güncellendi.
+- Durak baskısında tabela tarzı görünüm geliştirildi.
+- Durak baskısında özel ikon, başlık ve metin düzeltmeleri yapıldı.
+- Hat baskısında `Gidiş` bölümünün önce gelmesi sağlandı.
+- ZIP değiştiğinde hat/durak baskı ekranlarında eski verinin kalması sorunu düzeltildi.
+- `Haritayı Aç` sonrası boş harita sorunu için resize/toparlama düzeltmesi yapıldı.
+- Print preview sırasında oluşan WebGL context kaybı için toparlama eklendi.
+- Genel WebGL context loss sonrası harita/deck toparlama mantığı eklendi.
+- GTFS worker tarafında gereksiz `gtfs-math-utils.js` import fallback uyarısı temizlendi.
+- Electron ve baskı işleri için PR açıldı ve merge edildi.
+- Durak 300 m geliştirmeleri için PR açıldı, sonra yeniden açılıp merge edildi.
+- Web demo eşitleme için PR açıldı ve merge edildi.
+- Merge edilmiş branch'ler temizlendi.
+- PR etiketleri kullanıldı.
+- Türkçe PR başlık/açıklama kuralı netleştirildi: kullanıcıya görünen tüm metinlerde Türkçe karakter kullanılacak.
+- Durak 300 m özelliği koddan doğrulandı.
+- `300 m` değerinin yarıçap olduğu netleştirildi.
+- Durak 300 m izokrondan bağımsız hale getirildi.
+- Durak 300 m için görsel kontrol alanları eklendi: yarıçap, görünüm modu, dolgu rengi, dolgu saydamlığı, çizgi rengi, çizgi kalınlığı.
+- `radiusMinPixels` düşürülerek 300 m dairenin olduğundan büyük görünmesi düzeltildi.
+- Web demo için `Durak 300 m`, ekran görüntüsü aracı, hat/durak baskı araçları ve örnek veri kartları canlı koda taşındı.
+- Canlı web demo kontrol edildi; yeni HTML'in gerçekten yayında olduğu ve normal sekmede görünmeyen durumun cache kaynaklı olduğu doğrulandı.
+- Bunun için `#30 Web demo önbellek sorununu düzelt` PR'ı açıldı.
+- `#30` içinde `index.html` ve `docs/app/index.html` dosyalarındaki `style.css`, `favicon.ico` ve yerel JS dosyalarına sürüm parametresi eklendi.

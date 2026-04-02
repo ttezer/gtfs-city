@@ -11,6 +11,31 @@ English README: [README.en.md](./README.en.md)
 - hat, durak ve araç detay panelleri
 - headway, bekleme, yoğunluk ve kapsama katmanları
 - HTTPS GTFS ZIP linkinden yükleme (`Electron` içinde)
+- ekran görüntüsü aracı ve çoklu çıktı stili
+- hat baskısı ve durak baskısı için önizleme / A4 çıktısı
+- bundled örnek veri kartları: Konya, İzmir ESHOT, Bordeaux, Gaziantep, Houston
+- Durak 300 m için yarıçap, görünüm ve stil kontrolleri
+
+## Son Güncellemeler
+
+- Electron için ekran görüntüsü akışı geliştirildi.
+- Ekran görüntüsü stilleri genişletildi: `Orijinal`, `Kurumsal`, `Poster`, `Blueprint`, `Yüksek Kontrast`, `Transit Poster`, `Cartoon Map`, `Minimal White`, `Schematic`, `Print Friendly`, `Neo Transit`, `Vintage Metro`, `Heat Poster`, `Comic Panel`.
+- Ekran görüntüsüne çözünürlük seçeneği eklendi.
+- Çıktılara marka metni eklendi: `© GTFS City tarafından üretilmiştir • https://ttezer.github.io/gtfs-city/app/`
+- Hat ve durak baskı araçları ayrı butonlar olarak eklendi.
+- Hat ve durak baskı önizleme / A4 çıktısı akışı eklendi.
+- Hat baskısında başlık, görsel düzen ve `Gidiş` bölüm sırası güncellendi.
+- Durak baskısında tabela tarzı görünüm, özel ikon, başlık ve metin düzeltmeleri yapıldı.
+- ZIP değiştiğinde hat/durak baskı ekranlarında eski verinin kalması sorunu düzeltildi.
+- `Haritayı Aç` sonrası boş harita sorunu için resize ve toparlama düzeltmesi yapıldı.
+- Print preview sırasında oluşan WebGL context kaybı için toparlama eklendi.
+- Genel WebGL context loss sonrası harita ve deck toparlama mantığı eklendi.
+- GTFS worker tarafında gereksiz `gtfs-math-utils.js` import fallback uyarısı temizlendi.
+- Durak 300 m katmanı için yarıçap, görünüm modu, dolgu rengi, dolgu saydamlığı, çizgi rengi ve çizgi kalınlığı kontrolleri eklendi.
+- `300 m` değerinin yarıçap olduğu netleştirildi, katman izokrondan bağımsız hale getirildi ve `radiusMinPixels` ayarı iyileştirildi.
+- Web demo tarafına `Durak 300 m`, ekran görüntüsü aracı, hat/durak baskı araçları ve örnek veri kartları taşındı.
+- Canlı web demo kontrol edildi; yeni HTML'in yayında olduğu ve normal sekmede görülen farkın cache kaynaklı olduğu doğrulandı.
+- Web demo cache kırma için `index.html` ve `docs/app/index.html` içinde `style.css`, `favicon.ico` ve yerel JS dosyalarına sürüm parametresi eklendi.
 
 ## Ekran Görüntüleri
 
@@ -91,6 +116,14 @@ npm run build:win -- --dir
 3. Yükleme tamamlanınca `Haritayı Aç` ile haritaya geç.
 4. Sol menüden hat tipleri, görünürlük ve analiz katmanlarını yönet.
 5. Hat, durak ve araç panellerini kullanarak veri incelemesi yap.
+
+Landing ekranındaki `Örnek veriyle dene` kartları bundled örnek paketleri kullanır. Güncel örnek setleri:
+
+- Konya
+- İzmir ESHOT
+- Bordeaux
+- Gaziantep
+- Houston
 
 ## Nereye Bakmalıyım?
 

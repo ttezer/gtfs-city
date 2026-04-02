@@ -232,6 +232,18 @@ window.DataManager = (function () {
     }
   }
 
+  function resolveFilePathFromUrl(input) {
+    try {
+      const parsed = new URL(String(input || ''), window.location.href);
+      if (parsed.protocol !== 'file:') return '';
+      let pathname = decodeURIComponent(parsed.pathname || '');
+      if (/^\/[A-Za-z]:\//.test(pathname)) pathname = pathname.slice(1);
+      return pathname.replace(/\//g, '\\');
+    } catch (_) {
+      return '';
+    }
+  }
+
   async function handleGTFSFile(file) {
     const ctx = getCtx();
     const landingUpload = isLandingVisible();
@@ -296,6 +308,32 @@ window.DataManager = (function () {
       if (!landingUpload) gtfsProgress(translate('gtfsZipParseError', 'ZIP parse hatası: {message}').replace('{message}', error.message), 0);
       window.AppManager?.setLandingUploadState?.({ loading: false });
       console.error('GTFS parse hatası:', error);
+    }
+  }
+
+  async function handleGTFSLocalPath(pathValue, options = {}) {
+    const rawPath = String(pathValue || '').trim();
+    if (!rawPath) {
+      showToast(translate('gtfsSourceUnreadable', 'GTFS ZIP kaynağı okunamadı.'), 'error');
+      return;
+    }
+    let filePath = rawPath;
+    if (/^file:/i.test(rawPath)) {
+      filePath = resolveFilePathFromUrl(rawPath);
+    }
+    try {
+      const result = await window.electronAPI?.readGTFSFile?.(filePath);
+      if (!result?.success) {
+        window.AppManager?.setLandingUploadState?.({ loading: false });
+        showToast(result?.error || translate('gtfsSourceUnreadable', 'GTFS ZIP kaynağı okunamadı.'), 'error');
+        return;
+      }
+      if (!result.name) result.name = options?.fileName || filePath.split(/[\\/]/).pop() || 'dataset.zip';
+      updateLandingLoadingState(20, localizedUploadLabel('loadingZipDownloadedShort', 'ZIP İNDİRİLDİ'));
+      await handleGTFSFile(result);
+    } catch (error) {
+      window.AppManager?.setLandingUploadState?.({ loading: false });
+      showToast(error?.message || translate('gtfsSourceUnreadable', 'GTFS ZIP kaynağı okunamadı.'), 'error');
     }
   }
 
@@ -860,6 +898,7 @@ window.DataManager = (function () {
     exportReportJSON,
     showValidationReport,
     handleGTFSFile,
+    handleGTFSLocalPath,
     handleGTFSUrl,
     buildUploadedCityMeta,
     patchTripsAbsoluteTime,

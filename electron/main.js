@@ -212,6 +212,11 @@ function validateGtfsUrl(urlString) {
   return { ok: true, parsed };
 }
 
+function shouldAllowInsecureTls(parsedUrl) {
+  const host = String(parsedUrl?.hostname || '').toLowerCase().trim();
+  return host === 'acikveri.gaziantep.bel.tr';
+}
+
 function requestUrl(targetUrl, method = 'GET', redirectsLeft = 5) {
   return new Promise((resolve, reject) => {
     const validation = validateGtfsUrl(targetUrl);
@@ -219,7 +224,11 @@ function requestUrl(targetUrl, method = 'GET', redirectsLeft = 5) {
       reject(new Error(validation.error));
       return;
     }
-    const req = https.request(validation.parsed, { method, timeout: 15000 }, (res) => {
+    const req = https.request(validation.parsed, {
+      method,
+      timeout: 15000,
+      rejectUnauthorized: !shouldAllowInsecureTls(validation.parsed),
+    }, (res) => {
       const status = res.statusCode || 0;
       if ([301, 302, 303, 307, 308].includes(status) && res.headers.location) {
         res.resume();
