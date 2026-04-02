@@ -1,11 +1,13 @@
 {
-  "updatedAt": "2026-04-01T11:37:41.044Z",
+  "updatedAt": "2026-04-02T11:17:14.343Z",
   "samples": [
     {
       "id": "konya",
       "city": "Konya",
       "countryCode": "TR",
       "agency": "Konya Büyükşehir Belediyesi",
+      "loadStrategy": "bundled",
+      "note": "Web demo için repoya alınmış güncel örnek paket.",
       "remoteUrl": "https://acikveri.konya.bel.tr/dataset/c2e034e6-e015-49c6-8eec-6e2f7de9c105/resource/ec944ecd-1c1f-4687-a7f6-fcf2dc5bb5db/download/gtfs_11_2025.zip",
       "sourcePage": "https://acikveri.konya.bel.tr/tr/dataset/toplu-tasima-gtfs-verileri/resource/ec944ecd-1c1f-4687-a7f6-fcf2dc5bb5db",
       "localPath": "docs/data/konya-gtfs.zip",
@@ -15,12 +17,13 @@
         "etag": "\"1762779093.0612125-6974466-1430066931\"",
         "lastModified": "Mon, 10 Nov 2025 12:51:33 GMT",
         "contentLength": 6974466,
-        "checkedAt": "2026-04-01T11:37:27.330Z"
+        "checkedAt": "2026-04-02T11:17:08.796Z"
       },
       "localMeta": {
+        "exists": true,
         "size": 6974466,
-        "sha256": "73ba19c284fe76896bb33fb6898919104e922e14c029a622e455e835ce998a3d",
-        "mtime": "2026-04-01T11:37:29.014Z"
+        "mtime": "2026-04-01T11:37:28.993Z",
+        "sha256": "73ba19c284fe76896bb33fb6898919104e922e14c029a622e455e835ce998a3d"
       }
     },
     {
@@ -28,6 +31,8 @@
       "city": "İzmir ESHOT",
       "countryCode": "TR",
       "agency": "İzmir Büyükşehir Belediyesi",
+      "loadStrategy": "bundled",
+      "note": "Web demo için repoya alınmış güncel örnek paket.",
       "remoteUrl": "https://www.eshot.gov.tr/gtfs/bus-eshot-gtfs.zip",
       "sourcePage": "https://acikveri.bizizmir.com/tr/dataset/toplu-ulasim-gtfs-verileri",
       "localPath": "docs/data/izmir-eshot-gtfs.zip",
@@ -37,12 +42,13 @@
         "etag": "\"cf1d4550ddda1:0\"",
         "lastModified": "Tue, 23 Jul 2024 12:58:31 GMT",
         "contentLength": 18886467,
-        "checkedAt": "2026-04-01T11:37:29.131Z"
+        "checkedAt": "2026-04-02T11:17:08.949Z"
       },
       "localMeta": {
+        "exists": true,
         "size": 18886467,
-        "sha256": "fddd70a9837cfa81fdd8f6190a3ad90a5c76344adb70c301840c42bf8d8dc528",
-        "mtime": "2026-04-01T11:37:34.587Z"
+        "mtime": "2026-04-01T11:37:34.526Z",
+        "sha256": "fddd70a9837cfa81fdd8f6190a3ad90a5c76344adb70c301840c42bf8d8dc528"
       }
     },
     {
@@ -50,21 +56,67 @@
       "city": "Bordeaux",
       "countryCode": "FR",
       "agency": "Bordeaux Métropole",
+      "loadStrategy": "bundled",
+      "note": "Web demo için repoya alınmış güncel örnek paket.",
       "remoteUrl": "https://bdx.mecatran.com/utw/ws/gtfsfeed/static/bordeaux?apiKey=opendata-bordeaux-metropole-flux-gtfs-rt",
       "sourcePage": "https://transport.data.gouv.fr/resources/83024?locale=en",
       "localPath": "docs/data/bordeaux-gtfs.zip",
       "fileName": "Bordeaux GTFS.zip",
       "remoteMeta": {
         "finalUrl": "https://bdx.mecatran.com/utw/ws/gtfsfeed/static/bordeaux?apiKey=opendata-bordeaux-metropole-flux-gtfs-rt",
-        "etag": "mecatran-bordeaux-databundle-gtfs-23595-1775012031429-64759726",
+        "etag": "mecatran-bordeaux-databundle-gtfs-23626-1775098440633-62939846",
         "lastModified": "",
         "contentLength": 0,
-        "checkedAt": "2026-04-01T11:37:34.919Z"
+        "checkedAt": "2026-04-02T11:17:09.794Z"
       },
       "localMeta": {
+        "exists": true,
         "size": 23834600,
-        "sha256": "6537545f99ba8c63ba14592ac8354858703dbbc10e993f503580ab273d562486",
-        "mtime": "2026-04-01T11:37:41.044Z"
+        "mtime": "2026-04-01T11:52:00.396Z",
+        "sha256": "6537545f99ba8c63ba14592ac8354858703dbbc10e993f503580ab273d562486"
+      }
+    },
+    {
+      "id": "gaziantep",
+      "city": "Gaziantep",
+      "countryCode": "TR",
+      "agency": "Gaziantep Büyükşehir Belediyesi",
+      "loadStrategy": "bundled",
+      "note": "Web demo için repoya alınmış güncel örnek paket.",
+      "remoteUrl": "https://acikveri.gaziantep.bel.tr/dataset/12d26c98-edc5-4be3-8988-c753764b84f4/resource/b3254aa0-359e-4b7c-87a3-d5d56ad27353/download/attached_gtfs.zip",
+      "sourcePage": "https://acikveri.gaziantep.bel.tr/el/dataset/toplu-ulasim-gtfs-verileri",
+      "localPath": "docs/data/gaziantep-gtfs.zip",
+      "fileName": "Gaziantep GTFS.zip",
+      "remoteMeta": {},
+      "localMeta": {
+        "exists": true,
+        "size": 6915495,
+        "mtime": "2026-04-02T11:14:55.622Z",
+        "sha256": "d1055ac5b6f4323dc22845bbe13de13bdf43c558a28fe0b5e1c56707e5afa893"
+      }
+    },
+    {
+      "id": "houston",
+      "city": "Houston",
+      "countryCode": "US",
+      "agency": "METRO Houston",
+      "loadStrategy": "bundled",
+      "note": "Web demo için repoya alınmış güncel örnek paket.",
+      "remoteUrl": "https://metro.resourcespace.com/pages/download.php?ref=4835&ext=zip",
+      "sourcePage": "https://www.transit.land/feeds/f-9vk-metropolitantransitauthorityofharriscounty",
+      "localPath": "docs/data/houston-gtfs.zip",
+      "fileName": "Houston GTFS.zip",
+      "remoteMeta": {
+        "finalUrl": "https://metro.resourcespace.com/pages/download.php?ref=4835&ext=zip",
+        "etag": "",
+        "lastModified": "",
+        "contentLength": 12700096,
+        "checkedAt": "2026-04-02T11:17:10.265Z"
+      },
+      "localMeta": {
+        "size": 12700096,
+        "sha256": "ce6d5702cb2fab0b5d31fb197e058072bbf2aec46e2b77a81ef269add6b1e23a",
+        "mtime": "2026-04-02T11:17:14.343Z"
       }
     }
   ]

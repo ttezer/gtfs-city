@@ -1,4 +1,6 @@
 window.AppManager = (function () {
+  let sampleManifest = [];
+
   function getCtx() {
     return window.LegacyAppBridge?.getContext?.() || null;
   }
@@ -38,6 +40,118 @@ window.AppManager = (function () {
     return window.I18n?.getLanguage?.() === 'en' ? 'en-US' : 'tr-TR';
   }
 
+  function escapeHtml(value) {
+    return String(value || '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+  }
+
+  function getSampleManifestUrl() {
+    return new URL('../data/samples.json', window.location.href).toString();
+  }
+
+  function resolveFlagPath(countryCode) {
+    return `./assets/flags/${String(countryCode || '').toLowerCase() || 'tr'}.svg`;
+  }
+
+  function getSampleLoadConfig(sample) {
+    if (!sample) return null;
+    const isElectron = !!window.IS_ELECTRON;
+    if (sample.loadStrategy === 'bundled') {
+      if (!sample.localPath) return null;
+      return {
+        url: new URL(`../${sample.localPath.replace(/^docs\//, '')}`, window.location.href).toString(),
+        fileName: sample.fileName || `${sample.city || 'sample'}.zip`,
+      };
+    }
+    if (sample.loadStrategy === 'remote' && isElectron && sample.remoteUrl) {
+      return {
+        url: sample.remoteUrl,
+        fileName: sample.fileName || `${sample.city || 'sample'}.zip`,
+      };
+    }
+    return null;
+  }
+
+  function getSampleNote(sample) {
+    const config = getSampleLoadConfig(sample);
+    if (config) {
+      return sample.note || translate('sampleNoteBundled', 'Bundled sample package for the web demo.');
+    }
+    if (sample.loadStrategy === 'remote') {
+      return translate(
+        window.IS_ELECTRON ? 'sampleNoteExternalElectron' : 'sampleNoteExternalWeb',
+        window.IS_ELECTRON
+          ? 'This card loads from an external source.'
+          : 'This card is reference-only in the web demo; automatic loading is disabled.'
+      );
+    }
+    return sample.note || '';
+  }
+
+  function renderSampleCards() {
+    const grid = getElement('lp-examples-grid');
+    if (!grid) return;
+    grid.innerHTML = sampleManifest.map((sample) => {
+      const config = getSampleLoadConfig(sample);
+      const buttonLabel = config
+        ? translate('landingExampleLoad', 'Load Sample')
+        : translate('landingExampleExternal', 'External Source');
+      const badgeLabel = sample.loadStrategy === 'bundled'
+        ? translate('sampleBadgeBundled', 'Bundled Demo')
+        : translate('sampleBadgeExternal', 'External');
+      const safeCity = escapeHtml(sample.city);
+      const safeAgency = escapeHtml(sample.agency);
+      const safeFileName = escapeHtml(sample.fileName || `${sample.city || 'sample'}.zip`);
+      const safeSourcePage = escapeHtml(sample.sourcePage || '#');
+      const safeUrl = escapeHtml(config?.url || '');
+      const safeNote = escapeHtml(getSampleNote(sample));
+      const safeFlag = escapeHtml(resolveFlagPath(sample.countryCode));
+      const safeAlt = escapeHtml(`${sample.countryCode || ''} flag`);
+      return `
+        <article class="lp-example-card">
+          <div class="lp-example-top">
+            <div class="lp-example-place">
+              <img class="lp-example-flag" src="${safeFlag}" alt="${safeAlt}">
+              <span class="lp-example-city">${safeCity}</span>
+            </div>
+            <span class="lp-example-badge">${escapeHtml(badgeLabel)}</span>
+          </div>
+          <div class="lp-example-org">${safeAgency}</div>
+          <div class="lp-example-note">${safeNote}</div>
+          <div class="lp-example-actions">
+            <button class="lp-btn outline lp-example-load" ${config ? `data-url="${safeUrl}" data-name="${safeFileName}"` : 'disabled'}>${escapeHtml(buttonLabel)}</button>
+            <a class="lp-example-source" href="${safeSourcePage}" target="_blank" rel="noreferrer">${escapeHtml(translate('landingExampleSource', 'Open Source'))}</a>
+          </div>
+        </article>
+      `;
+    }).join('');
+
+    grid.querySelectorAll('.lp-example-load').forEach((button) => {
+      if (button.disabled) return;
+      button.addEventListener('click', () => {
+        const url = button.dataset.url || '';
+        const fileName = button.dataset.name || '';
+        window.DataManager?.handleGTFSUrl?.(url, { fileName });
+      });
+    });
+  }
+
+  async function loadSampleManifest() {
+    try {
+      const response = await fetch(getSampleManifestUrl(), { cache: 'no-store' });
+      if (!response.ok) throw new Error(`${response.status} ${response.statusText}`.trim());
+      const manifest = await response.json();
+      sampleManifest = Array.isArray(manifest?.samples) ? manifest.samples : [];
+      renderSampleCards();
+    } catch (error) {
+      console.error('[samples] manifest could not be loaded:', error);
+    }
+  }
+
   function updateStartButtonState() {
     const ctx = getCtx();
     const { upload, start } = getLandingElements();
@@ -45,10 +159,10 @@ window.AppManager = (function () {
     const hasTrips = !!(ctx.AppState.trips && ctx.AppState.trips.length);
     start.disabled = !hasTrips;
     start.classList.toggle('hidden', !hasTrips);
-    start.textContent = translate('landingStartButton', '🗺️ Open Map');
+    start.textContent = translate('landingStartButton', 'Open Map');
     upload.textContent = hasTrips
       ? translate('uploadAnother', 'Upload Another GTFS ZIP')
-      : translate('landingUploadButton', '📂 Upload GTFS ZIP');
+      : translate('landingUploadButton', 'Upload GTFS ZIP');
     upload.disabled = false;
     upload.style.removeProperty('--load-pct');
     upload.classList.remove('is-loading');
@@ -158,13 +272,6 @@ window.AppManager = (function () {
     getElement('lp-btn-url')?.addEventListener('click', () => {
       window.DataManager?.handleGTFSUrl?.();
     });
-    document.querySelectorAll('.lp-example-load').forEach((button) => {
-      button.addEventListener('click', () => {
-        const url = button.dataset.url || '';
-        const fileName = button.dataset.name || '';
-        window.DataManager?.handleGTFSUrl?.(url, { fileName });
-      });
-    });
     getElement('lp-gtfs-url')?.addEventListener('keydown', (event) => {
       if (event.key === 'Enter') {
         event.preventDefault();
@@ -188,10 +295,11 @@ window.AppManager = (function () {
       linkNote.textContent = translate(
         isElectron ? 'linkNote' : 'linkNoteWeb',
         isElectron
-          ? 'Yalnızca HTTPS GTFS ZIP linkleri kabul edilir. Dış bağlantının güvenliği kullanıcı sorumluluğundadır.'
-          : 'Web demosunda dış bağlantılar CORS nedeniyle engellenebilir. Hazır örnek veri kartlarını kullanın.'
+          ? 'Only HTTPS GTFS ZIP links are accepted. External link safety is the user responsibility.'
+          : 'External links may be blocked by CORS in the web demo. Use the built-in sample data cards.'
       );
     }
+    renderSampleCards();
   }
 
   function initPlatformBadge() {
@@ -235,7 +343,7 @@ window.AppManager = (function () {
     if (sidebar && sidebarToggle) {
       sidebarToggle.addEventListener('click', () => {
         const collapsed = sidebar.classList.toggle('collapsed');
-        sidebarToggle.textContent = collapsed ? '▶' : '◀';
+        sidebarToggle.textContent = collapsed ? '>' : '<';
         triggerResize(305);
       });
     }
@@ -246,12 +354,14 @@ window.AppManager = (function () {
     bindStyleControls();
     initPlatformBadge();
     syncLandingSourceControls();
+    loadSampleManifest();
     updateStartButtonState();
-      window.addEventListener('app-language-change', () => {
-        updateStartButtonState();
-        updateLandingPageReports();
-        syncLandingSourceControls();
-      });
+    window.addEventListener('app-language-change', () => {
+      updateStartButtonState();
+      updateLandingPageReports();
+      syncLandingSourceControls();
+      renderSampleCards();
+    });
     setTimeout(updateLandingPageReports, 1500);
   }
 
