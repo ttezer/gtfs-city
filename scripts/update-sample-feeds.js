@@ -15,8 +15,17 @@ function writeManifest(manifest) {
 }
 
 async function getRemoteMeta(url) {
-  const response = await fetch(url, { method: 'HEAD', redirect: 'follow' });
-  if (!response.ok) throw new Error(`HEAD ${response.status} ${response.statusText}`.trim());
+  let response;
+  try {
+    response = await fetch(url, { method: 'HEAD', redirect: 'follow' });
+  } catch (_) {
+    response = null;
+  }
+  if (!response || !response.ok) {
+    response = await fetch(url, { method: 'GET', redirect: 'follow' });
+    if (!response.ok) throw new Error(`GET ${response.status} ${response.statusText}`.trim());
+    await response.body?.cancel?.();
+  }
   return {
     finalUrl: response.url,
     etag: response.headers.get('etag') || '',
@@ -27,6 +36,7 @@ async function getRemoteMeta(url) {
 }
 
 function getLocalMeta(localPath) {
+  if (!localPath) return { exists: false, size: 0, mtime: '', sha256: '' };
   const fullPath = path.join(repoRoot, localPath);
   if (!fs.existsSync(fullPath)) return { exists: false, size: 0, mtime: '', sha256: '' };
   const stats = fs.statSync(fullPath);
@@ -41,11 +51,10 @@ function getLocalMeta(localPath) {
 
 function needsUpdate(sample, remoteMeta, localMeta) {
   if (!localMeta.exists) return true;
-  const previous = sample.remoteMeta || {};
-  return previous.etag !== remoteMeta.etag
-    || previous.lastModified !== remoteMeta.lastModified
-    || Number(previous.contentLength || 0) !== Number(remoteMeta.contentLength || 0)
-    || Number(sample.localMeta?.size || 0) !== Number(localMeta.size || 0);
+  if (Number(sample.localMeta?.size || 0) !== Number(localMeta.size || 0)) return true;
+  const remoteLength = Number(remoteMeta.contentLength || 0);
+  if (remoteLength > 0 && remoteLength !== Number(localMeta.size || 0)) return true;
+  return false;
 }
 
 async function downloadSample(sample) {
@@ -63,20 +72,37 @@ async function downloadSample(sample) {
   };
 }
 
+function isBundledSample(sample) {
+  return sample?.loadStrategy === 'bundled';
+}
+
 async function main() {
   const manifest = readManifest();
   for (const sample of manifest.samples || []) {
-    const remoteMeta = await getRemoteMeta(sample.remoteUrl);
+    if (!isBundledSample(sample)) {
+      console.log(`[sample-update] ${sample.city} dis kaynak karti olarak birakildi.`);
+      continue;
+    }
     const localMeta = getLocalMeta(sample.localPath);
+    let remoteMeta;
+    try {
+      remoteMeta = await getRemoteMeta(sample.remoteUrl);
+      sample.remoteMeta = remoteMeta;
+    } catch (error) {
+      if (localMeta.exists) {
+        sample.localMeta = localMeta;
+        console.log(`[sample-update] Uyari: ${sample.city} remote meta alinamadi, yerel paket korunuyor. (${error.message})`);
+        continue;
+      }
+      throw error;
+    }
     if (needsUpdate(sample, remoteMeta, localMeta)) {
       console.log(`[sample-update] ${sample.city} guncel degil, guncelliyorum...`);
       const updatedLocal = await downloadSample(sample);
-      sample.remoteMeta = remoteMeta;
       sample.localMeta = updatedLocal;
       continue;
     }
     console.log(`[sample-update] ${sample.city} zaten guncel.`);
-    sample.remoteMeta = remoteMeta;
     sample.localMeta = localMeta;
   }
   writeManifest(manifest);

@@ -11,6 +11,31 @@ Turkish README: [README.md](./README.md)
 - route, stop, and vehicle detail panels
 - headway, waiting time, density, and coverage layers
 - HTTPS GTFS ZIP loading support inside `Electron`
+- screenshot tool with multiple export styles
+- route print and stop print flows with preview / A4 output
+- bundled sample dataset cards: Konya, Izmir ESHOT, Bordeaux, Gaziantep, Houston
+- configurable 300 m stop coverage controls
+
+## Recent Updates
+
+- The Electron screenshot flow was expanded.
+- Screenshot styles now include: `Original`, `Official`, `Poster`, `Blueprint`, `High Contrast`, `Transit Poster`, `Cartoon Map`, `Minimal White`, `Schematic`, `Print Friendly`, `Neo Transit`, `Vintage Metro`, `Heat Poster`, `Comic Panel`.
+- Resolution selection was added to screenshot export.
+- Output branding was added: `© GTFS City tarafından üretilmiştir • https://ttezer.github.io/gtfs-city/app/`
+- Route print and stop print tools were added as separate buttons.
+- Route print and stop print preview / A4 export flows were added.
+- Route print header, visual layout, and outbound-first ordering were updated.
+- Stop print layout was improved with a stop-sign style presentation, custom icon, header, and text fixes.
+- The issue where old data remained in route/stop print screens after ZIP changes was fixed.
+- The empty map after `Open Map` was addressed with resize and recovery logic.
+- Recovery was added for WebGL context loss during print preview.
+- General map/deck recovery logic was added for broader WebGL context loss scenarios.
+- The unnecessary `gtfs-math-utils.js` worker import fallback warning was removed.
+- The 300 m stop coverage layer now includes controls for radius, render mode, fill color, fill opacity, stroke color, and stroke width.
+- The `300 m` value was clarified as radius, the layer was separated from the isochrone flow, and `radiusMinPixels` was tuned to avoid oversized circles.
+- `Stop Coverage 300 m`, the screenshot tool, route/stop print tools, and sample data cards were carried into the live web demo code.
+- The live web demo was checked directly; the new HTML was confirmed to be deployed, and the difference seen in a normal tab was confirmed to be a cache issue.
+- The web demo cache-busting update added version parameters to `style.css`, `favicon.ico`, and local JS files in `index.html` and `docs/app/index.html`.
 
 ## Screenshots
 
@@ -91,6 +116,14 @@ npm run build:win -- --dir
 3. After loading completes, continue with `Open Map`.
 4. Manage route types, visibility, and analysis layers from the left sidebar.
 5. Inspect the data through route, stop, and vehicle panels.
+
+The `Try with sample data` cards on the landing screen use bundled sample packages. Current sample set:
+
+- Konya
+- Izmir ESHOT
+- Bordeaux
+- Gaziantep
+- Houston
 
 ## Where Should I Look?
 
