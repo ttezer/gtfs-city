@@ -258,6 +258,12 @@ const SPEEDS = [1, 10, 30, 60, 120, 300, 600];
 let simTime = 6 * 3600, simPaused = false, lastTs = null;
 let speedIdx = 3, simSpeed = 60;
 let showAnim = true, showPaths = true, showDensity = true, showStops = true, showStopCoverage = false;
+let stopCoverageRadiusM = 300;
+let stopCoverageFillColorHex = '#58a6ff';
+let stopCoverageFillOpacityPct = 14;
+let stopCoverageStrokeColorHex = '#58a6ff';
+let stopCoverageStrokeWidthPx = 2;
+let stopCoverageMode = 'fill-stroke';
 let showHeatmap = false, heatmapHour = 8, heatmapFollowSim = false;
 let showTrail = false;
 let currentMapStyle = 'auto'; // 'auto', 'satellite', 'dark', 'light'
@@ -667,6 +673,79 @@ function refreshLayersNow() {
   _staticLayerKey = '';
   if (deckgl) deckgl.setProps({ layers: buildLayers() });
 }
+function hexToRgb(hex, fallback = [88, 166, 255]) {
+  const normalized = String(hex || '').trim();
+  const match = normalized.match(/^#?([0-9a-f]{6})$/i);
+  if (!match) return fallback;
+  const value = match[1];
+  return [
+    Number.parseInt(value.slice(0, 2), 16),
+    Number.parseInt(value.slice(2, 4), 16),
+    Number.parseInt(value.slice(4, 6), 16),
+  ];
+}
+function clampStopCoverageValue(value, min, max, fallback) {
+  const parsed = Number.parseFloat(value);
+  if (!Number.isFinite(parsed)) return fallback;
+  return Math.min(max, Math.max(min, parsed));
+}
+function updateStopCoverageControlValues() {
+  const radiusValue = document.getElementById('stop-coverage-radius-value');
+  const fillOpacityValue = document.getElementById('stop-coverage-fill-opacity-value');
+  const strokeWidthValue = document.getElementById('stop-coverage-stroke-width-value');
+  if (radiusValue) radiusValue.textContent = `${stopCoverageRadiusM} m`;
+  if (fillOpacityValue) fillOpacityValue.textContent = `%${stopCoverageFillOpacityPct}`;
+  if (strokeWidthValue) strokeWidthValue.textContent = `${stopCoverageStrokeWidthPx} px`;
+}
+function updateStopCoverageControlsVisibility() {
+  const panel = document.getElementById('stop-coverage-controls');
+  if (!panel) return;
+  panel.classList.toggle('hidden', !showStopCoverage);
+}
+function initStopCoverageControls() {
+  const radius = document.getElementById('stop-coverage-radius');
+  const mode = document.getElementById('stop-coverage-mode');
+  const fillColor = document.getElementById('stop-coverage-fill-color');
+  const fillOpacity = document.getElementById('stop-coverage-fill-opacity');
+  const strokeColor = document.getElementById('stop-coverage-stroke-color');
+  const strokeWidth = document.getElementById('stop-coverage-stroke-width');
+  if (!radius || !mode || !fillColor || !fillOpacity || !strokeColor || !strokeWidth) return;
+  radius.value = String(stopCoverageRadiusM);
+  mode.value = stopCoverageMode;
+  fillColor.value = stopCoverageFillColorHex;
+  fillOpacity.value = String(stopCoverageFillOpacityPct);
+  strokeColor.value = stopCoverageStrokeColorHex;
+  strokeWidth.value = String(stopCoverageStrokeWidthPx);
+  updateStopCoverageControlValues();
+  updateStopCoverageControlsVisibility();
+  radius.addEventListener('input', () => {
+    stopCoverageRadiusM = clampStopCoverageValue(radius.value, 100, 1000, 300);
+    updateStopCoverageControlValues();
+    refreshLayersNow();
+  });
+  mode.addEventListener('change', () => {
+    stopCoverageMode = mode.value || 'fill-stroke';
+    refreshLayersNow();
+  });
+  fillColor.addEventListener('input', () => {
+    stopCoverageFillColorHex = fillColor.value || '#58a6ff';
+    refreshLayersNow();
+  });
+  fillOpacity.addEventListener('input', () => {
+    stopCoverageFillOpacityPct = clampStopCoverageValue(fillOpacity.value, 0, 100, 14);
+    updateStopCoverageControlValues();
+    refreshLayersNow();
+  });
+  strokeColor.addEventListener('input', () => {
+    stopCoverageStrokeColorHex = strokeColor.value || '#58a6ff';
+    refreshLayersNow();
+  });
+  strokeWidth.addEventListener('input', () => {
+    stopCoverageStrokeWidthPx = clampStopCoverageValue(strokeWidth.value, 1, 8, 2);
+    updateStopCoverageControlValues();
+    refreshLayersNow();
+  });
+}
 function getFocusedStopsData() {
   if (!focusedRoute) return null;
   if (_focusedStopIdsCache?.route === focusedRoute && _focusedStopIdsCache?.direction === selectedRouteDirection) return _focusedStopIdsCache.data;
@@ -1033,6 +1112,15 @@ const I18N_MESSAGES = {
     toggleDensity: 'Durak Yoğunluğu 3D',
     toggleStops: 'Duraklar',
     toggleStopCoverage: 'Durak 300 m',
+    stopCoverageRadius: 'Yarıçap',
+    stopCoverageMode: 'Görünüm',
+    stopCoverageModeFillStroke: 'Dolgu + Çizgi',
+    stopCoverageModeFill: 'Sadece Dolgu',
+    stopCoverageModeStroke: 'Sadece Çizgi',
+    stopCoverageFillColor: 'Dolgu rengi',
+    stopCoverageFillOpacity: 'Dolgu saydamlığı',
+    stopCoverageStrokeColor: 'Çizgi rengi',
+    stopCoverageStrokeWidth: 'Çizgi kalınlığı',
     toggleHeadway: 'Headway Çizgileri',
     toggleBunching: 'Bunching Alarmı',
     toggleWaiting: 'Bekleme Süresi 3D',
@@ -1237,6 +1325,15 @@ const I18N_MESSAGES = {
     toggleDensity: 'Stop Density 3D',
     toggleStops: 'Stops',
     toggleStopCoverage: 'Stop 300 m',
+    stopCoverageRadius: 'Radius',
+    stopCoverageMode: 'Appearance',
+    stopCoverageModeFillStroke: 'Fill + Stroke',
+    stopCoverageModeFill: 'Fill Only',
+    stopCoverageModeStroke: 'Stroke Only',
+    stopCoverageFillColor: 'Fill Color',
+    stopCoverageFillOpacity: 'Fill Opacity',
+    stopCoverageStrokeColor: 'Stroke Color',
+    stopCoverageStrokeWidth: 'Stroke Width',
     toggleHeadway: 'Headway Lines',
     toggleBunching: 'Bunching Alerts',
     toggleWaiting: 'Waiting Time 3D',
@@ -1423,6 +1520,24 @@ function applyStaticTranslations() {
   if (toggles[2]) toggles[2].lastChild.textContent = t('toggleDensity');
   if (toggles[3]) toggles[3].lastChild.textContent = t('toggleStops');
   if (toggles[4]) toggles[4].lastChild.textContent = t('toggleStopCoverage');
+  const stopCoverageRadiusLabel = document.getElementById('stop-coverage-radius-label');
+  if (stopCoverageRadiusLabel) stopCoverageRadiusLabel.textContent = t('stopCoverageRadius');
+  const stopCoverageModeLabel = document.getElementById('stop-coverage-mode-label');
+  if (stopCoverageModeLabel) stopCoverageModeLabel.textContent = t('stopCoverageMode');
+  const stopCoverageFillColorLabel = document.getElementById('stop-coverage-fill-color-label');
+  if (stopCoverageFillColorLabel) stopCoverageFillColorLabel.textContent = t('stopCoverageFillColor');
+  const stopCoverageFillOpacityLabel = document.getElementById('stop-coverage-fill-opacity-label');
+  if (stopCoverageFillOpacityLabel) stopCoverageFillOpacityLabel.textContent = t('stopCoverageFillOpacity');
+  const stopCoverageStrokeColorLabel = document.getElementById('stop-coverage-stroke-color-label');
+  if (stopCoverageStrokeColorLabel) stopCoverageStrokeColorLabel.textContent = t('stopCoverageStrokeColor');
+  const stopCoverageStrokeWidthLabel = document.getElementById('stop-coverage-stroke-width-label');
+  if (stopCoverageStrokeWidthLabel) stopCoverageStrokeWidthLabel.textContent = t('stopCoverageStrokeWidth');
+  const stopCoverageModeSelect = document.getElementById('stop-coverage-mode');
+  if (stopCoverageModeSelect?.options?.length >= 3) {
+    stopCoverageModeSelect.options[0].textContent = t('stopCoverageModeFillStroke');
+    stopCoverageModeSelect.options[1].textContent = t('stopCoverageModeFill');
+    stopCoverageModeSelect.options[2].textContent = t('stopCoverageModeStroke');
+  }
   if (toggles[5]) toggles[5].lastChild.textContent = t('toggleHeatmap');
   if (toggles[6]) toggles[6].lastChild.textContent = t('toggleTrail');
   if (toggles[7]) toggles[7].lastChild.textContent = t('toggleHeadway');
@@ -1516,6 +1631,12 @@ window.LegacyMapBridge = createLegacyBridge(() => ({
   showPaths,
   showStops,
   showStopCoverage,
+  stopCoverageRadiusM,
+  stopCoverageFillColor: hexToRgb(stopCoverageFillColorHex),
+  stopCoverageFillOpacityPct,
+  stopCoverageStrokeColor: hexToRgb(stopCoverageStrokeColorHex),
+  stopCoverageStrokeWidthPx,
+  stopCoverageMode,
   showDensity,
   showHeatmap,
   heatmapHour,
@@ -1806,6 +1927,7 @@ window.LegacyDataBridge = createLegacyBridge(() => ({
       showAnim = true;
       showStops = false;
       showStopCoverage = false;
+      updateStopCoverageControlsVisibility();
       showDensity = false;
       showWaiting = false;
       showPaths = true;
@@ -2302,7 +2424,11 @@ const togMap = {
   'paths': v => showPaths = v,
   'density': v => { showDensity = v; updateDensityGrid(); },
   'stops': v => showStops = v,
-  'stop-coverage': v => showStopCoverage = v,
+  'stop-coverage': v => {
+    showStopCoverage = v;
+    updateStopCoverageControlsVisibility();
+    refreshLayersNow();
+  },
   'heatmap': v => { showHeatmap = v; document.getElementById('heatmap-ctrl').classList.toggle('hidden', !v); },
   'headway': v => showHeadway = v,
   'bunching': v => { showBunching = v; if (!v) document.getElementById('bunching-panel').classList.add('hidden'); },
@@ -2316,6 +2442,7 @@ const togMap = {
   }
 };
 Object.keys(togMap).forEach(id => { const el = document.getElementById('tog-' + id); if (el) el.onchange = function () { togMap[id](this.checked); }; });
+initStopCoverageControls();
 
 function setTypeFilter(t) {
   const parsedType = Number.parseInt(String(t ?? '').trim(), 10);
