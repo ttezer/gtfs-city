@@ -12,6 +12,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   openGTFSDialog: () => ipcRenderer.invoke('gtfs:open-dialog'),
   downloadGTFSFromUrl: (url) => ipcRenderer.invoke('gtfs:download-url', url),
   saveReport: (data) => ipcRenderer.invoke('gtfs:save-report-dialog', data),
+  saveCapturedImage: (options) => ipcRenderer.invoke('capture:save-image', options),
 
   // ── Mevcut event’ler ───────────────────────────────────
   getAppInfo: () => ipcRenderer.invoke('app:get-info'),

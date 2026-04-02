@@ -357,6 +357,41 @@ async function saveValidationReport() {
   sendToRenderer('gtfs:request-report', { savePath: result.filePath });
 }
 
+async function saveCapturedImage(options = {}) {
+  if (!mainWindow || mainWindow.isDestroyed()) {
+    return { success: false, error: 'Ana pencere bulunamadi.' };
+  }
+
+  try {
+    const image = await mainWindow.webContents.capturePage();
+    const scale = Math.max(1, Math.min(3, Number.parseInt(options.scale, 10) || 1));
+    const resizedImage = scale > 1
+      ? image.resize({
+        width: Math.round(image.getSize().width * scale),
+        height: Math.round(image.getSize().height * scale),
+        quality: 'best',
+      })
+      : image;
+    const pngBuffer = resizedImage.toPNG();
+    const suggestedName = String(options.fileName || '').trim() || `gtfs-city-capture-${Date.now()}.png`;
+    const defaultFileName = /\.png$/i.test(suggestedName) ? suggestedName : `${suggestedName}.png`;
+    const result = await dialog.showSaveDialog(mainWindow, {
+      title: 'Ekran Goruntusunu Kaydet',
+      defaultPath: defaultFileName,
+      filters: [{ name: 'PNG Gorseli', extensions: ['png'] }],
+    });
+
+    if (result.canceled || !result.filePath) {
+      return { success: false, canceled: true };
+    }
+
+    fs.writeFileSync(result.filePath, pngBuffer);
+    return { success: true, path: result.filePath };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+}
+
 // ── IPC HANDLER’LAR (PRELOAD İÇİN) ───────────────────────
 ipcMain.handle('gtfs:open-dialog', openGTFSDialog);           // ← YENİ
 ipcMain.handle('gtfs:download-url', async (_, url) => downloadGTFSFromUrl(url));
@@ -416,6 +451,7 @@ ipcMain.handle('city:read-data-file', async (_, filePath) => {
     return { success: false, error: err.message };
   }
 });
+ipcMain.handle('capture:save-image', async (_, options) => saveCapturedImage(options));
 
 ipcMain.handle('gtfs:read-file', async (_, filePath) => {
   try {
