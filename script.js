@@ -1604,6 +1604,7 @@ const mapgl = new maplibregl.Map({
 mapgl.addControl(new maplibregl.NavigationControl(), 'bottom-right');
 mapgl.addControl(new maplibregl.AttributionControl({ compact: true }), 'bottom-right');
 mapgl.on('load', () => {
+  bindMapRecoveryHandlers();
   startDeck();
   if (window.SimulationEngine?.start) window.SimulationEngine.start();
   else requestAnimationFrame(animate);
@@ -1614,6 +1615,8 @@ mapgl.on('load', () => {
 
 // ── DECK.GL ───────────────────────────────────────────────
 let deckgl;
+let deckRecoveryBound = false;
+let mapRecoveryBound = false;
 
 window.LegacyMapBridge = createLegacyBridge(() => ({
   TRIPS,
@@ -2024,9 +2027,66 @@ window.LegacySimulationBridge = {
   },
 };
 
-function startDeck() {
+function detachDeckOverlay() {
+  if (!deckgl) return;
+  try {
+    mapgl.removeControl(deckgl);
+  } catch (_) {}
+  try {
+    deckgl.finalize?.();
+  } catch (_) {}
+  deckgl = null;
+}
+
+function bindDeckRecoveryHandlers() {
+  if (!deckgl || deckRecoveryBound) return;
+  const canvas = deckgl.getCanvas?.();
+  if (!canvas) return;
+  canvas.addEventListener('webglcontextlost', (event) => {
+    event.preventDefault();
+    showToast('WebGL bağlamı kayboldu. Katmanlar yeniden hazırlanıyor...', 'warn');
+  });
+  canvas.addEventListener('webglcontextrestored', () => {
+    setTimeout(() => {
+      startDeck(true);
+      refreshLayersNow();
+      mapgl.resize();
+      mapgl.triggerRepaint?.();
+    }, 120);
+  });
+  deckRecoveryBound = true;
+}
+
+function bindMapRecoveryHandlers() {
+  if (mapRecoveryBound) return;
+  const canvas = mapgl.getCanvas?.();
+  if (!canvas) return;
+  canvas.addEventListener('webglcontextlost', (event) => {
+    event.preventDefault();
+    showToast('Harita WebGL bağlamı kayboldu. Geri yükleniyor...', 'warn');
+  });
+  canvas.addEventListener('webglcontextrestored', () => {
+    setTimeout(() => {
+      try {
+        mapgl.resize();
+        mapgl.triggerRepaint?.();
+      } catch (_) {}
+      startDeck(true);
+      refreshLayersNow();
+    }, 180);
+  });
+  mapRecoveryBound = true;
+}
+
+function startDeck(forceRecreate = false) {
   const canvas = document.getElementById('deck-canvas');
   if (canvas) canvas.style.display = 'none';
+  if (forceRecreate) {
+    deckRecoveryBound = false;
+    detachDeckOverlay();
+  } else if (deckgl) {
+    return deckgl;
+  }
 
   deckgl = new MapboxOverlay({
     getCursor: ({ isHovering }) => isHovering ? 'pointer' : 'default',
@@ -2037,6 +2097,8 @@ function startDeck() {
   });
 
   mapgl.addControl(deckgl);
+  bindDeckRecoveryHandlers();
+  return deckgl;
 }
 
 // ── TOOLTIP ───────────────────────────────────────────────
