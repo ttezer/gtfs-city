@@ -57,6 +57,12 @@ window.AppManager = (function () {
     return `./assets/flags/${String(countryCode || '').toLowerCase() || 'tr'}.svg`;
   }
 
+  function clearLegacySampleCards() {
+    const grid = getElement('lp-examples-grid');
+    if (!grid) return;
+    grid.innerHTML = '';
+  }
+
   function getSampleLoadConfig(sample) {
     if (!sample) return null;
     const isElectron = !!window.IS_ELECTRON;
@@ -350,6 +356,7 @@ window.AppManager = (function () {
   }
 
   function init() {
+    clearLegacySampleCards();
     bindLandingControls();
     bindStyleControls();
     initPlatformBadge();

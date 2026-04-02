@@ -22,21 +22,23 @@ Bu belge, ürünün orta ve uzun vadeli geliştirme başlıklarını toplar. Hed
 | 3D Bina Katmanı | Yeni özellik | Orta | Desktop | Planlandı | Harita bağlamını güçlendirmek |
 | Sinematik Geliştirmeleri | Geliştirme | Orta | Her ikisi | Planlandı | Açı, yön, hız ve kamera geçişlerini veri odaklı hale getirmek |
 | Yoğunluk Heatmap | Geliştirme | Orta | Her ikisi | Planlandı | Çap ve renk parametrelerini kullanıcıya açmak |
-| Durak 300 m Katmanı | Geliştirme | Orta | Her ikisi | Planlandı | Mesafe, çizgi rengi ve dolgu rengini ayarlanabilir yapmak |
+| Durak 300 m Katmanı | Geliştirme | Orta | Her ikisi | Tamamlandı | 300 m kapsama katmanını izokrondan bağımsız hale getirmek ve yarıçap, görünüm modu, dolgu/çizgi stillerini ayarlanabilir sunmak |
 | Bunching Alarmı | Geliştirme | Orta | Her ikisi | Planlandı | Alarmı daha anlaşılır ve daha okunur göstermek |
 | Bekleme Süresi 3D | Geliştirme | Orta | Her ikisi | Planlandı | Anlık zamana göre güncelleme ve puanlama eklemek |
 | Headway Çizgileri | Geliştirme | Orta | Her ikisi | Planlandı | Çizgi atılacak araç sayısını kullanıcıya seçtirmek |
 | Araç İzleri Yerine Kuyruklama Analizi | Yeni özellik | Orta | Her ikisi | Planlandı | Fade iz yerine daha anlamlı operasyon analizi sunmak |
 | İzokron Analizi Puanlama | Yeni özellik | Orta | Her ikisi | Planlandı | Veriye göre seçili durağa skor üretmek |
 | Durak Puanlama | Yeni özellik | Orta | Her ikisi | Planlandı | Seçili durak panelinde erişilen durak sayısı, erişilen hat sayısı ve sefer yoğunluğu üzerinden anlaşılır skor üretmek; puanı zaman animasyonuna bağlı olarak simüle etmek |
+| Public Transport Accessibility Levels (PTAL) / Toplu Taşıma Erişilebilirlik Düzeyi | Yeni özellik | Orta | Her ikisi | Planlandı | Yol Haritası ekranından tetiklenebilen buton ile seçili alan veya durak için erişilebilirlik düzeyini hesaplamak ve görselleştirmek |
 
 ## Web Yol Haritası
 
 | Başlık | Tür | Öncelik | Platform | Durum | Hedef |
 |---|---|---|---|---|---|
-| Açık Kaynak GTFS Link Havuzu | Yeni özellik | Orta | Web | Geliştiriliyor | Web sürümünde Konya, İzmir ESHOT ve Bordeaux için örnek açık veri kartları sunmak ve bu örnekleri güncel tutmak |
+| Açık Kaynak GTFS Link Havuzu | Yeni özellik | Orta | Web | Geliştiriliyor | Web sürümünde Konya, İzmir ESHOT, Bordeaux, Gaziantep ve Houston için örnek veri kartları sunmak ve bu örnekleri güncel tutmak |
 | Web Demo Olgunlaştırma | Geliştirme | Orta | Web | Geliştiriliyor | Pages demosunu daha tam özellikli ama güvenli kapsamda tutmak |
 | GitHub Pages Sayfa Tasarımı | Geliştirme | Orta | Web | Planlandı | Vitrin sayfasını daha profesyonel ve ürün kimliğine uygun hale getirmek |
+| Web Demo Baskı ve Ekran Görüntüsü Araçları | Geliştirme | Orta | Web | Tamamlandı | Ekran görüntüsü, hat baskısı ve durak baskısı araçlarını web demo içinde kararlı ve cache güvenli biçimde sunmak |
 
 ## Teknik Borç ve Refactor Planı
 
