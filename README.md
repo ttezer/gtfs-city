@@ -18,6 +18,10 @@ English README: [README.en.md](./README.en.md)
 
 ## Son Güncellemeler
 
+- `Bağlantı Kareleri` katmanı beta etiketiyle en sona taşındı.
+- `Bağlantı Kareleri` için ilk performans paketi uygulandı: `skipWalk=true`, `maxSecs=1800`, viewport odaklı grid cache.
+- `Bağlantı Kareleri` görsel kalibrasyonu güncellendi: renkler görünümdeki skor dağılımına göre yeniden ölçeklenir, gri hücreler `henüz hesaplanmadı / veri yok` durumunu gösterir.
+- Legend ve durum metni, daha sert bağlantı metriğini ve görünüm bazlı hazırlık akışını açık anlatacak şekilde güncellendi.
 - Electron için ekran görüntüsü akışı geliştirildi.
 - Ekran görüntüsü stilleri genişletildi: `Orijinal`, `Kurumsal`, `Poster`, `Blueprint`, `Yüksek Kontrast`, `Transit Poster`, `Cartoon Map`, `Minimal White`, `Schematic`, `Print Friendly`, `Neo Transit`, `Vintage Metro`, `Heat Poster`, `Comic Panel`.
 - Ekran görüntüsüne çözünürlük seçeneği eklendi.
@@ -173,3 +177,11 @@ Landing ekranındaki `Örnek veriyle dene` kartları bundled örnek paketleri ku
 Statik vitrin sayfası `docs/` klasöründedir.
 
 > Not: Ürün vitrini için Pages kullanılır; README tekrar eden kurulum talimatı dışında Pages içeriğini kopyalamaz.
+
+## Belge Hiyerarsisi
+
+- `AGENTS.md` - çalışma çerçevesi ve karar hafızası
+- `kontrol.md` - operasyonel kontrol listesi
+- `mimari.md` - teknik bağlam
+- `isplani.md` - güncel durum
+- `yol-haritasi.md` - orta ve uzun vadeli yön

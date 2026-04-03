@@ -1,23 +1,27 @@
 # GTFS City - Güncel Durum
 
-## Mevcut Kararlı Durum
+## Mevcut Durum
 
-Proje şu anda Electron tabanlı, tek GTFS veri seti mantığıyla çalışan kararlı bir masaüstü uygulamadır.
+Proje bugün iki yüzeyle yaşayan bir üründür:
 
-Kararlı kabul edilen temel davranışlar:
+- Electron masaüstü uygulaması
+- GitHub Pages üzerinden çalışan web demo
+
+Ana ürün mantığı:
 
 - upload-first başlangıç akışı
 - tek aktif GTFS veri seti
-- `Haritayı Aç` ile harita ekranına geçiş
-- landing ekranında Konya, İzmir ESHOT, Bordeaux, Gaziantep ve Houston için `Örnek veriyle dene` akışı
 - route, stop ve vehicle panel akışları
-- hat tipi filtresi, odaklı hat ve ilgili katman filtreleri
-- headway, bekleme, yoğunluk ve kapsama katmanları
-- ekran görüntüsü aracı, çoklu çıktı stili ve marka metni
-- hat baskısı ve durak baskısı için önizleme / A4 çıktısı
-- Durak 300 m için yarıçap, görünüm ve stil kontrolleri
-- HTTPS GTFS ZIP linkten yükleme, yalnızca Electron sürümünde
-- logo, landing ve temel ürün kimliği
+- worker tabanlı parse
+- desktop ve web birlikte düşünülen runtime mimarisi
+
+## Kararlı Kabul Edilen Davranışlar
+
+- GTFS yüklenmeden harita ekranına geçilmez
+- tek aktif GTFS veri seti yaklaşımı korunur
+- route / stop / vehicle panel davranışları temel kabul edilir
+- headway, waiting, density ve stop coverage katmanları temel özelliklerdir
+- web demo desteklenen ürün yüzeyidir; sadece vitrin değildir
 
 ## Kilit Kararlar
 
@@ -27,191 +31,47 @@ Uygulama boş landing ekranla başlar. Veri yüklenmeden harita ekranına geçil
 
 ### ADR-023 - Başlangıç veri kaynağı
 
-Başlangıç veri kaynağı yerleşik preload değil, kullanıcı tarafından yüklenen GTFS ZIP verisidir.
+Başlangıç veri kaynağı kullanıcı tarafından yüklenen GTFS ZIP verisidir.
 
 ### ADR-024 - Tek progress yüzeyi
 
-GTFS yükleme sırasında tek bir progress yüzeyi kullanılır. Çift confirm/progress akışı açılmaz.
+GTFS yükleme sırasında tek bir progress yüzeyi kullanılır.
 
 ### ADR-025 - Worker tabanlı parse
 
-Ağır GTFS parse işlemi mümkün olan yerde worker üzerinden çalıştırılır; fallback yalnızca zorunlu durumda devreye girer.
+Ağır GTFS parse işlemi mümkün olduğu yerde worker üzerinden çalıştırılır.
 
 ### ADR-026 - Route/stop/vehicle panel davranışı
 
 Route panel, stop panel, odaklı hat görünümü ve buna bağlı filtre davranışları mevcut haliyle temel kabul edilir.
 
-## Açık Kalan Yakın İşler
+### ADR-027 - Ağır ağ analizleri
 
-- GitHub Pages için vitrin ve web demo olgunlaştırma
-- favicon ve app icon için daha sade bir final logo sürümü
+Tüm ağa yayılan ağır accessibility veya connectivity hesapları UI thread üzerinde canlı toggle mantığıyla çalıştırılmaz. Öncelik:
+
+1. offline/precompute
+2. analiz modu
+3. sınırlı on-demand hesap
+
+### ADR-028 - Connectivity dili
+
+Gerçek hedef erişilebilirliği ölçmeyen skorlar için `accessibility` yerine `connectivity / bağlantı` dili tercih edilir.
+
+## Güncel Açık İşler
+
+- web demo olgunlaştırma
+- bağlantı kareleri beta kalibrasyonu ve görünüm ilerleme metni
+- persisted snapshot / cache araştırması
 - küçük UX ve veri doğruluk düzeltmeleri
-- istenirse GTFS-RT araştırma ve taslak fazı
+- gerekirse GTFS-RT araştırma fazı
 
 ## Planlama Belgeleri
 
-- `yol-haritasi.md` - orta ve uzun vadeli geliştirme başlıkları
-- `hata-listesi.md` - açık hata ve veri doğruluk sorunları
+- [yol-haritasi.md](./yol-haritasi.md) - orta ve uzun vadeli geliştirme başlıkları
+- [hata-listesi.md](./hata-listesi.md) - açık hata ve veri doğruluk sorunları
+- [mimari.md](./mimari.md) - modüller, veri akışı ve teknik ilkeler
+- [kontrol.md](./kontrol.md) - çalışma ve PR kontrol listesi
 
 ## Not
 
-Bu dosya uzun tarihçe değil, güncel durum belgesidir. Yeni işler buraya kısa ve güncel biçimde eklenmelidir.
-
-### Faz R - GitHub Pages Vitrin Kurulumu (30 Mart 2026)
-
-- `docs/index.html` ve `docs/styles.css` ile statik vitrin sayfası oluşturuldu.
-- Pages içinde kullanılmak üzere `docs/logo-mark.png` ve `docs/favicon.ico` eklendi.
-- Pages kaynağı olarak `main /docs` kullanılacak şekilde yapı kuruldu.
-
-### Faz R - Kamusal Repo Kontrolü Turu 2 (30 Mart 2026)
-
-- Açık repo taramasında tracked gizli veri, token veya ZIP veri paketi bulunmadı.
-- Electron tarafındaki eski marka kalıntıları GTFS City adına temizlendi.
-
-### Faz R - Pages ve README Görsel Galeri Turu 3 (31 Mart 2026)
-
-- Proje kökündeki JPEG örnekleri `docs/screens/` altına alınarak GitHub Pages vitrini bağlandı.
-- `README.md` içine aynı örneklerden oluşan ekran görüntüsü bölümü eklendi.
-
-### Faz R - Pages Profesyonelleştirme ve Preload Temizliği Turu 4 (31 Mart 2026)
-
-- Pages vitrini daha profesyonel bir düzene geçirildi.
-- README içindeki gereksiz Pages kurulum maddeleri sadeleştirildi.
-- Artık kullanılmayan preload kalıntıları kaldırıldı: `trips_data.js`, `shapes_data.js`, `lookup_data.js`, `scripts/regenerate-bordeaux-preload.js`.
-- `cizim.md` kaldırıldı ve `build-release.yml` preload bağımlılığı olmadan yeniden yazıldı.
-
-### Faz R - Kök Görsel Kaynakları Ignore Turu 5 (31 Mart 2026)
-
-- `docs/screens/` kopyaları korunurken, proje kökündeki geçici JPEG kaynaklar ve `gtfscity.png` `.gitignore` içine alındı.
-
-### Faz S - Web MVP Hazırlık Turu 1 (31 Mart 2026)
-
-- `docs/app/` altında GitHub Pages için ayrı web giriş noktası oluşturuldu.
-- Web girişi, desktop akışına dokunmadan kök JS/CSS dosyalarının Pages için izole kopyalarıyla hazırlandı.
-- `bootstrap-manager.js` içine base path desteği eklendi ve Pages vitrinden `Web Demo` bağlantısı verildi.
-
-### Faz S - Web MVP Düzenleme Turu 2 (31 Mart 2026)
-
-- Yüklenen şehir silindiğinde landing ekranına güvenli dönüş ve yeniden GTFS yükleme akışı düzeltildi.
-- Pages vitrinde giriş metni, ekran görüntüsü yerleştirimi ve ürün anlatımı yeniden düzenlendi.
-- HTTPS linkten yükleme, güvenlik ve platform sınırları nedeniyle desktop sürümünde tutuldu; web demo yerel ZIP yükleme ile sınırlandı.
-
-### Faz S - Lisans ve Üçüncü Parti Tarama Turu 3 (31 Mart 2026)
-
-- `package-lock.json` ve CDN bağımlılıkları üzerinden üçüncü parti lisans taraması yapıldı.
-- Çekirdek bağımlılıklar için lisans özeti çıkarıldı ve `THIRD_PARTY_NOTICES.md` eklendi.
-- npm taraması içinde zorunlu copyleft sınıfında GPL/AGPL/LGPL bağımlılık bulunmadı; JSZip için MIT seçeneği not edildi.
-- Özel görseller ve logo varlıklarının kaynağının proje sahibi tarafından ayrıca doğrulanması gerektiği not edildi.
-
-### Faz S - 3D Model Kaldırma Turu 4 (31 Mart 2026)
-
-- Kullanılmayan `.glb` araç modeli yolu kaldırıldı ve uygulama 2D araç görünümüne sabitlendi.
-- 3D araç modelleri toggle'ı arayüzden çıkarıldı.
-- Paketleme ve üçüncü parti bildirimleri model dizini kaldırılacak şekilde güncellendi.
-
-### Faz S - Türkçe Metin Güvencesi Turu 5 (31 Mart 2026)
-
-- Public metin dosyaları için kalıcı bozulma denetimi eklendi.
-- Mojibake kontrolü test akışına bağlandı.
-- Türkçe içeren doküman ve Pages dosyalarında shell üzerinden here-string yazımı yasaklandı; yalnızca güvenli yama akışı kullanılacak.
-
-### Faz S - Pages Analytics Turu 6 (31 Mart 2026)
-
-- Google Analytics 4 ölçümü Pages vitrini ve web demo girişine eklendi.
-- Kullanılan ölçüm kimliği: `G-PRJPC1JRDH`
-
-### Faz S - Yol Haritası ve Hata Listesi Turu 7 (31 Mart 2026)
-
-- Orta ve uzun vadeli geliştirmeler için `yol-haritasi.md` eklendi.
-- Açık hata ve veri doğruluk başlıkları için `hata-listesi.md` eklendi.
-- `isplani.md` kısa durum belgesi olarak korunup plan belgelerine bağlandı.
-
-### Faz S - Teknik Borç ve Refactor Planı Turu 8 (31 Mart 2026)
-
-- Mimari riskler ve performans darboğazları `yol-haritasi.md` içine ayrı başlık olarak işlendi.
-- State ownership, `script.js` küçültme, trip eşleştirme, render ayrımı ve platform adapter işleri açık refactor planına dönüştürüldü.
-- Hedef, ürünü yeniden yazmadan kademeli iyileştirme yapmak olarak netleştirildi.
-
-### Faz S - Repo Olgunlaştırma Turu 9 (31 Mart 2026)
-
-- `CONTRIBUTING.md` eklendi.
-- GitHub issue template yapısı oluşturuldu.
-- `CHANGELOG.md` ve `desktop-web-notu.md` eklendi.
-- `mimari.md` içine modül ownership tablosu işlendi.
-
-### Faz S - README ve Dil Seçeneği Turu 10 (31 Mart 2026)
-
-- `README.md` içinde hata, fix ve özellik için nereye bakılacağını açıklayan yönlendirme bölümü eklendi.
-- `README.en.md` eklenerek README için ayrı bir İngilizce sürüm oluşturuldu.
-- Uygulama arayüzüne ilk etap İngilizce dil seçeneği eklendi; landing akışı ve temel giriş metinleri TR/EN değiştirilebilir hale getirildi.
-- Sonraki adım olarak panel, servis ve ileri seviye dinamik metinlerin tam i18n kapsamına alınması not edildi.
-
-### Faz S - Örnek Veriyle Çalışma Turu 11 (1 Nisan 2026)
-
-- Landing ekranına `Örnek veriyle dene` bölümü eklendi.
-- Konya ve İzmir ESHOT için doğrudan yüklenebilir GTFS örnek kartları bağlandı.
-- Web demo tarafında URL'den ZIP çekerek örnek veri yükleme akışı açıldı.
-- `isplani.md` ve `yol-haritasi.md` içinde açık veri örnek akışı kayıt altına alındı.
-
-### Faz S - Örnek Veri Bakım Turu 12 (1 Nisan 2026)
-
-- Örnek veri kartlarına ülke bayrağı rozeti eklendi.
-- Bordeaux üçüncü örnek veri kartı olarak landing akışına dahil edildi.
-- `docs/data` altındaki örnek ZIP'ler için kaynak karşılaştırmalı bakım script'i hazırlama işi başlatıldı.
-
-### Faz S - Kayıt ve Kontrol Turu 13 (1 Nisan 2026)
-
-- `yol-haritasi.md` içinde tamamlanan `Hat Seçiminde Yön Filtresi` ve `Araç İkonu Üzerinde Hat Kodu / Yön` başlıkları `Tamamlandı` durumuna çekildi.
-- Repo içinde unutma riskini azaltmak için kalıcı çalışma checklist'i `KONTROL.md` eklendi.
-- PR açarken label önerisi verme ve merge sonrası `main` üzerinde test çalıştırma akışı standart olarak benimsendi.
-
-### Faz S - Durak Puanlama Plan Kaydı 14 (1 Nisan 2026)
-
-- `Durak Puanlama` başlığı ürün planına eklendi.
-- İlk kapsam, erişilen durak sayısı, erişilen hat sayısı ve sefer yoğunluğu üzerinden anlaşılır skor üretmek olarak sınırlandı.
-- Puanın seçili durak bilgi penceresinde gösterilmesi ve zaman animasyonuna bağlı anlık simülasyonla güncellenmesi hedef olarak netleştirildi.
-
-### Faz T - Baskı, Örnek Veri ve Web Demo Senkronizasyonu (2 Nisan 2026)
-
-- Electron için ekran görüntüsü akışı geliştirildi; çözünürlük seçimi, çoklu çıktı stili ve marka metni eklendi.
-- Hat baskısı ve durak baskısı araçları ayrı butonlar olarak eklendi; önizleme / A4 çıktısı akışı tamamlandı.
-- Hat baskısında yön sırası, başlık ve görsel düzen güncellendi; durak baskısında tabela tarzı görünüm geliştirildi.
-- ZIP değiştiğinde hat/durak baskı ekranlarında eski verinin kalması sorunu giderildi.
-- `Haritayı Aç` sonrası boş harita ve print preview sırasındaki WebGL context kaybı için toparlama mantığı eklendi.
-- Durak 300 m katmanı izokrondan bağımsız hale getirildi; yarıçap, görünüm modu, dolgu ve çizgi kontrolleri eklendi.
-- Gaziantep ve Houston örnek veri setleri bundled örnek kart olarak eklendi; örnek veri kartları Konya, İzmir ESHOT ve Bordeaux ile aynı akışa alındı.
-- Kök uygulama ile `docs/app` içeriği web demo için yeniden senkronlandı; örnek veri kartları ve ilgili araçlar web tarafına taşındı.
-- `README.md`, `README.en.md`, `yol-haritasi.md` ve `isplani.md` kapanış güncellemesi gerektiren belgeler olarak not edildi.
-
-### Faz T - Gün Sonu Kapanış Özeti (2 Nisan 2026)
-
-- Electron için ekran görüntüsü akışı geliştirildi.
-- Ekran görüntüsü stilleri çoğaltıldı: `Orijinal`, `Kurumsal`, `Poster`, `Blueprint`, `Yüksek Kontrast`, `Transit Poster`, `Cartoon Map`, `Minimal White`, `Schematic`, `Print Friendly`, `Neo Transit`, `Vintage Metro`, `Heat Poster`, `Comic Panel`.
-- Ekran görüntüsüne çözünürlük seçeneği eklendi.
-- Çıktılara marka metni eklendi: `© GTFS City tarafından üretilmiştir • https://ttezer.github.io/gtfs-city/app/`
-- Hat ve durak baskı araçları ayrı butonlar olarak eklendi.
-- Hat ve durak baskı önizleme / A4 çıktısı akışı eklendi.
-- Hat baskısında başlık ve görsel düzen güncellendi.
-- Durak baskısında tabela tarzı görünüm geliştirildi.
-- Durak baskısında özel ikon, başlık ve metin düzeltmeleri yapıldı.
-- Hat baskısında `Gidiş` bölümünün önce gelmesi sağlandı.
-- ZIP değiştiğinde hat/durak baskı ekranlarında eski verinin kalması sorunu düzeltildi.
-- `Haritayı Aç` sonrası boş harita sorunu için resize/toparlama düzeltmesi yapıldı.
-- Print preview sırasında oluşan WebGL context kaybı için toparlama eklendi.
-- Genel WebGL context loss sonrası harita/deck toparlama mantığı eklendi.
-- GTFS worker tarafında gereksiz `gtfs-math-utils.js` import fallback uyarısı temizlendi.
-- Electron ve baskı işleri için PR açıldı ve merge edildi.
-- Durak 300 m geliştirmeleri için PR açıldı, sonra yeniden açılıp merge edildi.
-- Web demo eşitleme için PR açıldı ve merge edildi.
-- Merge edilmiş branch'ler temizlendi.
-- PR etiketleri kullanıldı.
-- Türkçe PR başlık/açıklama kuralı netleştirildi: kullanıcıya görünen tüm metinlerde Türkçe karakter kullanılacak.
-- Durak 300 m özelliği koddan doğrulandı.
-- `300 m` değerinin yarıçap olduğu netleştirildi.
-- Durak 300 m izokrondan bağımsız hale getirildi.
-- Durak 300 m için görsel kontrol alanları eklendi: yarıçap, görünüm modu, dolgu rengi, dolgu saydamlığı, çizgi rengi, çizgi kalınlığı.
-- `radiusMinPixels` düşürülerek 300 m dairenin olduğundan büyük görünmesi düzeltildi.
-- Web demo için `Durak 300 m`, ekran görüntüsü aracı, hat/durak baskı araçları ve örnek veri kartları canlı koda taşındı.
-- Canlı web demo kontrol edildi; yeni HTML'in gerçekten yayında olduğu ve normal sekmede görünmeyen durumun cache kaynaklı olduğu doğrulandı.
-- Bunun için `#30 Web demo önbellek sorununu düzelt` PR'ı açıldı.
-- `#30` içinde `index.html` ve `docs/app/index.html` dosyalarındaki `style.css`, `favicon.ico` ve yerel JS dosyalarına sürüm parametresi eklendi.
+Bu dosya uzun tarihçe değil, güncel durum belgesidir. Eski detaylı tur kayıtları burada biriktirilmez; yalnız bugünkü gerçek durum tutulur.

@@ -18,6 +18,10 @@ Turkish README: [README.md](./README.md)
 
 ## Recent Updates
 
+- The `Connectivity Grid` layer was moved to the end of the toggle list and marked as beta.
+- The first performance package for `Connectivity Grid` is in place: `skipWalk=true`, `maxSecs=1800`, and viewport-aware grid cache.
+- The `Connectivity Grid` visual calibration was updated: colors are rescaled to the visible score distribution, and gray cells represent `not computed yet / no data`.
+- Legend and status copy now explain the stricter connectivity metric and the viewport-based preparation flow more clearly.
 - The Electron screenshot flow was expanded.
 - Screenshot styles now include: `Original`, `Official`, `Poster`, `Blueprint`, `High Contrast`, `Transit Poster`, `Cartoon Map`, `Minimal White`, `Schematic`, `Print Friendly`, `Neo Transit`, `Vintage Metro`, `Heat Poster`, `Comic Panel`.
 - Resolution selection was added to screenshot export.
@@ -162,3 +166,11 @@ The `Try with sample data` cards on the landing screen use bundled sample packag
 The static showcase page lives in the `docs/` directory.
 
 > Note: Pages is used for the product showcase; the README does not duplicate Pages content beyond repeated setup guidance.
+
+## Document Hierarchy
+
+- `AGENTS.md` - workflow rules and decision memory
+- `kontrol.md` - operational checklist
+- `mimari.md` - technical context
+- `isplani.md` - current status
+- `yol-haritasi.md` - mid and long term direction

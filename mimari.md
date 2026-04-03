@@ -1,82 +1,48 @@
-﻿# GTFS City — Mimari
+# GTFS City - Mimari
 
 ## Sistem Özeti
 
-GTFS City, GTFS ZIP verisini çalışma anında parse edip harita, panel ve analiz katmanlarına dağıtan Electron tabanlı masaüstü uygulamadır.
+GTFS City, GTFS ZIP verisini çalışma anında parse edip harita, panel ve analiz katmanlarına dağıtan bir uygulamadır.
+
+Desteklenen yüzeyler:
+
+- Electron masaüstü
+- GitHub Pages web demo
 
 Temel ilkeler:
 
 - tek aktif GTFS veri seti
 - upload-first başlangıç akışı
-- preload başlangıç bağımlılığı yok
+- worker tabanlı parse
 - ortak runtime state + modüler manager yapısı
+- desktop ve web için ortak çekirdek, platforma özel ince farklar
 
 ## Ana Akış
 
-1. Kullanıcı landing ekranda GTFS ZIP dosyası seçer veya HTTPS link verir.
-2. `data-manager.js` ZIP içeriğini doğrular ve parse eder.
+1. Kullanıcı GTFS ZIP dosyası seçer veya uygun yüzeyde link verir.
+2. `data-manager.js` içeriği doğrular ve parse akışına sokar.
 3. `gtfs-utils.js` / `gtfs-worker.js` runtime veri setini üretir.
-4. Runtime veri `AppState` ve ilgili alias'lara yazılır.
-5. `map-manager.js`, `ui-manager.js`, `simulation-engine.js` güncel veriyle çalışır.
+4. Runtime veri `AppState` ve ilgili bridge/context yapılarına yazılır.
+5. `map-manager.js`, `ui-manager.js`, `simulation-engine.js` ve diğer manager'lar bu veriyle çalışır.
 
-## Modüller
-
-## Modül Ownership Tablosu
+## Modül Sorumlulukları
 
 | Modül | Sorumluluk | Not |
 |---|---|---|
-| `script.js` | orkestrasyon, ortak state, bridge yüzeyi | küçültülmesi hedeflenen ana dosya |
-| `state-manager.js` | merkezi durum yapısı | tam ownership için güçlendirilecek |
-| `data-manager.js` | GTFS yükleme, validasyon, runtime apply | veri giriş kapısı |
-| `gtfs-utils.js` | parse ve runtime veri üretimi | ağır veri işleme çekirdeği |
-| `gtfs-worker.js` | worker parse akışı | performans amaçlı yardımcı katman |
-| `city-manager.js` | aktif veri seti kartı ve görünürlük | tek veri seti modeline bağlı |
-| `service-manager.js` | çalışma takvimi ve servis filtresi | takvim bağlamı sahibi |
-| `map-manager.js` | katmanlar ve çizim | render sahibi |
-| `ui-manager.js` | panel, liste ve kullanıcı etkileşimi | UI sahibi |
-| `planner-manager.js` | nasıl giderim ve izokron | rota ve erişim analizi |
-| `simulation-engine.js` | simülasyon saati ve replay | zaman akışı sahibi |
-| `analytics-utils.js` | headway, bunching, yoğunluk, bekleme | analitik hesap çekirdeği |
-| `sim-utils.js` | araç konumu ve zaman yardımcıları | simülasyon yardımcıları |
+| `script.js` | orkestrasyon, ortak state, bridge yüzeyi | gereksiz büyütülmemeli |
+| `data-manager.js` | GTFS yükleme, doğrulama, runtime apply | veri giriş kapısı |
+| `gtfs-utils.js` | parse ve runtime veri üretimi | veri çekirdeği |
+| `gtfs-worker.js` | worker parse akışı | performans amaçlı |
+| `service-manager.js` | servis takvimi ve tarih bağlamı | takvim sahibi |
+| `city-manager.js` | aktif veri seti kartı ve görünürlük | veri seti yüzeyi |
+| `map-manager.js` | katmanlar ve render | çizim sahibi |
+| `ui-manager.js` | panel, liste ve etkileşim | UI sahibi |
+| `planner-manager.js` | rota, isochron ve erişim hesapları | analiz sahibi |
+| `simulation-engine.js` | sim saati ve replay | zaman sahibi |
+| `analytics-utils.js` | headway, bunching, waiting, density | hesap yardımcıları |
+| `sim-utils.js` | araç konumu ve zaman yardımcıları | sim yardımcıları |
 | `render-utils.js` | renk, metin ve görsel yardımcılar | sunum yardımcıları |
-| `app-manager.js` | landing ve genel ekran akışları | uygulama kabuğu |
-| `electron/main.js` | pencere, IPC, güvenli indirme | desktop platform sahibi |
-| `electron/preload.js` | güvenli renderer API yüzeyi | desktop köprüsü |
-
-### Çekirdek
-
-- `script.js` — uygulama orkestrasyonu, ortak state, bridge yüzeyi
-- `state-manager.js` — state yardımcıları
-- `config.js` — sabitler ve tip/meta bilgileri
-
-### Veri
-
-- `data-manager.js` — ZIP okuma, validasyon, runtime apply, upload/link akışı
-- `gtfs-utils.js` — GTFS parse ve runtime yapı üretimi
-- `gtfs-worker.js` — ağır parse işlerini worker'a taşıyan katman
-- `gtfs-validator.js` — temel veri doğrulama
-- `city-manager.js` — aktif dataset kartı ve görünürlük akışı
-- `service-manager.js` — takvim, tarih ve servis filtreleme
-
-### Görselleştirme ve UI
-
-- `map-manager.js` — Deck.gl katmanları, route/type/focus filtreleri
-- `ui-manager.js` — route, stop ve vehicle drawer/panel yönetimi
-- `app-manager.js` — landing, genel ekran akışları, logo/başlangıç görünümü
-- `planner-manager.js` — nasıl giderim ve izokron akışı
-
-### Simülasyon ve Analiz
-
-- `simulation-engine.js` — simülasyon saati, replay, render tick
-- `sim-utils.js` — araç konumu ve zaman hesapları
-- `analytics-utils.js` — headway, bunching, bekleme, yoğunluk hesapları
-- `render-utils.js` — renk, metin ve model yardımcıları
-- `ui-utils.js` — panel state ve yardımcı formatlama
-
-### Electron
-
-- `electron/main.js` — pencere, IPC, güvenli HTTPS GTFS indirme
-- `electron/preload.js` — renderer tarafına açılan güvenli API
+| `app-manager.js` | landing ve genel ekran akışı | kabuk |
 
 ## Veri Modeli
 
@@ -91,18 +57,43 @@ Runtime veri setinin ana parçaları:
 - `HOURLY_HEAT`
 - `ADJ`
 
-Bu veri seti `AppState` üzerinde tutulur ve filtreler/katmanlar aynı kaynağı kullanır.
+Bu veri seti `AppState` üzerinde tutulur ve katmanlar aynı kaynağı kullanır.
 
-## Kilit Kararlar
+## Mimari Kurallar
 
 - Aynı anda yalnızca tek yüklenmiş GTFS veri seti tutulur.
-- Başlangıçta otomatik yerleşik şehir yüklenmez.
+- Başlangıçta otomatik preload dataset açılmaz.
 - GTFS yükleme için tek progress yüzeyi kullanılır.
 - Worker tabanlı parse korunur.
-- Route panel, stop panel ve odaklı hat davranışı mevcut haliyle temel kabul edilir.
+- Route, stop ve vehicle panel davranışları mevcut haliyle temel kabul edilir.
+- Desktop ve web birlikte düşünülür; desktop için çalışan ama webde kırılan çözüm varsayılan kabul edilmez.
 
-## GitHub Pages Notu
+## Erişilebilirlik ve Bağlantı
 
-Mevcut repo ana ürün olarak Electron uygulamasıdır. GitHub Pages için doğrudan tam uygulama değil, ayrı bir web vitrin veya sade demo yaklaşımı daha uygundur.
+- `accessibility` ve `connectivity` aynı şey değildir.
+- GTFS verisiyle her zaman gerçek hedef erişilebilirliği ölçülmez.
+- Hedef/POI/nüfus bilgisi yoksa çıktı daha çok `connectivity / bağlantı` proxy'sidir.
+- Bu ayrım adlandırmada ve UI metinlerinde korunur.
 
-Ek sınırlar için `desktop-web-notu.md` dosyasına bakılmalıdır.
+## Performans İlkeleri
+
+- Tüm ağa yayılan ağır analizler UI thread üzerinde canlı tüm şehir toggle mantığıyla çalıştırılmaz.
+- Ağır skor veya ağ erişim hesaplarında öncelik:
+  1. offline/precompute
+  2. analiz modu
+  3. on-demand ve sınırlı hesap
+- Runtime katmanlarında hesap ile render ayrımı korunur.
+- Viewport'a bağlı görselleştirmelerde viewport değişimi cache anahtarına dahil edilir.
+- `Bağlantı Kareleri` gibi beta durumundaki katmanlarda hesap metodunu sık değiştirmek yerine önce görsel kalibrasyon, legend ve boş hücre sunumu düzeltilir.
+
+## Web Demo Notu
+
+Web demo ikincil değil, desteklenen ürün yüzeyidir. Ancak desktop ile aynı rahatlıkta dosya sistemi, local API veya platform davranışı varsayılmaz.
+
+Platform sınırları için `desktop-web-notu.md` dikkate alınmalıdır.
+
+## Belge ve Karar Kaydı
+
+- Mimari kararlar bu dosyada kısa ve uygulanabilir şekilde tutulur.
+- Uygulama davranışını değiştiren büyük kararlar için `isplani.md` ve `yol-haritasi.md` ile tutarlılık korunur.
+- Ürün hissini bozan ama teknik olarak doğru görünen çözüm, önce bu çerçevede tartılır.

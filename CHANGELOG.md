@@ -2,6 +2,16 @@
 
 Bu dosya, büyük ürün dönüm noktalarını kısa biçimde özetler.
 
+## 2026-04-04
+
+### Bağlantı Kareleri beta turu
+
+- `Bağlantı Kareleri` katmanı beta etiketiyle en sona alındı.
+- İlk performans paketi eklendi: `skipWalk=true`, `maxSecs=1800`, viewport odaklı grid cache.
+- Görsel kalibrasyon güncellendi; renkler görünümdeki skor dağılımına göre yeniden ölçeklenir.
+- Gri hücreler `henüz hesaplanmadı / veri yok` durumunu gösterecek şekilde geri getirildi.
+- Legend ve durum metni, daha sert bağlantı metriğini ve görünüm bazlı hazırlık akışını daha açık anlatır hale getirildi.
+
 ## 2026-03-31
 
 ### Stabil temel sürüm
