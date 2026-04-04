@@ -33,6 +33,7 @@ const AppState = {
   stopNames: [],
   gtfsValidationReport: null,
   baseRuntimeData: null,
+  stopConnectivityScores: null,
 };
 
 var TRIPS = AppState.trips;
@@ -141,6 +142,126 @@ async function parseZipBuffer(buffer) {
 }
 
 AppState.adj = {};
+function getViewportPriorityStopIds() {
+  if (!mapgl || typeof mapgl.getBounds !== 'function') return [];
+  const bounds = mapgl.getBounds();
+  const west = typeof bounds?.getWest === 'function' ? bounds.getWest() : bounds?._sw?.lng;
+  const south = typeof bounds?.getSouth === 'function' ? bounds.getSouth() : bounds?._sw?.lat;
+  const east = typeof bounds?.getEast === 'function' ? bounds.getEast() : bounds?._ne?.lng;
+  const north = typeof bounds?.getNorth === 'function' ? bounds.getNorth() : bounds?._ne?.lat;
+  if (![west, south, east, north].every(Number.isFinite)) return [];
+  return Object.entries(STOP_INFO || {})
+    .filter(([, stop]) => Array.isArray(stop) && stop[0] >= west && stop[0] <= east && stop[1] >= south && stop[1] <= north)
+    .map(([stopId]) => stopId);
+}
+
+function getConnectivityViewportStopIds(limit = CONNECTIVITY_VIEWPORT_STOP_LIMIT) {
+  const filteredStopIds = getFilteredStopIdSet();
+  const result = [];
+  for (const stopId of getViewportPriorityStopIds()) {
+    if (filteredStopIds?.size && !filteredStopIds.has(stopId)) continue;
+    if (!(STOP_DEPS?.[stopId] || []).length) continue;
+    result.push(stopId);
+    if (result.length >= limit) break;
+  }
+  return result;
+}
+
+function updateConnectivityViewportStatus() {
+  if (!showConnectivityGrid) return;
+  if (AppState.stopConnectivityScores?.meta?.validation_summary) {
+    updateConnectivityGridToggleLabel(null);
+    updateConnectivityLegend(null);
+    return;
+  }
+  const stopIds = getConnectivityViewportStopIds();
+  const total = stopIds.length;
+  if (!total) {
+    updateConnectivityGridToggleLabel(null);
+    updateConnectivityLegend(null);
+    return;
+  }
+  const ready = stopIds.reduce((count, stopId) => count + (AppState.stopConnectivityScores?.stops?.[stopId] ? 1 : 0), 0);
+  const progress = Math.round((ready / total) * 100);
+  updateConnectivityGridToggleLabel(progress >= 100 ? null : progress);
+  updateConnectivityLegend(progress >= 100 ? null : progress);
+}
+
+function ensureConnectivityViewportScores() {
+  if (!showConnectivityGrid) return;
+  if (AppState.stopConnectivityScores?.meta?.validation_summary) {
+    updateConnectivityViewportStatus();
+    return;
+  }
+  const stopIds = getConnectivityViewportStopIds();
+  if (!stopIds.length) {
+    updateConnectivityViewportStatus();
+    return;
+  }
+  const ctx = {
+    AppState,
+    TRIPS,
+    STOP_INFO,
+    STOP_DEPS,
+    activeCityId: activeCity?.id || null,
+  };
+  stopIds.forEach((stopId) => {
+    window.StopConnectivityUtils?.ensureStopConnectivityRecord?.(stopId, ctx);
+  });
+  updateConnectivityViewportStatus();
+}
+
+async function tryLoadStopConnectivityCache() {
+  if (!window.IS_ELECTRON || typeof window.electronAPI?.readConnectivityCache !== 'function') return false;
+  if (!window.StopConnectivityUtils?.buildSnapshotFileName) return false;
+  try {
+    const fileName = window.StopConnectivityUtils.buildSnapshotFileName({
+      AppState,
+      TRIPS,
+      STOP_INFO,
+      STOP_DEPS,
+      activeCityId: activeCity?.id || null,
+    });
+    const result = await window.electronAPI.readConnectivityCache(fileName);
+    if (!result?.success || !result.text) return false;
+    const parsed = JSON.parse(result.text);
+    if (!parsed?.meta?.validation_summary || !parsed?.stops) return false;
+    AppState.stopConnectivityScores = parsed;
+    console.log('[ConnectivityCache] loaded', { fileName, stopCount: parsed.meta.validation_summary?.scored_stop_count || 0 });
+    return true;
+  } catch (err) {
+    console.warn('[ConnectivityCache] load failed', err);
+    return false;
+  }
+}
+
+async function persistStopConnectivityCache(snapshot) {
+  if (!window.IS_ELECTRON || typeof window.electronAPI?.writeConnectivityCache !== 'function') return false;
+  if (!window.StopConnectivityUtils?.buildSnapshotFileName || !snapshot?.meta?.validation_summary) return false;
+  try {
+    const fileName = window.StopConnectivityUtils.buildSnapshotFileName({
+      AppState,
+      TRIPS,
+      STOP_INFO,
+      STOP_DEPS,
+      activeCityId: activeCity?.id || null,
+    });
+    const result = await window.electronAPI.writeConnectivityCache(fileName, snapshot);
+    if (result?.success) {
+      console.log('[ConnectivityCache] saved', { fileName, stopCount: snapshot.meta.validation_summary?.scored_stop_count || 0 });
+      return true;
+    }
+  } catch (err) {
+    console.warn('[ConnectivityCache] save failed', err);
+  }
+  return false;
+}
+
+async function scheduleStopConnectivityWarmup() {
+  if (AppState.stopConnectivityScores?.meta?.validation_summary) return;
+  const loaded = await tryLoadStopConnectivityCache();
+  if (loaded) refreshLayersNow();
+}
 function buildAdjacencyList() {
   AppState.adj = {};
   // ADJ ataması fonksiyon sonunda yapılır (tüm bağlantılar eklendikten sonra)
@@ -214,6 +335,7 @@ function buildAdjacencyList() {
   }
   console.log('[ADJ] Yürüme bağlantısı eklendi:', walkCount);
   ADJ = AppState.adj;
+  scheduleStopConnectivityWarmup();
 }
 
 // ── SABITLER ─────────────────────────────────────────────
@@ -258,6 +380,9 @@ const SPEEDS = [1, 10, 30, 60, 120, 300, 600];
 let simTime = 6 * 3600, simPaused = false, lastTs = null;
 let speedIdx = 3, simSpeed = 60;
 let showAnim = true, showPaths = true, showDensity = true, showStops = true, showStopCoverage = false;
+let showConnectivityGrid = false;
+let connectivityGridCameraRestore = null;
+let connectivityGridStyleRestore = null;
 let stopCoverageRadiusM = 300;
 let stopCoverageFillColorHex = '#58a6ff';
 let stopCoverageFillOpacityPct = 14;
@@ -268,6 +393,9 @@ let showHeatmap = false, heatmapHour = 8, heatmapFollowSim = false;
 let showTrail = false;
 let currentMapStyle = 'auto'; // 'auto', 'satellite', 'dark', 'light'
 let typeFilter = 'all';
+let connectivityGridPerfOpenAt = 0;
+let connectivityGridSelectedCell = null;
+const CONNECTIVITY_VIEWPORT_STOP_LIMIT = 250;
 let activeRoutes = new Set();
 let focusedRoute = null;
 let selectedRouteDirection = null;
@@ -702,6 +830,8 @@ function updateStopCoverageControlsVisibility() {
   if (!panel) return;
   panel.classList.toggle('hidden', !showStopCoverage);
 }
+
+function updateStopScoreControlsVisibility() {}
 function initStopCoverageControls() {
   const radius = document.getElementById('stop-coverage-radius');
   const mode = document.getElementById('stop-coverage-mode');
@@ -972,7 +1102,7 @@ const I18N_MESSAGES = {
     landingExampleSource: 'Kaynağa Git',
     sampleBadgeBundled: 'Repo Demo',
     sampleBadgeExternal: 'Dış Kaynak',
-    sampleNoteBundled: 'Web demo için repoya alınmış güncel örnek paket.',
+    sampleNoteBundled: 'Uygulama için repoya alınmış güncel örnek paket.',
     sampleNoteExternalElectron: 'Bu kart dış kaynaktan yüklenir.',
     sampleNoteExternalWeb: 'Bu kart yalnızca dış kaynak referansıdır; web demoda otomatik yükleme kapalı.',
     linkNote: 'Yalnızca HTTPS GTFS ZIP linkleri kabul edilir. Dış bağlantının güvenliği kullanıcı sorumluluğundadır.',
@@ -1117,7 +1247,10 @@ const I18N_MESSAGES = {
     toggleAnimation: 'Araç Animasyonu',
     toggleDensity: 'Durak Yoğunluğu 3D',
     toggleStops: 'Duraklar',
+    toggleConnectivityGrid: 'Bağlantı Kareleri (Beta)',
     toggleStopCoverage: 'Durak 300 m',
+    toggleStopScoreBase: 'Temel Durak Skoru',
+    toggleStopScoreLive: 'Durak Anlık Servis Skoru',
     stopCoverageRadius: 'Yarıçap',
     stopCoverageMode: 'Görünüm',
     stopCoverageModeFillStroke: 'Dolgu + Çizgi',
@@ -1191,7 +1324,7 @@ const I18N_MESSAGES = {
     landingExampleSource: 'Open Source',
     sampleBadgeBundled: 'Bundled Demo',
     sampleBadgeExternal: 'External',
-    sampleNoteBundled: 'Current sample package bundled into the web demo.',
+    sampleNoteBundled: 'Current sample package bundled into the app.',
     sampleNoteExternalElectron: 'This card loads from an external source.',
     sampleNoteExternalWeb: 'This card is reference-only in the web demo; automatic loading is disabled.',
     linkNote: 'Only HTTPS GTFS ZIP links are accepted. External link safety is the user responsibility.',
@@ -1336,7 +1469,10 @@ const I18N_MESSAGES = {
     toggleAnimation: 'Vehicle Animation',
     toggleDensity: 'Stop Density 3D',
     toggleStops: 'Stops',
+    toggleConnectivityGrid: 'Connectivity Grid (Beta)',
     toggleStopCoverage: 'Stop 300 m',
+    toggleStopScoreBase: 'Base Stop Score',
+    toggleStopScoreLive: 'Live Stop Service Score',
     stopCoverageRadius: 'Radius',
     stopCoverageMode: 'Appearance',
     stopCoverageModeFillStroke: 'Fill + Stroke',
@@ -1526,12 +1662,24 @@ function applyStaticTranslations() {
   if (routeSearch) routeSearch.placeholder = t('sidebarRouteSearch');
   const stopSearch = document.getElementById('stop-list-filter');
   if (stopSearch) stopSearch.placeholder = t('sidebarStopSearch');
-  const toggles = document.querySelectorAll('#section-layers .tog-row');
-  if (toggles[0]) toggles[0].lastChild.textContent = t('toggleAnimation');
-  if (toggles[1]) toggles[1].lastChild.textContent = t('togglePaths');
-  if (toggles[2]) toggles[2].lastChild.textContent = t('toggleDensity');
-  if (toggles[3]) toggles[3].lastChild.textContent = t('toggleStops');
-  if (toggles[4]) toggles[4].lastChild.textContent = t('toggleStopCoverage');
+  const toggleAnim = document.querySelector('label[for="tog-anim"], #tog-anim')?.closest('.tog-row');
+  const togglePaths = document.querySelector('label[for="tog-paths"], #tog-paths')?.closest('.tog-row');
+  const toggleDensity = document.querySelector('label[for="tog-density"], #tog-density')?.closest('.tog-row');
+  const toggleStopsEl = document.querySelector('label[for="tog-stops"], #tog-stops')?.closest('.tog-row');
+  const toggleConnectivityGridEl = document.querySelector('label[for="tog-connectivity-grid"], #tog-connectivity-grid')?.closest('.tog-row');
+  const toggleStopCoverageEl = document.querySelector('label[for="tog-stop-coverage"], #tog-stop-coverage')?.closest('.tog-row');
+  const toggleHeatmapEl = document.querySelector('label[for="tog-heatmap"], #tog-heatmap')?.closest('.tog-row');
+  const toggleTrailEl = document.querySelector('label[for="tog-trail"], #tog-trail')?.closest('.tog-row');
+  const toggleHeadwayEl = document.querySelector('label[for="tog-headway"], #tog-headway')?.closest('.tog-row');
+  const toggleBunchingEl = document.querySelector('label[for="tog-bunching"], #tog-bunching')?.closest('.tog-row');
+  const toggleWaitingEl = document.querySelector('label[for="tog-waiting"], #tog-waiting')?.closest('.tog-row');
+  const toggleIsochronEl = document.querySelector('label[for="tog-isochron"], #tog-isochron')?.closest('.tog-row');
+  if (toggleAnim) toggleAnim.lastChild.textContent = t('toggleAnimation');
+  if (togglePaths) togglePaths.lastChild.textContent = t('togglePaths');
+  if (toggleDensity) toggleDensity.lastChild.textContent = t('toggleDensity');
+  if (toggleStopsEl) toggleStopsEl.lastChild.textContent = t('toggleStops');
+  if (toggleConnectivityGridEl) toggleConnectivityGridEl.lastChild.textContent = t('toggleConnectivityGrid');
+  if (toggleStopCoverageEl) toggleStopCoverageEl.lastChild.textContent = t('toggleStopCoverage');
   const stopCoverageRadiusLabel = document.getElementById('stop-coverage-radius-label');
   if (stopCoverageRadiusLabel) stopCoverageRadiusLabel.textContent = t('stopCoverageRadius');
   const stopCoverageModeLabel = document.getElementById('stop-coverage-mode-label');
@@ -1550,12 +1698,12 @@ function applyStaticTranslations() {
     stopCoverageModeSelect.options[1].textContent = t('stopCoverageModeFill');
     stopCoverageModeSelect.options[2].textContent = t('stopCoverageModeStroke');
   }
-  if (toggles[5]) toggles[5].lastChild.textContent = t('toggleHeatmap');
-  if (toggles[6]) toggles[6].lastChild.textContent = t('toggleTrail');
-  if (toggles[7]) toggles[7].lastChild.textContent = t('toggleHeadway');
-  if (toggles[8]) toggles[8].lastChild.textContent = t('toggleBunching');
-  if (toggles[9]) toggles[9].lastChild.textContent = t('toggleWaiting');
-  if (toggles[10]) toggles[10].lastChild.textContent = t('toggleIsochron');
+  if (toggleHeatmapEl) toggleHeatmapEl.lastChild.textContent = t('toggleHeatmap');
+  if (toggleTrailEl) toggleTrailEl.lastChild.textContent = t('toggleTrail');
+  if (toggleHeadwayEl) toggleHeadwayEl.lastChild.textContent = t('toggleHeadway');
+  if (toggleBunchingEl) toggleBunchingEl.lastChild.textContent = t('toggleBunching');
+  if (toggleWaitingEl) toggleWaitingEl.lastChild.textContent = t('toggleWaiting');
+  if (toggleIsochronEl) toggleIsochronEl.lastChild.textContent = t('toggleIsochron');
   const peakLabels = document.querySelectorAll('#peak-labels .peak-label');
   if (peakLabels[0]) peakLabels[0].textContent = t('peakMorning');
   if (peakLabels[1]) peakLabels[1].textContent = t('peakEvening');
@@ -1585,6 +1733,8 @@ function setLanguage(lang) {
     localStorage.setItem('gtfs-city-language', currentLanguage);
   } catch (_) {}
   applyStaticTranslations();
+  updateConnectivityGridToggleLabel();
+  updateConnectivityLegend();
   window.dispatchEvent(new CustomEvent('app-language-change', { detail: { language: currentLanguage } }));
   updateLandingPageReports();
 }
@@ -1597,6 +1747,129 @@ window.I18n = {
 
 ensureLanguageSwitcher();
 applyStaticTranslations();
+
+function updateConnectivityGridToggleLabel(progress = null) {
+  const row = document.querySelector('label[for="tog-connectivity-grid"], #tog-connectivity-grid')?.closest('.tog-row');
+  if (!row) return;
+  const baseLabel = t('toggleConnectivityGrid');
+  let label = baseLabel;
+  if (Number.isFinite(progress) && progress >= 0 && progress < 100) {
+    label = `${baseLabel} (%${Math.round(progress)})`;
+  }
+  row.lastChild.textContent = label;
+}
+
+updateConnectivityGridToggleLabel();
+
+function updateConnectivityLegend(progress = null) {
+  const legend = document.getElementById('legend');
+  if (!legend) return;
+  if (!showConnectivityGrid) {
+    legend.style.display = 'none';
+    legend.innerHTML = '';
+    return;
+  }
+  const statusText = Number.isFinite(progress) && progress >= 0 && progress < 100
+    ? `Hazırlanıyor: %${Math.round(progress)}`
+    : 'Hazır';
+  legend.style.display = 'block';
+  legend.innerHTML = `
+    <div class="li" style="padding-bottom:6px;border-bottom:1px solid rgba(255,255,255,.08);margin-bottom:6px;">${t('toggleConnectivityGrid')}</div>
+    <div class="li"><span class="ld" style="background:#ef4444"></span><span>0-24 Zayıf</span></div>
+    <div class="li"><span class="ld" style="background:#f97316"></span><span>25-49 Sınırlı</span></div>
+    <div class="li"><span class="ld" style="background:#eab308"></span><span>50-74 İyi</span></div>
+    <div class="li"><span class="ld" style="background:#22c55e"></span><span>75-100 Güçlü</span></div>
+    <div class="legend-note">Renkler 0-100 skoru boyunca kademeli akar. Hafta içi yoğun saat referansına göre hazırlanır; ilk açılışta kareler kademeli dolabilir.</div>
+    <div class="legend-status">${statusText}</div>
+    ${connectivityGridSelectedCell ? `
+      <div class="legend-note" style="margin-top:8px;padding-top:8px;border-top:1px solid rgba(255,255,255,.08)">
+        <strong>Seçili Kare</strong><br>
+        Skor: ${Number.isFinite(connectivityGridSelectedCell.score) ? `${connectivityGridSelectedCell.score}/100` : 'Veri yok'}<br>
+        Durak: ${connectivityGridSelectedCell.count || 0}
+      </div>
+    ` : ''}
+  `;
+}
+
+updateConnectivityLegend = function updateConnectivityLegendCalibrated(progress = null) {
+  const legend = document.getElementById('legend');
+  if (!legend) return;
+  if (!showConnectivityGrid) {
+    legend.style.display = 'none';
+    legend.innerHTML = '';
+    return;
+  }
+  const snapshotComplete = !!AppState.stopConnectivityScores?.meta?.validation_summary;
+  const statusText = Number.isFinite(progress) && progress >= 0 && progress < 100
+    ? `Bu görünüm hazırlanıyor: %${Math.round(progress)}`
+    : snapshotComplete
+      ? 'Hazır'
+      : 'Bu görünüm hazır, yeni alanlar kaydırdıkça hazırlanır.';
+  const selectedCellState = !connectivityGridSelectedCell
+    ? ''
+    : Number.isFinite(connectivityGridSelectedCell.score)
+      ? `${connectivityGridSelectedCell.score}/100`
+      : connectivityGridSelectedCell.pending
+        ? 'Henüz hesaplanmadı'
+        : 'Veri yok';
+  legend.style.display = 'block';
+  legend.innerHTML = `
+    <div class="li" style="padding-bottom:6px;border-bottom:1px solid rgba(255,255,255,.08);margin-bottom:6px;">${t('toggleConnectivityGrid')}</div>
+    <div class="li"><span class="ld" style="background:#ef4444"></span><span>Düşük bağlantı</span></div>
+    <div class="li"><span class="ld" style="background:#f97316"></span><span>Sınırlı bağlantı</span></div>
+    <div class="li"><span class="ld" style="background:#eab308"></span><span>Dengeli bağlantı</span></div>
+    <div class="li"><span class="ld" style="background:#22c55e"></span><span>Görece güçlü bağlantı</span></div>
+    <div class="li"><span class="ld" style="background:#747c8a"></span><span>Henüz hesaplanmadı / veri yok</span></div>
+    <div class="legend-note">Bu görünüm daha sert bir bağlantı metriği kullanır. Yürüme kenarları hariç tutulur, üst süre sınırı 30 dakikadır ve renkler görünümdeki skor dağılımına göre yeniden kalibre edilir.</div>
+    <div class="legend-note">Gri kareler veri yok veya henüz hesaplanmadı anlamına gelir; pan ve zoom sırasında kareler kademeli tamamlanabilir.</div>
+    <div class="legend-status">${statusText}</div>
+    ${connectivityGridSelectedCell ? `
+      <div class="legend-note" style="margin-top:8px;padding-top:8px;border-top:1px solid rgba(255,255,255,.08)">
+        <strong>Seçili Kare</strong><br>
+        Skor: ${selectedCellState}<br>
+        Durak: ${connectivityGridSelectedCell.count || 0}
+      </div>
+    ` : ''}
+  `;
+};
+
+function setConnectivityGridCamera(enabled) {
+  if (!mapgl?.easeTo || !mapgl?.getPitch || !mapgl?.getBearing) return;
+  if (enabled) {
+    if (!connectivityGridCameraRestore) {
+      connectivityGridCameraRestore = {
+        pitch: mapgl.getPitch(),
+        bearing: mapgl.getBearing(),
+      };
+    }
+    mapgl.easeTo({ pitch: 0, bearing: 0, duration: 500 });
+    return;
+  }
+  if (!connectivityGridCameraRestore) return;
+  mapgl.easeTo({
+    pitch: connectivityGridCameraRestore.pitch,
+    bearing: connectivityGridCameraRestore.bearing,
+    duration: 500,
+  });
+  connectivityGridCameraRestore = null;
+}
+
+function setConnectivityGridMapStyle(enabled) {
+  if (enabled) {
+    if (connectivityGridStyleRestore == null) {
+      connectivityGridStyleRestore = currentMapStyle || 'auto';
+    }
+    if (currentMapStyle !== 'dark') {
+      currentMapStyle = 'dark';
+      updateDayNight();
+    }
+    return;
+  }
+  if (connectivityGridStyleRestore == null) return;
+  currentMapStyle = connectivityGridStyleRestore || 'auto';
+  connectivityGridStyleRestore = null;
+  updateDayNight();
+}
 
 if ('serviceWorker' in navigator && window.PLATFORM === 'web') {
   navigator.serviceWorker.register('./sw.js').catch(() => { });
@@ -1623,6 +1896,18 @@ mapgl.on('load', () => {
   mapgl.on('click', e => {
     if (showIsochron) { triggerIsochron(e.lngLat.lng, e.lngLat.lat); }
   });
+  mapgl.on('moveend', () => {
+    if (showConnectivityGrid) {
+      ensureConnectivityViewportScores();
+      refreshLayersNow();
+    }
+  });
+  mapgl.on('zoomend', () => {
+    if (showConnectivityGrid) {
+      ensureConnectivityViewportScores();
+      refreshLayersNow();
+    }
+  });
 });
 
 // ── DECK.GL ───────────────────────────────────────────────
@@ -1635,6 +1920,7 @@ window.LegacyMapBridge = createLegacyBridge(() => ({
   SHAPES,
   STOPS,
   STOP_INFO,
+  STOP_DEPS,
   AppState,
   QUALITY,
   TYPE_META,
@@ -1653,6 +1939,8 @@ window.LegacyMapBridge = createLegacyBridge(() => ({
   stopCoverageStrokeWidthPx,
   stopCoverageMode,
   showDensity,
+  showConnectivityGrid,
+  connectivityGridSelectedCell,
   showHeatmap,
   heatmapHour,
   heatmapFollowSim,
@@ -1665,6 +1953,7 @@ window.LegacyMapBridge = createLegacyBridge(() => ({
   showBunching,
   showWaiting,
   showIsochron,
+  activeServiceId,
   isochronData: _isochronData,
   isochronOriginSid: _isochronOriginSid,
   stopAvgHeadways: _stopAvgHeadways,
@@ -1677,6 +1966,12 @@ window.LegacyMapBridge = createLegacyBridge(() => ({
   getFocusedStopsData,
   getFilteredStopsData,
   getFilteredStopIdSet,
+  displayText,
+  HEADWAY_CFG,
+  WAITING_CFG,
+  activeServiceId,
+  computeAverageHeadwaySeconds,
+  getActiveServiceLabel,
   getModelNotice,
   getModelPath,
   getModelOrientation,
@@ -1768,6 +2063,44 @@ window.LegacyUIBridge = createLegacyBridge(() => ({
     setWorstStops: (value) => { _worstStops = value; },
   }));
 
+window.addEventListener('stop-connectivity-progress', (event) => {
+  if (event?.detail?.stopId) {
+    updateConnectivityViewportStatus();
+    if (showConnectivityGrid) refreshLayersNow();
+    if (_activeStopData) _renderStopPanel(_activeStopData);
+    return;
+  }
+  const index = Number(event?.detail?.index || 0);
+  const total = Number(event?.detail?.total || 0);
+  const progress = total > 0 ? (index / total) * 100 : (event?.detail?.done ? 100 : 0);
+  updateConnectivityGridToggleLabel(progress >= 100 ? null : progress);
+  updateConnectivityLegend(progress >= 100 ? null : progress);
+  if (showConnectivityGrid) refreshLayersNow();
+  const perf = event?.detail?.perf;
+  if (perf && event?.detail?.done) {
+    const openMs = connectivityGridPerfOpenAt > 0 ? Math.round(performance.now() - connectivityGridPerfOpenAt) : null;
+    console.log('[ConnectivityPerf]', {
+      phase: 'done',
+      openMs,
+      processed: perf.processed,
+      total: perf.total,
+      elapsedMs: perf.elapsedMs,
+      avgStopMs: perf.avgStopMs,
+      maxStopMs: perf.maxStopMs,
+      maxStopId: perf.maxStopId,
+    });
+  }
+  if (!event?.detail?.done) return;
+  updateConnectivityGridToggleLabel(null);
+  updateConnectivityLegend(null);
+  if (_activeStopData) _renderStopPanel(_activeStopData);
+});
+
+window.addEventListener('connectivity-grid-select', (event) => {
+  connectivityGridSelectedCell = event?.detail || null;
+  updateConnectivityLegend();
+});
+
 window.LegacyPlannerBridge = createLegacyBridge(() => ({
     ADJ,
     STOP_INFO,
@@ -1832,6 +2165,7 @@ window.LegacyCityBridge = createLegacyBridge(() => ({
       AppState.stops = [];
       AppState.stopInfo = {};
       AppState.stopDeps = {};
+      AppState.stopConnectivityScores = null;
       TRIPS = [];
       SHAPES = [];
       STOPS = [];
@@ -1841,6 +2175,7 @@ window.LegacyCityBridge = createLegacyBridge(() => ({
       _cachedVisShapes = null;
       clearTripLookupCache();
       clearStopRouteSummariesCache();
+      window.StopConnectivityUtils?.reset?.();
       if (deckgl) deckgl.setProps({ layers: buildLayers() });
       buildRouteList();
       buildStopList();
@@ -1941,6 +2276,12 @@ window.LegacyDataBridge = createLegacyBridge(() => ({
     resetViewToggles: () => {
       showAnim = true;
       showStops = false;
+      setConnectivityGridCamera(false);
+      setConnectivityGridMapStyle(false);
+      connectivityGridSelectedCell = null;
+      showConnectivityGrid = false;
+      updateConnectivityGridToggleLabel(null);
+      updateConnectivityLegend(null);
       showStopCoverage = false;
       updateStopCoverageControlsVisibility();
       showDensity = false;
@@ -1948,6 +2289,7 @@ window.LegacyDataBridge = createLegacyBridge(() => ({
       showPaths = true;
       const toggles = {
         'tog-stops': false,
+        'tog-connectivity-grid': false,
         'tog-stop-coverage': false,
         'tog-anim': true,
         'tog-paths': true,
@@ -2497,7 +2839,29 @@ const togMap = {
   'anim': v => showAnim = v,
   'paths': v => showPaths = v,
   'density': v => { showDensity = v; updateDensityGrid(); },
-  'stops': v => showStops = v,
+  'stops': v => {
+    showStops = v;
+    refreshLayersNow();
+  },
+  'connectivity-grid': v => {
+    showConnectivityGrid = v;
+    connectivityGridPerfOpenAt = v ? performance.now() : 0;
+    if (!v) connectivityGridSelectedCell = null;
+    if (v) {
+      console.log('[ConnectivityPerf]', { phase: 'start' });
+      if (AppState.stopConnectivityScores?.meta?.validation_summary) {
+        console.log('[ConnectivityPerf]', {
+          phase: 'cached',
+          stopCount: AppState.stopConnectivityScores.meta.validation_summary.scored_stop_count || 0,
+        });
+      }
+    }
+    setConnectivityGridCamera(v);
+    setConnectivityGridMapStyle(v);
+    if (v) ensureConnectivityViewportScores();
+    else updateConnectivityViewportStatus();
+    refreshLayersNow();
+  },
   'stop-coverage': v => {
     showStopCoverage = v;
     updateStopCoverageControlsVisibility();

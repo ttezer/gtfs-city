@@ -54,7 +54,7 @@ window.AppManager = (function () {
   }
 
   function resolveFlagPath(countryCode) {
-    return `./docs/app/assets/flags/${String(countryCode || '').toLowerCase() || 'tr'}.svg`;
+    return `./assets/flags/${String(countryCode || '').toLowerCase() || 'tr'}.svg`;
   }
 
   function clearLegacySampleCards() {

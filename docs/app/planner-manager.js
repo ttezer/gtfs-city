@@ -90,10 +90,11 @@ window.PlannerManager = (function () {
     return path;
   }
 
-  function calcIsochronFromStop(startSid, maxSecs = 3600) {
+  function calcReachabilityFromStop(startSid, maxSecs = 3600, options = {}) {
     const ctx = getCtx();
     if (!ctx?.ADJ || !ctx.STOP_INFO) return [];
     const boardPenalty = 600;
+    const skipWalk = options?.skipWalk === true;
     const dist = { [startSid]: 0 };
     const lastLine = { [startSid]: null };
     const visited = new Set();
@@ -106,6 +107,7 @@ window.PlannerManager = (function () {
       if (cost > maxSecs) continue;
       for (const [nextId, seconds, line] of (ctx.ADJ[stopId] || [])) {
         if (visited.has(nextId)) continue;
+        if (skipWalk && line === 'ğŸš¶') continue;
         const penalty = line !== '??' && lastLine[stopId] !== null && lastLine[stopId] !== line
           ? boardPenalty
           : 0;
@@ -120,6 +122,14 @@ window.PlannerManager = (function () {
     return Object.entries(dist).map(([stopId, seconds]) => {
       const info = ctx.STOP_INFO[stopId];
       if (!info) return null;
+      return { stopId, seconds, info };
+    }).filter(Boolean);
+  }
+
+  function calcIsochronFromStop(startSid, maxSecs = 3600) {
+    const ctx = getCtx();
+    if (!ctx?.STOP_INFO) return [];
+    return calcReachabilityFromStop(startSid, maxSecs).map(({ stopId, seconds, info }) => {
       const mins = seconds / 60;
       const color = mins <= 15
         ? [63, 185, 80, 200]
@@ -129,7 +139,7 @@ window.PlannerManager = (function () {
             ? [224, 123, 57, 200]
             : [248, 81, 73, 200];
       return { pos: [info[0], info[1]], secs: seconds, color, name: window.RenderUtils?.displayText?.(info[2] || stopId) || info[2] || stopId };
-    }).filter(Boolean);
+    });
   }
 
   function findNearestStopToCoord(lon, lat) {
@@ -313,6 +323,7 @@ window.PlannerManager = (function () {
     init,
     reset,
     dijkstra,
+    calcReachabilityFromStop,
     calcIsochronFromStop,
     triggerIsochron,
     clearIsochron,
