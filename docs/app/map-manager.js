@@ -15,6 +15,12 @@ window.MapManager = (function () {
   let cacheSelectedRouteDirection = null;
   let connectivityGridCache = null;
   let connectivityGridCacheKey = '';
+  const CONNECTIVITY_GRID_SCORE_MIN = 0;
+  const CONNECTIVITY_GRID_SCORE_MAX = 100;
+  const CONNECTIVITY_GRID_FALLBACK_MEDIAN = 50;
+  const CONNECTIVITY_GRID_FALLBACK_MEDIAN_OFFSET = 20;
+  const CONNECTIVITY_GRID_FALLBACK_RANGE = 40;
+  const CONNECTIVITY_GRID_MIN_RANGE_HALF_WIDTH = 18;
 
   const deck = window.deck || window.Deck;
   const {
@@ -138,17 +144,20 @@ window.MapManager = (function () {
     let floor = Number.isFinite(p10) ? p10 : sortedValues[0];
     let ceiling = Number.isFinite(p90) ? p90 : sortedValues[sortedValues.length - 1];
     if (!Number.isFinite(floor) || !Number.isFinite(ceiling) || ceiling <= floor) {
-      floor = Math.max(0, (Number.isFinite(p50) ? p50 : 50) - 20);
-      ceiling = Math.min(100, floor + 40);
+      floor = Math.max(
+        CONNECTIVITY_GRID_SCORE_MIN,
+        (Number.isFinite(p50) ? p50 : CONNECTIVITY_GRID_FALLBACK_MEDIAN) - CONNECTIVITY_GRID_FALLBACK_MEDIAN_OFFSET
+      );
+      ceiling = Math.min(CONNECTIVITY_GRID_SCORE_MAX, floor + CONNECTIVITY_GRID_FALLBACK_RANGE);
     }
-    if ((ceiling - floor) < 18) {
+    if ((ceiling - floor) < CONNECTIVITY_GRID_MIN_RANGE_HALF_WIDTH) {
       const center = Number.isFinite(p50) ? p50 : ((floor + ceiling) / 2);
-      floor = Math.max(0, center - 18);
-      ceiling = Math.min(100, center + 18);
+      floor = Math.max(CONNECTIVITY_GRID_SCORE_MIN, center - CONNECTIVITY_GRID_MIN_RANGE_HALF_WIDTH);
+      ceiling = Math.min(CONNECTIVITY_GRID_SCORE_MAX, center + CONNECTIVITY_GRID_MIN_RANGE_HALF_WIDTH);
     }
     if (ceiling <= floor) {
-      floor = 0;
-      ceiling = 100;
+      floor = CONNECTIVITY_GRID_SCORE_MIN;
+      ceiling = CONNECTIVITY_GRID_SCORE_MAX;
     }
     return { floor, ceiling };
   }

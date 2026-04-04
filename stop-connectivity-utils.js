@@ -31,6 +31,48 @@
   };
   const STOP_TASKS = new Map();
 
+  class MinHeap {
+    constructor() {
+      this.items = [];
+    }
+
+    push(entry) {
+      this.items.push(entry);
+      let index = this.items.length - 1;
+      while (index > 0) {
+        const parentIndex = (index - 1) >> 1;
+        if (this.items[parentIndex].cost <= this.items[index].cost) break;
+        [this.items[parentIndex], this.items[index]] = [this.items[index], this.items[parentIndex]];
+        index = parentIndex;
+      }
+    }
+
+    pop() {
+      if (!this.items.length) return null;
+      const top = this.items[0];
+      const last = this.items.pop();
+      if (this.items.length && last) {
+        this.items[0] = last;
+        let index = 0;
+        while (true) {
+          const left = (index * 2) + 1;
+          const right = left + 1;
+          let smallest = index;
+          if (left < this.items.length && this.items[left].cost < this.items[smallest].cost) smallest = left;
+          if (right < this.items.length && this.items[right].cost < this.items[smallest].cost) smallest = right;
+          if (smallest === index) break;
+          [this.items[index], this.items[smallest]] = [this.items[smallest], this.items[index]];
+          index = smallest;
+        }
+      }
+      return top;
+    }
+
+    get size() {
+      return this.items.length;
+    }
+  }
+
   function clampScore(value) {
     return Math.max(0, Math.min(100, Math.round(value)));
   }
@@ -203,14 +245,14 @@
     const dist = new Map();
     const bestWalks = new Map();
     const lastLine = new Map();
-    const queue = [{ stopId, cost: 0, walks: 0, line: null }];
+    const queue = new MinHeap();
+    queue.push({ stopId, cost: 0, walks: 0, line: null });
     dist.set(stopId, 0);
     bestWalks.set(stopId, 0);
     lastLine.set(stopId, null);
 
-    while (queue.length) {
-      queue.sort((a, b) => a.cost - b.cost);
-      const current = queue.shift();
+    while (queue.size) {
+      const current = queue.pop();
       if (!current) break;
       if (current.cost > (dist.get(current.stopId) ?? Infinity)) continue;
       if (current.cost > maxSecs) continue;

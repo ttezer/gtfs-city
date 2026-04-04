@@ -49,8 +49,25 @@ window.AppManager = (function () {
       .replace(/'/g, '&#39;');
   }
 
+  function getRuntimeMode() {
+    if (window.IS_ELECTRON) return 'desktop';
+    const pathname = String(window.location.pathname || '').replace(/\\/g, '/').toLowerCase();
+    if (
+      pathname.includes('/docs/app/')
+      || pathname.endsWith('/app')
+      || pathname.endsWith('/app/')
+      || pathname.endsWith('/app/index.html')
+    ) {
+      return 'web-demo';
+    }
+    return 'root';
+  }
+
   function getSampleManifestUrl() {
-    return new URL('./docs/data/samples.json', window.location.href).toString();
+    const relativePath = getRuntimeMode() === 'web-demo'
+      ? '../data/samples.json'
+      : './docs/data/samples.json';
+    return new URL(relativePath, window.location.href).toString();
   }
 
   function resolveFlagPath(countryCode) {
@@ -65,15 +82,26 @@ window.AppManager = (function () {
 
   function getSampleLoadConfig(sample) {
     if (!sample) return null;
+    const runtimeMode = getRuntimeMode();
     if (sample.loadStrategy === 'bundled') {
       if (!sample.localPath) return null;
-      return {
-        kind: 'local',
-        path: new URL(`./${sample.localPath}`, window.location.href).toString(),
-        fileName: sample.fileName || `${sample.city || 'sample'}.zip`,
-      };
+      if (runtimeMode === 'desktop') {
+        return {
+          kind: 'local',
+          path: new URL(`./${sample.localPath}`, window.location.href).toString(),
+          fileName: sample.fileName || `${sample.city || 'sample'}.zip`,
+        };
+      }
+      if (runtimeMode === 'web-demo') {
+        return {
+          kind: 'remote',
+          url: new URL(`../${sample.localPath.replace(/^docs\//, '')}`, window.location.href).toString(),
+          fileName: sample.fileName || `${sample.city || 'sample'}.zip`,
+        };
+      }
+      return null;
     }
-    if (sample.loadStrategy === 'remote' && window.IS_ELECTRON && sample.remoteUrl) {
+    if (sample.loadStrategy === 'remote' && runtimeMode === 'desktop' && sample.remoteUrl) {
       return {
         kind: 'remote',
         url: sample.remoteUrl,
@@ -86,7 +114,12 @@ window.AppManager = (function () {
   function getSampleNote(sample) {
     const config = getSampleLoadConfig(sample);
     if (config) {
-      return sample.note || translate('sampleNoteBundled', 'Bundled sample package for the app.');
+      return sample.note || translate(
+        'sampleNoteBundled',
+        getRuntimeMode() === 'web-demo'
+          ? 'Bundled sample package for the web demo.'
+          : 'Bundled sample package for the app.'
+      );
     }
     if (sample.loadStrategy === 'remote') {
       return translate(
