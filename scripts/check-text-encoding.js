@@ -101,8 +101,9 @@ for (const relativePath of filesToCheck) {
   const lines = content.split('\n');
   for (const line of lines) {
     if (/https?:\/\//.test(line)) continue;
+    const normalizedLine = line.replace(/\?[A-Za-z0-9_-]+=[^"'`\s>]*/g, '');
     const suspiciousQuestionMarkPattern = /[A-Za-zÃ‡ÄÄ°Ã–ÅÃœÃ§ÄŸÄ±Ã¶ÅŸÃ¼]\?[A-Za-zÃ‡ÄÄ°Ã–ÅÃœÃ§ÄŸÄ±Ã¶ÅŸÃ¼]/g;
-    const questionMatches = line.match(suspiciousQuestionMarkPattern);
+    const questionMatches = normalizedLine.match(suspiciousQuestionMarkPattern);
     if (questionMatches && questionMatches.length) {
       failures.push({
         file: relativePath,

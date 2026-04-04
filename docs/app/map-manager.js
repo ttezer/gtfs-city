@@ -13,6 +13,14 @@ window.MapManager = (function () {
   let cacheActiveRoutes = '';
   let cacheFocusedRoute = null;
   let cacheSelectedRouteDirection = null;
+  let connectivityGridCache = null;
+  let connectivityGridCacheKey = '';
+  const CONNECTIVITY_GRID_SCORE_MIN = 0;
+  const CONNECTIVITY_GRID_SCORE_MAX = 100;
+  const CONNECTIVITY_GRID_FALLBACK_MEDIAN = 50;
+  const CONNECTIVITY_GRID_FALLBACK_MEDIAN_OFFSET = 20;
+  const CONNECTIVITY_GRID_FALLBACK_RANGE = 40;
+  const CONNECTIVITY_GRID_MIN_RANGE_HALF_WIDTH = 18;
 
   const deck = window.deck || window.Deck;
   const {
@@ -20,6 +28,7 @@ window.MapManager = (function () {
     PathLayer,
     ScatterplotLayer,
     ColumnLayer,
+    PolygonLayer,
     HeatmapLayer,
     LineLayer,
     IconLayer,
@@ -80,6 +89,327 @@ window.MapManager = (function () {
     return baseColor;
   }
 
+  function interpolateColorStops(stops, value) {
+    if (!Array.isArray(stops) || !stops.length) return [139, 148, 158];
+    if (!Number.isFinite(value)) return stops[0].color.slice();
+    if (value <= stops[0].at) return stops[0].color.slice();
+    for (let index = 1; index < stops.length; index++) {
+      const left = stops[index - 1];
+      const right = stops[index];
+      if (value > right.at) continue;
+      const span = Math.max(1, right.at - left.at);
+      const t = Math.max(0, Math.min(1, (value - left.at) / span));
+      return [
+        clampChannel(left.color[0] + ((right.color[0] - left.color[0]) * t)),
+        clampChannel(left.color[1] + ((right.color[1] - left.color[1]) * t)),
+        clampChannel(left.color[2] + ((right.color[2] - left.color[2]) * t)),
+      ];
+    }
+    return stops[stops.length - 1].color.slice();
+  }
+
+  function getStopScoreColor(score) {
+    if (!Number.isFinite(score)) return [139, 148, 158, 180];
+    const rgb = interpolateColorStops([
+      { at: 0, color: [239, 68, 68] },
+      { at: 25, color: [249, 115, 22] },
+      { at: 50, color: [234, 179, 8] },
+      { at: 75, color: [132, 204, 22] },
+      { at: 100, color: [34, 197, 94] },
+    ], Math.max(0, Math.min(100, score)));
+    return [...rgb, 220];
+  }
+
+  function getSortedNumericValues(values) {
+    return values
+      .filter((value) => Number.isFinite(value))
+      .sort((left, right) => left - right);
+  }
+
+  function getPercentile(sortedValues, ratio) {
+    if (!Array.isArray(sortedValues) || !sortedValues.length) return null;
+    const safeRatio = Math.max(0, Math.min(1, Number(ratio) || 0));
+    const index = Math.min(sortedValues.length - 1, Math.max(0, Math.floor((sortedValues.length - 1) * safeRatio)));
+    return sortedValues[index];
+  }
+
+  function getConnectivityGridScoreStats(values) {
+    const sortedValues = getSortedNumericValues(values);
+    if (!sortedValues.length) {
+      return { floor: 0, ceiling: 100 };
+    }
+    const p10 = getPercentile(sortedValues, 0.10);
+    const p50 = getPercentile(sortedValues, 0.50);
+    const p90 = getPercentile(sortedValues, 0.90);
+    let floor = Number.isFinite(p10) ? p10 : sortedValues[0];
+    let ceiling = Number.isFinite(p90) ? p90 : sortedValues[sortedValues.length - 1];
+    if (!Number.isFinite(floor) || !Number.isFinite(ceiling) || ceiling <= floor) {
+      floor = Math.max(
+        CONNECTIVITY_GRID_SCORE_MIN,
+        (Number.isFinite(p50) ? p50 : CONNECTIVITY_GRID_FALLBACK_MEDIAN) - CONNECTIVITY_GRID_FALLBACK_MEDIAN_OFFSET
+      );
+      ceiling = Math.min(CONNECTIVITY_GRID_SCORE_MAX, floor + CONNECTIVITY_GRID_FALLBACK_RANGE);
+    }
+    if ((ceiling - floor) < CONNECTIVITY_GRID_MIN_RANGE_HALF_WIDTH) {
+      const center = Number.isFinite(p50) ? p50 : ((floor + ceiling) / 2);
+      floor = Math.max(CONNECTIVITY_GRID_SCORE_MIN, center - CONNECTIVITY_GRID_MIN_RANGE_HALF_WIDTH);
+      ceiling = Math.min(CONNECTIVITY_GRID_SCORE_MAX, center + CONNECTIVITY_GRID_MIN_RANGE_HALF_WIDTH);
+    }
+    if (ceiling <= floor) {
+      floor = CONNECTIVITY_GRID_SCORE_MIN;
+      ceiling = CONNECTIVITY_GRID_SCORE_MAX;
+    }
+    return { floor, ceiling };
+  }
+
+  function getConnectivityGridColor(cell) {
+    if (!cell || cell.empty) {
+      return cell?.pending
+        ? [116, 124, 138, 92]
+        : [90, 97, 109, 110];
+    }
+    const normalizedScore = Math.max(0, Math.min(100, Number(cell.normalizedScore) || 0));
+    const rgb = interpolateColorStops([
+      { at: 0, color: [239, 68, 68] },
+      { at: 35, color: [249, 115, 22] },
+      { at: 65, color: [234, 179, 8] },
+      { at: 100, color: [34, 197, 94] },
+    ], normalizedScore);
+    return [rgb[0], rgb[1], rgb[2], 126];
+  }
+
+  function metersToLatDegrees(meters) {
+    return meters / 111320;
+  }
+
+  function metersToLngDegrees(meters, latitude) {
+    const cosLat = Math.cos((latitude * Math.PI) / 180);
+    const safeCos = Math.max(0.1, Math.abs(cosLat));
+    return meters / (111320 * safeCos);
+  }
+
+  function lngToMercatorMeters(lng) {
+    return (lng * 20037508.34) / 180;
+  }
+
+  function latToMercatorMeters(lat) {
+    const clamped = Math.max(-85.05112878, Math.min(85.05112878, lat));
+    const radians = (clamped * Math.PI) / 180;
+    return (Math.log(Math.tan((Math.PI / 4) + (radians / 2))) * 6378137);
+  }
+
+  function mercatorMetersToLng(x) {
+    return (x / 20037508.34) * 180;
+  }
+
+  function mercatorMetersToLat(y) {
+    return (180 / Math.PI) * (2 * Math.atan(Math.exp(y / 6378137)) - (Math.PI / 2));
+  }
+
+  function buildConnectivityGridCacheKey(ctx, bounds, zoom, snapshot, filteredStopIds) {
+    const snapshotStopCount = Object.keys(snapshot?.stops || {}).length;
+    return [
+      `z:${zoom.toFixed(2)}`,
+      `w:${bounds.west.toFixed(3)}`,
+      `s:${bounds.south.toFixed(3)}`,
+      `e:${bounds.east.toFixed(3)}`,
+      `n:${bounds.north.toFixed(3)}`,
+      `stops:${snapshotStopCount}`,
+      `complete:${snapshot?.meta?.validation_summary ? 1 : 0}`,
+      `type:${ctx.typeFilter || 'all'}`,
+      `focus:${ctx.focusedRoute || 'all'}`,
+      `dir:${ctx.selectedRouteDirection ?? 'all'}`,
+      `hidden:${ctx.activeRoutes ? [...ctx.activeRoutes].sort().join(',') : ''}`,
+      `filter:${filteredStopIds?.size || 0}`,
+    ].join('|');
+  }
+
+  function getConnectivityGridCells(ctx) {
+    const snapshot = ctx.AppState?.stopConnectivityScores;
+    if (!snapshot?.stops) return [];
+    const filteredStopIds = ctx.getFilteredStopIdSet ? ctx.getFilteredStopIdSet() : null;
+    const mapgl = getMapgl();
+    const zoom = typeof mapgl?.getZoom === 'function' ? mapgl.getZoom() : 0;
+    if (zoom < 7.5) return [];
+
+    const bounds = typeof mapgl?.getBounds === 'function' ? mapgl.getBounds() : null;
+    const west = typeof bounds?.getWest === 'function' ? bounds.getWest() : bounds?._sw?.lng;
+    const south = typeof bounds?.getSouth === 'function' ? bounds.getSouth() : bounds?._sw?.lat;
+    const east = typeof bounds?.getEast === 'function' ? bounds.getEast() : bounds?._ne?.lng;
+    const north = typeof bounds?.getNorth === 'function' ? bounds.getNorth() : bounds?._ne?.lat;
+    if (![west, south, east, north].every(Number.isFinite)) return [];
+    const boundsBox = { west, south, east, north };
+    const cacheKey = buildConnectivityGridCacheKey(ctx, boundsBox, zoom, snapshot, filteredStopIds);
+    if (connectivityGridCacheKey === cacheKey && Array.isArray(connectivityGridCache)) {
+      return connectivityGridCache;
+    }
+
+    const cellSizeMeters = 400;
+    const boundaryRadiusMeters = 900;
+    const complete = !!snapshot?.meta?.validation_summary;
+    const cells = new Map();
+    const boundaryCells = new Map();
+    const minX = lngToMercatorMeters(west);
+    const minY = latToMercatorMeters(south);
+    const maxX = lngToMercatorMeters(east);
+    const maxY = latToMercatorMeters(north);
+    const pad = boundaryRadiusMeters;
+
+    Object.entries(ctx.STOP_INFO || {}).forEach(([stopId, stop]) => {
+      if (!Array.isArray(stop)) return;
+      if (filteredStopIds && filteredStopIds.size && !filteredStopIds.has(stopId)) return;
+      const [lng, lat] = stop;
+      const x = lngToMercatorMeters(lng);
+      const y = latToMercatorMeters(lat);
+      if (x < minX - pad || x > maxX + pad || y < minY - pad || y > maxY + pad) return;
+      const baseCol = Math.floor(x / cellSizeMeters);
+      const baseRow = Math.floor(y / cellSizeMeters);
+      const radiusCells = Math.ceil(boundaryRadiusMeters / cellSizeMeters);
+      for (let dx = -radiusCells; dx <= radiusCells; dx++) {
+        for (let dy = -radiusCells; dy <= radiusCells; dy++) {
+          const col = baseCol + dx;
+          const row = baseRow + dy;
+          const centerX = ((col + 0.5) * cellSizeMeters);
+          const centerY = ((row + 0.5) * cellSizeMeters);
+          const dist = Math.hypot(centerX - x, centerY - y);
+          if (dist > boundaryRadiusMeters) continue;
+          const key = `${col}:${row}`;
+          if (!boundaryCells.has(key)) boundaryCells.set(key, { col, row });
+        }
+      }
+    });
+
+    Object.entries(snapshot.stops).forEach(([stopId, record]) => {
+      const stop = ctx.STOP_INFO?.[stopId];
+      const score = record?.final_score;
+      if (!stop || !Number.isFinite(score)) return;
+      if (filteredStopIds && filteredStopIds.size && !filteredStopIds.has(stopId)) return;
+      const [lng, lat] = stop;
+      const x = lngToMercatorMeters(lng);
+      const y = latToMercatorMeters(lat);
+      if (x < minX || x > maxX || y < minY || y > maxY) return;
+      const col = Math.floor(x / cellSizeMeters);
+      const row = Math.floor(y / cellSizeMeters);
+      const key = `${col}:${row}`;
+      if (!cells.has(key)) {
+        cells.set(key, { col, row, sum: 0, count: 0 });
+      }
+      const cell = cells.get(key);
+      cell.sum += score;
+      cell.count += 1;
+    });
+
+    const result = Array.from(boundaryCells.values()).map((cell) => {
+      const minX = cell.col * cellSizeMeters;
+      const minY = cell.row * cellSizeMeters;
+      const maxX = minX + cellSizeMeters;
+      const maxY = minY + cellSizeMeters;
+      const minLng = mercatorMetersToLng(minX);
+      const minLat = mercatorMetersToLat(minY);
+      const maxLng = mercatorMetersToLng(maxX);
+      const maxLat = mercatorMetersToLat(maxY);
+      if (maxLng < west || minLng > east || maxLat < south || minLat > north) return null;
+      const scoredCell = cells.get(`${cell.col}:${cell.row}`);
+      const score = scoredCell?.count > 0 ? Math.round(scoredCell.sum / scoredCell.count) : null;
+      return {
+        key: `${cell.col}:${cell.row}`,
+        polygon: [
+          [minLng, minLat],
+          [maxLng, minLat],
+          [maxLng, maxLat],
+          [minLng, maxLat],
+        ],
+        score,
+        count: scoredCell?.count || 0,
+        empty: !Number.isFinite(score),
+        pending: !Number.isFinite(score) && !complete,
+      };
+    }).filter(Boolean);
+    const scoreStats = getConnectivityGridScoreStats(result.map((cell) => cell.score));
+    result.forEach((cell) => {
+      if (!Number.isFinite(cell.score)) {
+        cell.normalizedScore = null;
+        return;
+      }
+      const span = Math.max(1, scoreStats.ceiling - scoreStats.floor);
+      cell.normalizedScore = Math.max(0, Math.min(100, ((cell.score - scoreStats.floor) / span) * 100));
+    });
+    connectivityGridCacheKey = cacheKey;
+    connectivityGridCache = result;
+    return result;
+  }
+
+  function getConnectivityViewportKey() {
+    const mapgl = getMapgl();
+    if (!mapgl) return 'nogridviewport';
+    const zoom = typeof mapgl.getZoom === 'function' ? mapgl.getZoom() : 0;
+    const bounds = typeof mapgl.getBounds === 'function' ? mapgl.getBounds() : null;
+    const west = typeof bounds?.getWest === 'function' ? bounds.getWest() : bounds?._sw?.lng;
+    const south = typeof bounds?.getSouth === 'function' ? bounds.getSouth() : bounds?._sw?.lat;
+    const east = typeof bounds?.getEast === 'function' ? bounds.getEast() : bounds?._ne?.lng;
+    const north = typeof bounds?.getNorth === 'function' ? bounds.getNorth() : bounds?._ne?.lat;
+    if (![west, south, east, north].every(Number.isFinite)) return `z:${zoom.toFixed(2)}`;
+    return [
+      `z:${zoom.toFixed(2)}`,
+      `w:${west.toFixed(3)}`,
+      `s:${south.toFixed(3)}`,
+      `e:${east.toFixed(3)}`,
+      `n:${north.toFixed(3)}`,
+    ].join('|');
+  }
+
+  function getScoreLayerViewportFilter(ctx, scoreType) {
+    const mapgl = getMapgl();
+    if (!mapgl?.getZoom) return null;
+    const zoom = mapgl.getZoom();
+    const minZoom = scoreType === 'base' ? 14.2 : 13.2;
+    if (zoom < minZoom) {
+      return { allowed: false, reason: 'zoom', zoom, minZoom };
+    }
+    const bounds = typeof mapgl.getBounds === 'function' ? mapgl.getBounds() : null;
+    if (!bounds) return { allowed: true, zoom, bounds: null };
+    const west = typeof bounds.getWest === 'function' ? bounds.getWest() : bounds._sw?.lng;
+    const south = typeof bounds.getSouth === 'function' ? bounds.getSouth() : bounds._sw?.lat;
+    const east = typeof bounds.getEast === 'function' ? bounds.getEast() : bounds._ne?.lng;
+    const north = typeof bounds.getNorth === 'function' ? bounds.getNorth() : bounds._ne?.lat;
+    if (![west, south, east, north].every(Number.isFinite)) {
+      return { allowed: true, zoom, bounds: null };
+    }
+    return { allowed: true, zoom, bounds: { west, south, east, north } };
+  }
+
+  function getStopScoreColumns(ctx, scoreType) {
+    const startedAt = (typeof performance !== 'undefined' && typeof performance.now === 'function')
+      ? performance.now()
+      : Date.now();
+    const viewportFilter = getScoreLayerViewportFilter(ctx, scoreType);
+    if (viewportFilter && viewportFilter.allowed === false) return [];
+    const filteredStopIds = ctx.getFilteredStopIdSet ? ctx.getFilteredStopIdSet() : null;
+    const bounds = viewportFilter?.bounds || null;
+    const result = Object.entries(ctx.STOP_INFO || {}).map(([sid, stop]) => {
+      if (filteredStopIds && filteredStopIds.size && !filteredStopIds.has(sid)) return null;
+      if (bounds) {
+        const [lng, lat] = stop;
+        if (lng < bounds.west || lng > bounds.east || lat < bounds.south || lat > bounds.north) return null;
+      }
+      let score = null;
+      if (scoreType === 'live') {
+        const liveState = window.StopScoreUtils?.getLiveScore?.(sid, ctx.simTime, ctx);
+        score = liveState?.score;
+      } else {
+        const baseState = window.StopScoreUtils?.getCachedBaseScore?.(sid, ctx);
+        score = baseState?.baseScore;
+      }
+      if (!Number.isFinite(score)) return null;
+      return {
+        pos: [stop[0], stop[1]],
+        score,
+        color: getStopScoreColor(score),
+      };
+    }).filter(Boolean);
+    return result;
+  }
+
   function getVehicleLabel(entry) {
     const trip = entry?.trip || entry;
     const routeCode = String(trip?.s || '').trim();
@@ -107,6 +437,8 @@ window.MapManager = (function () {
     cacheActiveRoutes = '';
     cacheFocusedRoute = null;
     cacheSelectedRouteDirection = null;
+    connectivityGridCache = null;
+    connectivityGridCacheKey = '';
   }
 
   function refreshLayersNow() {
@@ -125,6 +457,8 @@ window.MapManager = (function () {
       ctx.showPaths ? 1 : 0,
       ctx.showStops ? 1 : 0,
       ctx.showStopCoverage ? 1 : 0,
+      ctx.showConnectivityGrid ? 1 : 0,
+      ctx.showConnectivityGrid ? getConnectivityViewportKey() : 'nogrid',
       ctx.stopCoverageRadiusM || 300,
       (ctx.stopCoverageFillColor || []).join(','),
       ctx.stopCoverageFillOpacityPct || 0,
@@ -352,6 +686,36 @@ window.MapManager = (function () {
         lineWidthMinPixels: ctx.stopCoverageStrokeWidthPx || 2,
         pickable: false,
       }));
+    }
+
+    if (ctx.showConnectivityGrid) {
+      const gridCells = getConnectivityGridCells(ctx);
+      if (gridCells.length) {
+        layers.push(new PolygonLayer({
+          id: 'connectivity-grid',
+          data: gridCells,
+          getPolygon: (d) => d.polygon,
+          getFillColor: (d) => getConnectivityGridColor(d),
+          filled: true,
+          stroked: false,
+          pickable: true,
+        }));
+        const selectedKey = ctx.connectivityGridSelectedCell?.key;
+        const selectedCell = selectedKey ? gridCells.find((cell) => cell.key === selectedKey) : null;
+        if (selectedCell) {
+          layers.push(new PolygonLayer({
+            id: 'connectivity-grid-selected',
+            data: [selectedCell],
+            getPolygon: (d) => d.polygon,
+            getFillColor: [255, 255, 255, 18],
+            getLineColor: [255, 255, 255, 230],
+            filled: true,
+            stroked: true,
+            lineWidthMinPixels: 3,
+            pickable: false,
+          }));
+        }
+      }
     }
 
     if (ctx.showStops && !ctx.showIsochron) {

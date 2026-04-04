@@ -152,6 +152,7 @@ Landing ekranındaki `Örnek veriyle dene` kartları bundled örnek paketleri ku
 ## Dokümanlar
 
 - `mimari.md` - teknik yapı
+- `docs/repo-akisi.md` - repo düzeni, temizlik kararları ve iş akışı şeması
 - `kontrol.md` - çalışma kuralları
 - `isplani.md` - güncel durum ve sonraki işler
 - `yol-haritasi.md` - orta ve uzun vadeli geliştirme başlıkları

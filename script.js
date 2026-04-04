@@ -1769,36 +1769,6 @@ function updateConnectivityLegend(progress = null) {
     legend.innerHTML = '';
     return;
   }
-  const statusText = Number.isFinite(progress) && progress >= 0 && progress < 100
-    ? `Hazırlanıyor: %${Math.round(progress)}`
-    : 'Hazır';
-  legend.style.display = 'block';
-  legend.innerHTML = `
-    <div class="li" style="padding-bottom:6px;border-bottom:1px solid rgba(255,255,255,.08);margin-bottom:6px;">${t('toggleConnectivityGrid')}</div>
-    <div class="li"><span class="ld" style="background:#ef4444"></span><span>0-24 Zayıf</span></div>
-    <div class="li"><span class="ld" style="background:#f97316"></span><span>25-49 Sınırlı</span></div>
-    <div class="li"><span class="ld" style="background:#eab308"></span><span>50-74 İyi</span></div>
-    <div class="li"><span class="ld" style="background:#22c55e"></span><span>75-100 Güçlü</span></div>
-    <div class="legend-note">Renkler 0-100 skoru boyunca kademeli akar. Hafta içi yoğun saat referansına göre hazırlanır; ilk açılışta kareler kademeli dolabilir.</div>
-    <div class="legend-status">${statusText}</div>
-    ${connectivityGridSelectedCell ? `
-      <div class="legend-note" style="margin-top:8px;padding-top:8px;border-top:1px solid rgba(255,255,255,.08)">
-        <strong>Seçili Kare</strong><br>
-        Skor: ${Number.isFinite(connectivityGridSelectedCell.score) ? `${connectivityGridSelectedCell.score}/100` : 'Veri yok'}<br>
-        Durak: ${connectivityGridSelectedCell.count || 0}
-      </div>
-    ` : ''}
-  `;
-}
-
-updateConnectivityLegend = function updateConnectivityLegendCalibrated(progress = null) {
-  const legend = document.getElementById('legend');
-  if (!legend) return;
-  if (!showConnectivityGrid) {
-    legend.style.display = 'none';
-    legend.innerHTML = '';
-    return;
-  }
   const snapshotComplete = !!AppState.stopConnectivityScores?.meta?.validation_summary;
   const statusText = Number.isFinite(progress) && progress >= 0 && progress < 100
     ? `Bu görünüm hazırlanıyor: %${Math.round(progress)}`
@@ -1831,7 +1801,7 @@ updateConnectivityLegend = function updateConnectivityLegendCalibrated(progress 
       </div>
     ` : ''}
   `;
-};
+}
 
 function setConnectivityGridCamera(enabled) {
   if (!mapgl?.easeTo || !mapgl?.getPitch || !mapgl?.getBearing) return;
