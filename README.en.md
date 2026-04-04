@@ -152,6 +152,7 @@ The `Try with sample data` cards on the landing screen use bundled sample packag
 ## Documents
 
 - `mimari.md` - technical structure
+- `docs/repo-akisi.md` - repository layout, cleanup decisions, and workflow diagram
 - `kontrol.md` - working rules
 - `isplani.md` - current status and next work
 - `yol-haritasi.md` - mid and long term roadmap headings
