@@ -111,6 +111,7 @@ flowchart TD
 - `docs/app/` yayin hedefidir; elle fark acilmasi yerine kok kaynaklardan uretilmelidir.
 - Build, test, dokuman ve yayin artefaktlari ayni seviyede durabilir; ancak gecici dosyalar ve yedek klasorleri repoda kalmamalidir.
 - GitHub Pages yayini `.github/workflows/pages.yml` uzerinden yapilir; workflow `npm run prebuild` ile `docs/app` senkronunu otomatik uretir.
+- Desktop paketleme `npm run prepare:desktop-data` ile `Data/` klasorunu hazirlar; yerel ZIP yoksa `docs/data/` altindaki izlenen ornek paketler fallback olarak kullanilir.
 
 ## Kalan Borc
 
