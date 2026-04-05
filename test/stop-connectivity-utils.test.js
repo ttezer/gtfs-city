@@ -4,7 +4,7 @@ const assert = require('node:assert/strict');
 const {
   buildCorridorKey,
   generateStopConnectivitySnapshot,
-} = require('../stop-connectivity-utils');
+} = require('../src/utils/stop-connectivity-utils');
 
 test('buildCorridorKey uses direction when available', () => {
   assert.equal(buildCorridorKey({ s: '34', dir: 1, h: 'Downtown' }), '34::dir:1');

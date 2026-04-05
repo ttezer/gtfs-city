@@ -9,7 +9,7 @@ Turkish README: [README.md](./README.md)
 - single active GTFS dataset
 - upload-first startup flow
 - route, stop, and vehicle detail panels
-- headway, waiting time, density, and coverage layers
+- headway, heatmap, connectivity grid, and coverage layers
 - HTTPS GTFS ZIP loading support inside `Electron`
 - screenshot tool with multiple export styles
 - route print and stop print flows with preview / A4 output
@@ -132,32 +132,32 @@ The `Try with sample data` cards on the landing screen use bundled sample packag
 ## Where Should I Look?
 
 - For bug reports: open a new record in `Issues` with the `bug` label.
-- If you are looking for an existing fix: first check `hata-listesi.md`, then `CHANGELOG.md`, then related `Issues`.
+- If you are looking for an existing fix: first check `docs/repo/hata-listesi.md`, then `CHANGELOG.md`, then related `Issues`.
 - For new features: open a request in `Issues` with the `feature` label or review existing requests.
-- For priorities and upcoming work: read `isplani.md` and `yol-haritasi.md`.
+- For priorities and upcoming work: read `docs/repo/isplani.md` and `docs/repo/yol-haritasi.md`.
 - For contribution and PR flow: follow `CONTRIBUTING.md`.
 
 ## Core Files
 
 - `index.html` - UI shell
-- `script.js` - orchestration and shared state
-- `data-manager.js` - GTFS loading and runtime apply flow
-- `city-manager.js` - active dataset card and visibility flow
-- `service-manager.js` - service calendar and service filtering
-- `map-manager.js` - Deck.gl layers
-- `ui-manager.js` - panels and user interactions
-- `simulation-engine.js` - simulation and replay loop
+- `src/runtime/script.js` - orchestration and shared state
+- `src/managers/data-manager.js` - GTFS loading and runtime apply flow
+- `src/managers/city-manager.js` - active dataset card and visibility flow
+- `src/managers/service-manager.js` - service calendar and service filtering
+- `src/managers/map-manager.js` - Deck.gl layers
+- `src/managers/ui-manager.js` - panels and user interactions
+- `src/runtime/simulation-engine.js` - simulation and replay loop
 - `electron/main.js` / `electron/preload.js` - Electron bridge
 
 ## Documents
 
-- `mimari.md` - technical structure
-- `docs/repo-akisi.md` - repository layout, cleanup decisions, and workflow diagram
-- `kontrol.md` - working rules
-- `isplani.md` - current status and next work
-- `yol-haritasi.md` - mid and long term roadmap headings
-- `hata-listesi.md` - open bugs and data correctness issues
-- `desktop-web-notu.md` - platform limitations
+- `docs/repo/mimari.md` - technical structure
+- `docs/repo/repo-akisi.md` - repository layout, cleanup decisions, and workflow diagram
+- `docs/repo/kontrol.md` - working rules
+- `docs/repo/isplani.md` - current status and next work
+- `docs/repo/yol-haritasi.md` - mid and long term roadmap headings
+- `docs/repo/hata-listesi.md` - open bugs and data correctness issues
+- `docs/repo/desktop-web-notu.md` - platform limitations
 - `CHANGELOG.md` - short product milestones
 - `CONTRIBUTING.md` - contribution flow
 - `docs/` - GitHub Pages showcase files
@@ -171,7 +171,7 @@ The static showcase page lives in the `docs/` directory.
 ## Document Hierarchy
 
 - `AGENTS.md` - workflow rules and decision memory
-- `kontrol.md` - operational checklist
-- `mimari.md` - technical context
-- `isplani.md` - current status
-- `yol-haritasi.md` - mid and long term direction
+- `docs/repo/kontrol.md` - operational checklist
+- `docs/repo/mimari.md` - technical context
+- `docs/repo/isplani.md` - current status
+- `docs/repo/yol-haritasi.md` - mid and long term direction

@@ -19,7 +19,8 @@
 
 - [ ] README gerekli degil
 - [ ] CHANGELOG gerekli degil
-- [ ] isplani gerekli degil
+- [ ] docs/repo/repo-akisi gerekli degil
+- [ ] kontrol gerekli degil
 - [ ] yol-haritasi gerekli degil
 
 Gerekliyse guncellenen dosyalari yaz:

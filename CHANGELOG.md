@@ -61,4 +61,4 @@ Bu dosya, büyük ürün dönüm noktalarını kısa biçimde özetler.
 ## Not
 
 - Ayrıntılı günlük yerine kısa ürün kilometre taşları tutulur.
-- Açık işler `yol-haritasi.md` ve `hata-listesi.md` içinde izlenir.
+- Açık işler `docs/repo/yol-haritasi.md` ve `docs/repo/hata-listesi.md` içinde izlenir.

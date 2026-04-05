@@ -132,32 +132,32 @@ Landing ekranındaki `Örnek veriyle dene` kartları bundled örnek paketleri ku
 ## Nereye Bakmalıyım?
 
 - Hata raporu için: `Issues` üzerinde `bug` etiketiyle yeni kayıt açın.
-- Bir fix arıyorsanız: önce `hata-listesi.md`, sonra `CHANGELOG.md` ve ilgili `Issues` kayıtlarını kontrol edin.
+- Bir fix arıyorsanız: önce `docs/repo/hata-listesi.md`, sonra `CHANGELOG.md` ve ilgili `Issues` kayıtlarını kontrol edin.
 - Yeni özellik için: `Issues` üzerinde `feature` etiketiyle talep açın veya mevcut talepleri inceleyin.
-- Öncelikler ve sonraki işler için: `isplani.md` ve `yol-haritasi.md` dosyalarına bakın.
+- Öncelikler ve sonraki işler için: `docs/repo/isplani.md`, `docs/repo/yol-haritasi.md` ve `docs/repo/hata-listesi.md` dosyalarına bakın.
 - Katkı ve PR akışı için: `CONTRIBUTING.md` dosyasını izleyin.
 
 ## Ana Dosyalar
 
 - `index.html` - arayüz iskeleti
-- `script.js` - orkestrasyon ve ortak state
-- `data-manager.js` - GTFS yükleme ve runtime apply
-- `city-manager.js` - aktif veri seti kartı ve görünürlük akışı
-- `service-manager.js` - çalışma takvimi ve servis filtresi
-- `map-manager.js` - Deck.gl katmanları
-- `ui-manager.js` - paneller ve kullanıcı etkileşimleri
-- `simulation-engine.js` - simülasyon ve replay döngüsü
+- `src/runtime/script.js` - orkestrasyon ve ortak state
+- `src/managers/data-manager.js` - GTFS yükleme ve runtime apply
+- `src/managers/city-manager.js` - aktif veri seti kartı ve görünürlük akışı
+- `src/managers/service-manager.js` - çalışma takvimi ve servis filtresi
+- `src/managers/map-manager.js` - Deck.gl katmanları
+- `src/managers/ui-manager.js` - paneller ve kullanıcı etkileşimleri
+- `src/runtime/simulation-engine.js` - simülasyon ve replay döngüsü
 - `electron/main.js` / `electron/preload.js` - Electron köprüsü
 
 ## Dokümanlar
 
-- `mimari.md` - teknik yapı
-- `docs/repo-akisi.md` - repo düzeni, temizlik kararları ve iş akışı şeması
-- `kontrol.md` - çalışma kuralları
-- `isplani.md` - güncel durum ve sonraki işler
-- `yol-haritasi.md` - orta ve uzun vadeli geliştirme başlıkları
-- `hata-listesi.md` - açık hata ve veri doğruluk sorunları
-- `desktop-web-notu.md` - platform sınırları
+- `docs/repo/mimari.md` - teknik yapı
+- `docs/repo/repo-akisi.md` - repo düzeni, temizlik kararları ve iş akışı şeması
+- `docs/repo/kontrol.md` - resmi çalışma standardı
+- `docs/repo/isplani.md` - güncel durum ve kısa vadeli odaklar
+- `docs/repo/yol-haritasi.md` - orta ve uzun vadeli geliştirme başlıkları
+- `docs/repo/hata-listesi.md` - açık hata ve veri doğruluk sorunları
+- `docs/repo/desktop-web-notu.md` - desktop/web farkları için destek notu
 - `CHANGELOG.md` - kısa ürün kilometre taşları
 - `CONTRIBUTING.md` - katkı akışı
 - `docs/` - GitHub Pages vitrin dosyaları
@@ -182,7 +182,8 @@ Statik vitrin sayfası `docs/` klasöründedir.
 ## Belge Hiyerarsisi
 
 - `AGENTS.md` - çalışma çerçevesi ve karar hafızası
-- `kontrol.md` - operasyonel kontrol listesi
-- `mimari.md` - teknik bağlam
-- `isplani.md` - güncel durum
-- `yol-haritasi.md` - orta ve uzun vadeli yön
+- `docs/repo/kontrol.md` - resmi iş yapma standardı
+- `docs/repo/mimari.md` - teknik bağlam
+- `docs/repo/isplani.md` - güncel durum
+- `docs/repo/repo-akisi.md` - repo düzeni, build ve yayın akışı
+- `docs/repo/yol-haritasi.md` - orta ve uzun vadeli yön

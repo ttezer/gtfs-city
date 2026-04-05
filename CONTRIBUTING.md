@@ -25,7 +25,7 @@ Bu repo kamuya açık ve katkıya açıktır. Amaç, çalışan masaüstü ve we
 - Desktop ve Web akışları birbirine karıştırılmaz.
 - Türkçe içeren metin dosyalarında güvenli yama akışı kullanılır.
 - Büyük refactor yerine hedefli refactor tercih edilir.
-- Yeni özellikler önce `yol-haritasi.md` veya `hata-listesi.md` içinde görünür olmalı.
+- Yeni özellikler önce `docs/repo/yol-haritasi.md` veya `docs/repo/hata-listesi.md` içinde görünür olmalı.
 
 ## Hafif Repo Yönetimi
 
@@ -94,7 +94,7 @@ Bir issue için hedef maksimum 3-5 etiket kullanmaktır.
 
 ### Issue açmadan önce
 
-1. `README.md`, `hata-listesi.md`, `yol-haritasi.md` ve `CHANGELOG.md` kontrol edilir.
+1. `README.md`, `docs/repo/hata-listesi.md`, `docs/repo/yol-haritasi.md` ve `CHANGELOG.md` kontrol edilir.
 2. Benzer açık issue var mı bakılır.
 3. İş tek satırlık bir typo mu, yoksa izlenmesi gereken bir iş mi karar verilir.
 
@@ -116,7 +116,7 @@ Bir issue için hedef maksimum 3-5 etiket kullanmaktır.
 
 1. İlgili sorunu veya öneriyi önce issue olarak aç veya mevcut issue ile ilişkilendir.
 2. Etkilenen dosyaları ve akışı kısa notla netleştir.
-3. Gerekirse `isplani.md`, `yol-haritasi.md` veya `hata-listesi.md` güncelle.
+3. Gerekirse `docs/repo/isplani.md`, `docs/repo/yol-haritasi.md`, `docs/repo/hata-listesi.md`, `docs/repo/repo-akisi.md` veya `docs/repo/kontrol.md` güncelle.
 4. Küçük ve odaklı değişiklik yap.
 5. Aşağıdaki doğrulamaları çalıştır.
 6. PR açarken ilgili issue'yu bağla.
@@ -181,20 +181,23 @@ npm run build:win -- --dir
 ## Belge Kullanımı
 
 - `README.md` - ürün özeti ve kullanım
-- `mimari.md` - teknik yapı ve modül dağılımı
-- `kontrol.md` - çalışma kuralları
-- `isplani.md` - kısa güncel durum
-- `yol-haritasi.md` - özellik ve geliştirme başlıkları
-- `hata-listesi.md` - açık hata ve veri doğruluk sorunları
+- `docs/repo/mimari.md` - teknik yapı ve modül dağılımı
+- `docs/repo/kontrol.md` - resmi çalışma standardı
+- `docs/repo/isplani.md` - kısa güncel durum
+- `docs/repo/yol-haritasi.md` - özellik ve geliştirme başlıkları
+- `docs/repo/hata-listesi.md` - açık hata ve veri doğruluk sorunları
+- `docs/repo/repo-akisi.md` - repo düzeni, build ve yayın akışı
 - `CHANGELOG.md` - kullanıcıya görünen kayda değer değişiklikler
 
 ## Hangi Dosya Ne Zaman Güncellenir
 
 - `README.md`: kullanıcı ne yapacağını veya nereye bakacağını artık farklı öğreniyorsa
 - `CHANGELOG.md`: kullanıcıya görünen kayda değer değişiklik varsa
-- `isplani.md`: alınmış karar, tamamlanan tur veya kısa durum notu varsa
-- `yol-haritasi.md`: orta/uzun vadeli iş veya süreç standardı tanımlanıyorsa
-- `hata-listesi.md`: açık kalan bug veya veri doğruluğu sorunu varsa
+- `docs/repo/isplani.md`: alınmış karar, tamamlanan tur veya kısa durum notu varsa
+- `docs/repo/yol-haritasi.md`: orta/uzun vadeli iş veya süreç standardı tanımlanıyorsa
+- `docs/repo/hata-listesi.md`: açık kalan bug veya veri doğruluğu sorunu varsa
+- `docs/repo/repo-akisi.md`: repo düzeni, sync, build, release veya Pages akışı değiştiyse
+- `docs/repo/kontrol.md`: iş yapma standardı veya kontrol sırası değiştiyse
 
 ## Özellikle Kaçınılacaklar
 
