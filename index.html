@@ -226,7 +226,6 @@
     </div>
     <label class="tog-row"><input type="checkbox" id="tog-anim" checked><span class="tog-track"><span class="tog-thumb"></span></span>Araç Animasyonu</label>
     <label class="tog-row"><input type="checkbox" id="tog-paths" checked><span class="tog-track"><span class="tog-thumb"></span></span>Güzergâh Hatları</label>
-    <label class="tog-row"><input type="checkbox" id="tog-density" checked><span class="tog-track"><span class="tog-thumb"></span></span>Durak Yoğunluğu 3D</label>
     <label class="tog-row"><input type="checkbox" id="tog-stops" checked><span class="tog-track"><span class="tog-thumb"></span></span>Duraklar</label>
     <label class="tog-row"><input type="checkbox" id="tog-stop-coverage"><span class="tog-track"><span class="tog-thumb"></span></span>Durak 300 m</label>
     <div id="stop-coverage-controls" class="layer-subpanel hidden">
@@ -276,7 +275,6 @@
     <!-- FAZ 2 toggles -->
     <label class="tog-row faz2"><input type="checkbox" id="tog-headway"><span class="tog-track"><span class="tog-thumb"></span></span>Headway Çizgileri</label>
     <label class="tog-row faz2"><input type="checkbox" id="tog-bunching"><span class="tog-track"><span class="tog-thumb"></span></span>Bunching Alarmı</label>
-    <label class="tog-row faz2"><input type="checkbox" id="tog-waiting"><span class="tog-track"><span class="tog-thumb"></span></span>Bekleme Süresi 3D</label>
     <!-- İZOKRON -->
     <label class="tog-row"><input type="checkbox" id="tog-isochron"><span class="tog-track"><span class="tog-thumb"></span></span>İzokron Analiz 🗺️</label>
     <label class="tog-row"><input type="checkbox" id="tog-connectivity-grid"><span class="tog-track"><span class="tog-thumb"></span></span>Bağlantı Kareleri (Beta)</label>
@@ -469,14 +467,6 @@
 </div>
 
 <!-- İŞ-09: WORST STOPS PANEL -->
-<div id="worst-stops-panel" class="hidden">
-  <div id="worst-header">
-    <span>⏱ En Uzun Bekleme</span>
-    <span class="worst-sub">İlk 10 Durak</span>
-  </div>
-  <div id="worst-stops-list"></div>
-</div>
-
 <!-- İŞ-11: SİNEMATİK LABEL -->
 <div id="cinematic-label"></div>
 
@@ -729,25 +719,25 @@
   </div>
   <div id="isochron-stats" style="margin-top:10px;font-size:10px;color:#7d8590;border-top:1px solid rgba(48,54,61,0.6);padding-top:8px;display:none;"></div>
 </div>
-<script src="gtfs-math-utils.js?v=20260402b"></script>
-<script src="state-manager.js?v=20260402b"></script>
-<script src="simulation-engine.js?v=20260402b"></script>
-<script src="map-manager.js?v=20260402b"></script>
-<script src="ui-manager.js?v=20260402b"></script>
-<script src="planner-manager.js?v=20260402b"></script>
-<script src="stop-connectivity-utils.js?v=20260403a"></script>
-<script src="service-manager.js?v=20260402b"></script>
-<script src="city-manager.js?v=20260402b"></script>
-<script src="data-manager.js?v=20260402b"></script>
-<script src="app-manager.js?v=20260402b"></script>
-<script src="config.js?v=20260402b"></script>
-<script src="sim-utils.js?v=20260402b"></script>
-<script src="analytics-utils.js?v=20260402b"></script>
-<script src="gtfs-utils.js?v=20260402b"></script>
-<script src="gtfs-validator.js?v=20260402b"></script>
-<script src="render-utils.js?v=20260402b"></script>
-<script src="ui-utils.js?v=20260402b"></script>
-<script src="bootstrap-manager.js?v=20260402b"></script>
+<script src="src/utils/gtfs-math-utils.js?v=20260402b"></script>
+<script src="src/runtime/bridge-utils.js?v=20260405a"></script>
+<script src="src/runtime/simulation-engine.js?v=20260402b"></script>
+<script src="src/managers/map-manager.js?v=20260402b"></script>
+<script src="src/managers/ui-manager.js?v=20260402b"></script>
+<script src="src/managers/planner-manager.js?v=20260402b"></script>
+<script src="src/utils/stop-connectivity-utils.js?v=20260403a"></script>
+<script src="src/managers/service-manager.js?v=20260402b"></script>
+<script src="src/managers/city-manager.js?v=20260402b"></script>
+<script src="src/managers/data-manager.js?v=20260402b"></script>
+<script src="src/managers/app-manager.js?v=20260402b"></script>
+<script src="src/core/config.js?v=20260402b"></script>
+<script src="src/utils/sim-utils.js?v=20260402b"></script>
+<script src="src/utils/analytics-utils.js?v=20260402b"></script>
+<script src="src/utils/gtfs-utils.js?v=20260402b"></script>
+<script src="src/utils/gtfs-validator.js?v=20260402b"></script>
+<script src="src/utils/render-utils.js?v=20260402b"></script>
+<script src="src/utils/ui-utils.js?v=20260402b"></script>
+<script src="src/core/bootstrap-manager.js?v=20260402b"></script>
 <script>
 window.BootstrapManager?.start?.();
 </script>

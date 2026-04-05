@@ -334,7 +334,7 @@
           const basePath = toWindowsFilePath(window.location.href || window.location.pathname || '');
           const baseDir = basePath.replace(/\\index\.html?$/i, '');
           const [mathResult, workerResult] = await Promise.all([
-            window.electronAPI.readGTFSFile(`${baseDir}\\gtfs-math-utils.js`),
+      window.electronAPI.readGTFSFile(`${baseDir}\\src\\utils\\gtfs-math-utils.js`),
             window.electronAPI.readGTFSFile(`${baseDir}\\gtfs-worker.js`),
           ]);
           if (mathResult?.success && workerResult?.success) {
@@ -362,7 +362,7 @@
     async function createBlobWorkerFromFetch() {
       try {
         const [mathSource, workerSource] = await Promise.all([
-          fetch('gtfs-math-utils.js').then((res) => res.text()),
+      fetch('src/utils/gtfs-math-utils.js').then((res) => res.text()),
           fetch('gtfs-worker.js').then((res) => res.text()),
         ]);
         const blob = new Blob(

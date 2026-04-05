@@ -6,7 +6,7 @@ const {
   buildRouteTooltipHtml,
   findNearestStopName,
   buildVehiclePanelState,
-} = require('../ui-utils');
+} = require('../src/utils/ui-utils');
 
 test('buildStopTooltipHtml includes stop name and code', () => {
   const html = buildStopTooltipHtml({ name: 'Ayrılık Çeşmesi', code: '1234' });

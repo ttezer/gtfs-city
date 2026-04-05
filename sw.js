@@ -12,7 +12,7 @@ const STATIC_ASSETS = [
   './',
   './index.html',
   './style.css',
-  './script.js',
+  './src/runtime/script.js',
 ];
 
 // Tile host'ları — cache-first strateji

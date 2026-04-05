@@ -7,7 +7,7 @@ const {
   buildRouteMap,
   buildTripStopsMap,
   buildGtfsRuntimeData,
-} = require('../gtfs-utils');
+} = require('../src/utils/gtfs-utils');
 
 test('hhmmToSec parses GTFS time strings', () => {
   assert.equal(hhmmToSec('06:45:30'), 24330);
@@ -50,7 +50,7 @@ test('buildTripStopsMap sorts stop_times by sequence', () => {
 });
 
 test('buildTripMetaMap keeps service id', () => {
-  const { buildTripMetaMap } = require('../gtfs-utils');
+const { buildTripMetaMap } = require('../src/utils/gtfs-utils');
   const tripMeta = buildTripMetaMap([
     { trip_id: 't1', route_id: 'r1', shape_id: 'sh1', trip_headsign: 'Merkez', service_id: 'weekday' },
   ]);
