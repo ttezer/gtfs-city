@@ -554,7 +554,6 @@ window.DataManager = (function () {
 
     ctx.setRuntimeCollections?.(runtimeData);
 
-    ctx.syncRuntimeAliases();
     patchTripsAbsoluteTime(ctx.getTrips(), ctx.getStopDeps());
     normalizeTripStopOffsets(ctx.getTrips());
     attachStopSequencesFromDeps(ctx.getTrips(), ctx.getStopDeps());

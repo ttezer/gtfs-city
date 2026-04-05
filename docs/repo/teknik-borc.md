@@ -17,7 +17,7 @@ Amaç, mimari ve operasyonel yükü görünür kılmak ve zaman içindeki ilerle
 |---|---|---|---|---|---|
 | 1 | `src/runtime/script.js` dosyasının hâlâ ana orkestrasyon omurgası olması | Kritik | Azaldı ama açık | En büyük mimari yük hâlâ burada | runtime orkestrasyonu, state bağları, bridge kurulumları |
 | 2 | Legacy bridge katmanlarının tam sözleşmeye inmemiş olması | Kritik | Azaldı ama açık | Modül sınırlarını bulanıklaştırıyor | `LegacyMapBridge`, `LegacyServiceBridge`, `LegacyDataBridge` |
-| 3 | Dataset state'in çift yüzeyli olması | Kritik | Açık | Veri sahipliği hâlâ iki kaynakta yaşıyor | `AppState.*` ve `TRIPS/SHAPES/STOPS/...` |
+| 3 | Dataset state'in çift yüzeyli olması | Kritik | Kapandı | `AppState.*` tek resmi kaynak; global alias'lar ve `syncRuntimeAliases` kaldırıldı | `AppState.*` ve `TRIPS/SHAPES/STOPS/...` |
 | 4 | State akışının tek tip resmi sözleşmeye tam oturmamış olması | Yüksek | Azaldı ama açık | Yeni refactorlarda yan etki riski taşıyor | selection, session, analytics state |
 | 5 | Manager sınırlarının iyileşmiş ama hâlâ geçirgen olması | Yüksek | Açık | `runtime -> manager` bağımlılık yüzeyi geniş | `ui`, `map`, `service`, `planner`, `data` |
 | 6 | UTF-8 / metin standardının repo genelinde tam temiz olmaması | Orta | Açık | Güven ve bakım kalitesini düşürüyor | `.md`, yorumlar, UI metinleri |
