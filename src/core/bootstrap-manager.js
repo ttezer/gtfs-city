@@ -48,8 +48,10 @@ window.BootstrapManager = (function () {
               loadScript('src/runtime/playback-controls.js', function () {
                 loadScript('src/runtime/type-filter-controls.js', function () {
                   loadScript('src/runtime/section-collapse-controls.js', function () {
-                    loadScript('src/runtime/script.js', function () {
-                      window._dataLoaded = true;
+                    loadScript('src/runtime/tariff-sheets.js', function () {
+                      loadScript('src/runtime/script.js', function () {
+                        window._dataLoaded = true;
+                      });
                     });
                   });
                 });

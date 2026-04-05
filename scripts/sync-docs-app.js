@@ -28,6 +28,7 @@ const fileCopies = [
   'src/runtime/playback-controls.js',
   'src/runtime/type-filter-controls.js',
   'src/runtime/section-collapse-controls.js',
+  'src/runtime/tariff-sheets.js',
   'src/runtime/script.js',
   'src/managers/service-manager.js',
   'src/utils/sim-utils.js',
