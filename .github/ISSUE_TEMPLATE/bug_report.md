@@ -1,28 +1,28 @@
 ---
 name: Hata bildirimi
-about: Uygulama davranışındaki bir sorunu raporla
+about: Uygulamadaki bir sorunu raporla
 title: "[Bug] "
 labels: bug
 assignees: ""
 ---
 
-## Özet
+## Ozet
 
-Sorunu kısa ve net anlat.
+Sorunu kisa ve net anlat.
 
-## Beklenen Davranış
+## Beklenen Davranis
 
-Ne olması gerekiyordu?
+Ne olmasi gerekiyordu?
 
-## Mevcut Davranış
+## Mevcut Davranis
 
 Ne oldu?
 
-## Adımlar
+## Adimlar
 
-1. 
-2. 
-3. 
+1.
+2.
+3.
 
 ## Platform
 
@@ -31,13 +31,13 @@ Ne oldu?
 
 ## Veri Seti
 
-- GTFS adı:
-- Şehir / kurum:
+- GTFS adi:
+- Sehir / kurum:
 
-## Ekran Görüntüsü / Konsol
+## Ekran Goruntusu / Konsol
 
 Varsa ekle.
 
 ## Ek Not
 
-Veri kaynaklı şüphe varsa belirt.
+Veri kaynakli suphe varsa belirt.

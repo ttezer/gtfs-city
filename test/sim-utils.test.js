@@ -9,7 +9,7 @@ const {
   getVehiclePos,
   getTripProgressAtTime,
   computeAverageHeadwaySeconds,
-} = require('../sim-utils');
+} = require('../src/utils/sim-utils');
 
 test('secsToHHMM formats midnight and wraps 24h', () => {
   assert.equal(secsToHHMM(0), '00:00');

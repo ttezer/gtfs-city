@@ -8,10 +8,10 @@ const filesToCheck = [
   'README.en.md',
   'CHANGELOG.md',
   'CONTRIBUTING.md',
-  'isplani.md',
-  'yol-haritasi.md',
-  'mimari.md',
-  'kontrol.md',
+  'docs/repo/isplani.md',
+  'docs/repo/yol-haritasi.md',
+  'docs/repo/mimari.md',
+  'docs/repo/kontrol.md',
   'package.json',
   'docs/index.html',
   'docs/styles.css',
@@ -32,8 +32,8 @@ const turkishDocs = new Set([
   'README.md',
   'CHANGELOG.md',
   'CONTRIBUTING.md',
-  'isplani.md',
-  'yol-haritasi.md',
+  'docs/repo/isplani.md',
+  'docs/repo/yol-haritasi.md',
 ]);
 
 const asciiTurkishPatterns = [

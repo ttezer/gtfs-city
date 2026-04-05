@@ -1,22 +1,22 @@
 ---
-name: Özellik isteği
-about: Yeni özellik veya geliştirme öner
+name: Ozellik istegi
+about: Yeni ozellik veya gelistirme oner
 title: "[Feature] "
 labels: enhancement
 assignees: ""
 ---
 
-## Özet
+## Ozet
 
-Öneriyi kısa ve net anlat.
+Oneriyi kisa ve net anlat.
 
-## Amaç
+## Amac
 
-Bu özellik hangi problemi çözüyor?
+Bu ozellik hangi problemi cozuyor?
 
-## Önerilen Davranış
+## Onerilen Davranis
 
-Nasıl çalışmasını bekliyorsun?
+Nasil calismasini bekliyorsun?
 
 ## Platform
 
@@ -24,12 +24,12 @@ Nasıl çalışmasını bekliyorsun?
 - [ ] Web
 - [ ] Her ikisi
 
-## Öncelik Algısı
+## Oncelik Algisi
 
-- [ ] Yüksek
+- [ ] Yuksek
 - [ ] Orta
-- [ ] Düşük
+- [ ] Dusuk
 
 ## Ek Not
 
-Varsa veri, ekran görüntüsü veya benzer ürün örneği ekle.
+Varsa veri, ekran goruntusu veya benzer urun ornegi ekle.

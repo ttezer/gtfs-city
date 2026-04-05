@@ -7,7 +7,7 @@ const {
   getRouteMeta,
   getModelNotice,
   getModelOrientation,
-} = require('../render-utils');
+} = require('../src/utils/render-utils');
 
 test('displayText repairs mojibake fragments', () => {
   assert.equal(displayText('MinibÃ¼s'), 'Minibüs');

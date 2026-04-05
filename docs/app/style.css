@@ -501,22 +501,6 @@ body{font-family:'Barlow Condensed','Segoe UI Emoji','Apple Color Emoji','Noto C
 .bunch-dist{font-family:'Space Mono',monospace;color:var(--red);font-size:10px;flex-shrink:0;}
 
 /* İŞ-09: WORST STOPS PANEL */
-#worst-stops-panel{
-  position:absolute;left:310px;bottom:70px;width:255px;
-  background:var(--surface);border:1px solid rgba(210,153,34,.4);border-radius:8px;
-  z-index:200;max-height:40vh;display:flex;flex-direction:column;
-  backdrop-filter:blur(16px);box-shadow:0 8px 32px rgba(0,0,0,.6);
-}
-#worst-header{
-  padding:9px 12px;border-bottom:1px solid rgba(48,54,61,.5);
-  display:flex;justify-content:space-between;align-items:center;flex-shrink:0;
-}
-#worst-header span{font-size:12px;font-weight:700;color:var(--yellow);}
-.worst-sub{font-size:9px;color:var(--text-muted)!important;font-weight:400!important;}
-#worst-stops-list{overflow-y:auto;max-height:calc(40vh - 40px);padding:4px 0;}
-#worst-stops-list::-webkit-scrollbar{width:2px;}
-.worst-item{display:flex;align-items:center;gap:7px;padding:5px 12px;border-bottom:1px solid rgba(48,54,61,.3);font-size:11px;cursor:pointer;transition:background .12s;}
-.worst-item:hover{background:rgba(210,153,34,.08);}
 .worst-rank{font-family:'Space Mono',monospace;font-size:10px;color:var(--text-muted);width:14px;flex-shrink:0;}
 .worst-name{flex:1;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
 .worst-time{font-family:'Space Mono',monospace;color:var(--yellow);font-weight:700;font-size:11px;flex-shrink:0;}
@@ -546,7 +530,6 @@ body.cinematic-mode #sidebar,
 body.cinematic-mode #legend,
 body.cinematic-mode #heatmap-ctrl,
 body.cinematic-mode #bunching-panel,
-body.cinematic-mode #worst-stops-panel,
 body.cinematic-mode #vehicle-panel,
 body.cinematic-mode #route-result{
   opacity:0;pointer-events:none;transition:opacity .6s;
@@ -1162,7 +1145,6 @@ body.capture-hide-sidebar #sidebar-toggle {
 body.capture-hide-overlays .drawer,
 body.capture-hide-overlays #route-planner-panel,
 body.capture-hide-overlays #bunching-panel,
-body.capture-hide-overlays #worst-stops-panel,
 body.capture-hide-overlays #gtfs-warning-dash,
 body.capture-hide-overlays #isochron-panel,
 body.capture-hide-overlays #follow-bar,
@@ -1198,7 +1180,6 @@ body.capture-preset-blueprint #sidebar,
 body.capture-preset-blueprint .drawer,
 body.capture-preset-blueprint #route-planner-panel,
 body.capture-preset-blueprint #bunching-panel,
-body.capture-preset-blueprint #worst-stops-panel,
 body.capture-preset-blueprint #isochron-panel {
   background: rgba(5, 14, 24, 0.9) !important;
   border-color: rgba(84, 181, 255, 0.22) !important;
@@ -1221,7 +1202,6 @@ body.capture-preset-transit-poster #sidebar,
 body.capture-preset-transit-poster .drawer,
 body.capture-preset-transit-poster #route-planner-panel,
 body.capture-preset-transit-poster #bunching-panel,
-body.capture-preset-transit-poster #worst-stops-panel,
 body.capture-preset-transit-poster #isochron-panel {
   background: rgba(248, 249, 252, 0.9) !important;
   color: #102033 !important;
@@ -1241,7 +1221,6 @@ body.capture-preset-cartoon-map #sidebar,
 body.capture-preset-cartoon-map .drawer,
 body.capture-preset-cartoon-map #route-planner-panel,
 body.capture-preset-cartoon-map #bunching-panel,
-body.capture-preset-cartoon-map #worst-stops-panel,
 body.capture-preset-cartoon-map #isochron-panel {
   border-width: 2px !important;
   box-shadow: 0 10px 0 rgba(0, 0, 0, 0.2) !important;
@@ -1261,7 +1240,6 @@ body.capture-preset-minimal-white #sidebar,
 body.capture-preset-minimal-white .drawer,
 body.capture-preset-minimal-white #route-planner-panel,
 body.capture-preset-minimal-white #bunching-panel,
-body.capture-preset-minimal-white #worst-stops-panel,
 body.capture-preset-minimal-white #isochron-panel {
   background: rgba(255, 255, 255, 0.92) !important;
   color: #17212b !important;
@@ -1282,7 +1260,6 @@ body.capture-preset-schematic #sidebar,
 body.capture-preset-schematic .drawer,
 body.capture-preset-schematic #route-planner-panel,
 body.capture-preset-schematic #bunching-panel,
-body.capture-preset-schematic #worst-stops-panel,
 body.capture-preset-schematic #isochron-panel {
   background: rgba(12, 18, 27, 0.95) !important;
   border-color: rgba(255, 255, 255, 0.18) !important;
@@ -1310,7 +1287,6 @@ body.capture-preset-neo-transit #sidebar,
 body.capture-preset-neo-transit .drawer,
 body.capture-preset-neo-transit #route-planner-panel,
 body.capture-preset-neo-transit #bunching-panel,
-body.capture-preset-neo-transit #worst-stops-panel,
 body.capture-preset-neo-transit #isochron-panel {
   background: rgba(7, 13, 25, 0.9) !important;
   border-color: rgba(0, 223, 255, 0.22) !important;
@@ -1330,7 +1306,6 @@ body.capture-preset-vintage-metro #sidebar,
 body.capture-preset-vintage-metro .drawer,
 body.capture-preset-vintage-metro #route-planner-panel,
 body.capture-preset-vintage-metro #bunching-panel,
-body.capture-preset-vintage-metro #worst-stops-panel,
 body.capture-preset-vintage-metro #isochron-panel {
   background: rgba(70, 52, 35, 0.78) !important;
   border-color: rgba(235, 214, 178, 0.18) !important;
@@ -1358,7 +1333,6 @@ body.capture-preset-comic-panel #sidebar,
 body.capture-preset-comic-panel .drawer,
 body.capture-preset-comic-panel #route-planner-panel,
 body.capture-preset-comic-panel #bunching-panel,
-body.capture-preset-comic-panel #worst-stops-panel,
 body.capture-preset-comic-panel #isochron-panel {
   border-width: 2px !important;
   border-color: rgba(255, 255, 255, 0.28) !important;

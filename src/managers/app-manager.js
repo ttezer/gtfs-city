@@ -1,0 +1,415 @@
+window.AppManager = (function () {
+  let sampleManifest = [];
+  const WEBGL_RECOVERY_MAP_FLAG = 'gtfs-city-webgl-recover-map';
+
+  function getCtx() {
+    return window.LegacyAppBridge?.getContext?.() || null;
+  }
+
+  function getElement(id) {
+    return document.getElementById(id);
+  }
+
+  function setText(element, value) {
+    if (element) element.textContent = value;
+  }
+
+  function translate(key, fallback = '') {
+    return window.I18n?.t?.(key, fallback) || fallback || key;
+  }
+
+  function getTrips(ctx) {
+    if (!ctx) return [];
+    return Array.isArray(ctx.getTrips?.()) ? ctx.getTrips() : [];
+  }
+
+  function getStops(ctx) {
+    if (!ctx) return [];
+    return Array.isArray(ctx.getStops?.()) ? ctx.getStops() : [];
+  }
+
+  function toggleHidden(element, hidden) {
+    if (!element) return;
+    element.classList.toggle('hidden', hidden);
+  }
+
+  function triggerResize(delay = 100) {
+    setTimeout(() => window.dispatchEvent(new Event('resize')), delay);
+  }
+
+  function getLandingElements() {
+    return {
+      route: getElement('lp-count-routes'),
+      trip: getElement('lp-count-trips'),
+      stop: getElement('lp-count-stops'),
+      upload: getElement('lp-btn-upload'),
+      start: getElement('lp-btn-start'),
+    };
+  }
+
+  function getLocale() {
+    return window.I18n?.getLanguage?.() === 'en' ? 'en-US' : 'tr-TR';
+  }
+
+  function escapeHtml(value) {
+    return String(value || '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+  }
+
+  function getRuntimeMode() {
+    if (window.IS_ELECTRON) return 'desktop';
+    const pathname = String(window.location.pathname || '').replace(/\\/g, '/').toLowerCase();
+    if (
+      pathname.includes('/docs/app/')
+      || pathname.endsWith('/app')
+      || pathname.endsWith('/app/')
+      || pathname.endsWith('/app/index.html')
+    ) {
+      return 'web-demo';
+    }
+    return 'root';
+  }
+
+  function getSampleManifestUrl() {
+    const relativePath = getRuntimeMode() === 'web-demo'
+      ? '../data/samples.json'
+      : './docs/data/samples.json';
+    return new URL(relativePath, window.location.href).toString();
+  }
+
+  function resolveFlagPath(countryCode) {
+    return `./assets/flags/${String(countryCode || '').toLowerCase() || 'tr'}.svg`;
+  }
+
+  function clearLegacySampleCards() {
+    const grid = getElement('lp-examples-grid');
+    if (!grid) return;
+    grid.innerHTML = '';
+  }
+
+  function getSampleLoadConfig(sample) {
+    if (!sample) return null;
+    const runtimeMode = getRuntimeMode();
+    if (sample.loadStrategy === 'bundled') {
+      if (!sample.localPath) return null;
+      if (runtimeMode === 'desktop') {
+        return {
+          kind: 'local',
+          path: new URL(`./${sample.localPath}`, window.location.href).toString(),
+          fileName: sample.fileName || `${sample.city || 'sample'}.zip`,
+        };
+      }
+      if (runtimeMode === 'web-demo') {
+        return {
+          kind: 'remote',
+          url: new URL(`../${sample.localPath.replace(/^docs\//, '')}`, window.location.href).toString(),
+          fileName: sample.fileName || `${sample.city || 'sample'}.zip`,
+        };
+      }
+      return null;
+    }
+    if (sample.loadStrategy === 'remote' && runtimeMode === 'desktop' && sample.remoteUrl) {
+      return {
+        kind: 'remote',
+        url: sample.remoteUrl,
+        fileName: sample.fileName || `${sample.city || 'sample'}.zip`,
+      };
+    }
+    return null;
+  }
+
+  function getSampleNote(sample) {
+    const config = getSampleLoadConfig(sample);
+    if (config) {
+      return sample.note || translate(
+        'sampleNoteBundled',
+        getRuntimeMode() === 'web-demo'
+          ? 'Bundled sample package for the web demo.'
+          : 'Bundled sample package for the app.'
+      );
+    }
+    if (sample.loadStrategy === 'remote') {
+      return translate(
+        window.IS_ELECTRON ? 'sampleNoteExternalElectron' : 'sampleNoteExternalWeb',
+        window.IS_ELECTRON
+          ? 'This card loads from an external source.'
+          : 'This card is reference-only in the web demo; automatic loading is disabled.'
+      );
+    }
+    return sample.note || '';
+  }
+
+  function renderSampleCards() {
+    const grid = getElement('lp-examples-grid');
+    if (!grid) return;
+    grid.innerHTML = sampleManifest.map((sample) => {
+      const config = getSampleLoadConfig(sample);
+      const buttonLabel = config
+        ? translate('landingExampleLoad', 'Load Sample')
+        : translate('landingExampleExternal', 'External Source');
+      const badgeLabel = sample.loadStrategy === 'bundled'
+        ? translate('sampleBadgeBundled', 'Bundled Demo')
+        : translate('sampleBadgeExternal', 'External');
+      return `
+        <article class="lp-example-card">
+          <div class="lp-example-top">
+            <div class="lp-example-place">
+              <img class="lp-example-flag" src="${escapeHtml(resolveFlagPath(sample.countryCode))}" alt="${escapeHtml(`${sample.countryCode || ''} flag`)}">
+              <span class="lp-example-city">${escapeHtml(sample.city)}</span>
+            </div>
+            <span class="lp-example-badge">${escapeHtml(badgeLabel)}</span>
+          </div>
+          <div class="lp-example-org">${escapeHtml(sample.agency)}</div>
+          <div class="lp-example-note">${escapeHtml(getSampleNote(sample))}</div>
+          <div class="lp-example-actions">
+            <button class="lp-btn outline lp-example-load" ${config ? `data-kind="${escapeHtml(config.kind || '')}" ${config.url ? `data-url="${escapeHtml(config.url)}"` : ''} ${config.path ? `data-path="${escapeHtml(config.path)}"` : ''} data-name="${escapeHtml(config.fileName)}"` : 'disabled'}>${escapeHtml(buttonLabel)}</button>
+            <a class="lp-example-source" href="${escapeHtml(sample.sourcePage || '#')}" target="_blank" rel="noreferrer">${escapeHtml(translate('landingExampleSource', 'Open Source'))}</a>
+          </div>
+        </article>
+      `;
+    }).join('');
+
+    grid.querySelectorAll('.lp-example-load').forEach((button) => {
+      if (button.disabled) return;
+      button.addEventListener('click', () => {
+        const kind = button.dataset.kind || 'remote';
+        const url = button.dataset.url || '';
+        const path = button.dataset.path || '';
+        const fileName = button.dataset.name || '';
+        if (kind === 'local') {
+          window.DataManager?.handleGTFSLocalPath?.(path, { fileName });
+          return;
+        }
+        window.DataManager?.handleGTFSUrl?.(url, { fileName });
+      });
+    });
+  }
+
+  async function loadSampleManifest() {
+    try {
+      const response = await fetch(getSampleManifestUrl(), { cache: 'no-store' });
+      if (!response.ok) throw new Error(`${response.status} ${response.statusText}`.trim());
+      const manifest = await response.json();
+      sampleManifest = Array.isArray(manifest?.samples) ? manifest.samples : [];
+      renderSampleCards();
+    } catch (error) {
+      console.error('[samples] manifest could not be loaded:', error);
+    }
+  }
+
+  function updateStartButtonState() {
+    const ctx = getCtx();
+    const { upload, start } = getLandingElements();
+    if (!ctx || !upload || !start) return;
+    const hasTrips = getTrips(ctx).length > 0;
+    start.disabled = !hasTrips;
+    start.classList.toggle('hidden', !hasTrips);
+    start.textContent = translate('landingStartButton', 'Open Map');
+    upload.textContent = hasTrips
+      ? translate('uploadAnother', 'Upload Another GTFS ZIP')
+      : translate('landingUploadButton', 'Upload GTFS ZIP');
+    upload.disabled = false;
+    upload.style.removeProperty('--load-pct');
+    upload.classList.remove('is-loading');
+  }
+
+  function setLandingUploadState({ loading = false, pct = 0, label = '', routeCount = null, tripCount = null, stopCount = null } = {}) {
+    const elements = getLandingElements();
+    if (loading) {
+      if (elements.upload) {
+        const boundedPct = Math.max(0, Math.min(100, Math.round(pct)));
+        elements.upload.disabled = true;
+        elements.upload.classList.add('is-loading');
+        elements.upload.style.setProperty('--load-pct', `${boundedPct}%`);
+        elements.upload.textContent = `${label || translate('loading', 'Loading...')} %${boundedPct}`;
+      }
+      if (elements.start) {
+        elements.start.disabled = true;
+        elements.start.classList.add('hidden');
+      }
+      if (routeCount !== null) setText(elements.route, Number(routeCount).toLocaleString(getLocale()));
+      if (tripCount !== null) setText(elements.trip, Number(tripCount).toLocaleString(getLocale()));
+      if (stopCount !== null) setText(elements.stop, Number(stopCount).toLocaleString(getLocale()));
+      return;
+    }
+    updateStartButtonState();
+  }
+
+  function updateLandingPageReports() {
+    const ctx = getCtx();
+    if (!ctx) return;
+    const trips = getTrips(ctx);
+    const stops = getStops(ctx);
+    const elements = getLandingElements();
+    if (!trips || !trips.length) {
+      setText(elements.route, '--');
+      setText(elements.trip, '--');
+      setText(elements.stop, '--');
+      updateStartButtonState();
+      return;
+    }
+    const routeSet = new Set();
+    for (let index = 0; index < trips.length; index++) routeSet.add(trips[index].s);
+    setText(elements.route, routeSet.size.toLocaleString(getLocale()));
+    setText(elements.trip, trips.length.toLocaleString(getLocale()));
+    setText(elements.stop, (stops ? stops.length : 0).toLocaleString(getLocale()));
+    updateStartButtonState();
+    try {
+      if (sessionStorage.getItem(WEBGL_RECOVERY_MAP_FLAG) === '1') {
+        sessionStorage.removeItem(WEBGL_RECOVERY_MAP_FLAG);
+        toggleUI(true);
+      }
+    } catch (_) {}
+  }
+
+  function toggleUI(showMap) {
+    const lp = getElement('landing-page');
+    const sidebar = getElement('sidebar');
+    const homeBtn = getElement('home-toggle-btn');
+    const overlay = getElement('loading-overlay');
+    const ctx = getCtx();
+    if (showMap) {
+      toggleHidden(lp, true);
+      toggleHidden(sidebar, false);
+      toggleHidden(homeBtn, false);
+      toggleHidden(overlay, true);
+      triggerResize();
+      setTimeout(() => {
+        try {
+          ctx?.mapgl?.resize?.();
+          ctx?.refreshLayersNow?.();
+        } catch (_) {}
+      }, 0);
+      setTimeout(() => {
+        try {
+          ctx?.mapgl?.resize?.();
+          ctx?.refreshLayersNow?.();
+        } catch (_) {}
+      }, 150);
+      return true;
+    }
+
+    toggleHidden(lp, false);
+    toggleHidden(sidebar, true);
+    toggleHidden(homeBtn, true);
+    updateLandingPageReports();
+    return true;
+  }
+
+  function bindLandingControls() {
+    getElement('lp-btn-upload')?.addEventListener('click', () => {
+      const fileInput = getElement('gtfs-file-input');
+      if (fileInput) fileInput.click();
+      else getCtx()?.openGTFSModal();
+    });
+    getElement('lp-btn-url')?.addEventListener('click', () => {
+      window.DataManager?.handleGTFSUrl?.();
+    });
+    getElement('lp-gtfs-url')?.addEventListener('keydown', (event) => {
+      if (event.key === 'Enter') {
+        event.preventDefault();
+        window.DataManager?.handleGTFSUrl?.();
+      }
+    });
+    getElement('lp-btn-start')?.addEventListener('click', () => {
+      const ctx = getCtx();
+      if (!getTrips(ctx).length) return;
+      toggleUI(true);
+    });
+    getElement('home-toggle-btn')?.addEventListener('click', () => toggleUI(false));
+  }
+
+  function syncLandingSourceControls() {
+    const isElectron = !!window.IS_ELECTRON;
+    const linkNote = getElement('lp-link-note');
+    toggleHidden(getElement('lp-link-row'), !isElectron);
+    toggleHidden(linkNote, false);
+    if (linkNote) {
+      linkNote.textContent = translate(
+        isElectron ? 'linkNote' : 'linkNoteWeb',
+        isElectron
+          ? 'Only HTTPS GTFS ZIP links are accepted. External link safety is the user responsibility.'
+          : 'External links may be blocked by CORS in the web demo. Use the built-in sample data cards.'
+      );
+    }
+    renderSampleCards();
+  }
+
+  function initPlatformBadge() {
+    const badge = getElement('platform-badge');
+    if (!badge) return;
+    if (window.IS_ELECTRON) {
+      window.electronAPI?.getAppInfo?.().then((info) => {
+        badge.textContent = `${translate('platformElectron', 'ELECTRON')} / ${(info?.platform || '').toUpperCase()}`;
+        badge.className = 'platform-badge electron';
+      }).catch(() => {
+        badge.textContent = translate('platformElectron', 'ELECTRON');
+        badge.className = 'platform-badge electron';
+      });
+    } else {
+      badge.textContent = translate('platformWeb', 'WEB BROWSER');
+      badge.className = 'platform-badge web';
+    }
+  }
+
+  function bindStyleControls() {
+    getElement('tog-trail')?.addEventListener('change', (event) => {
+      const ctx = getCtx();
+      if (!ctx) return;
+      ctx.setShowTrail(event.target.checked);
+      ctx.refreshLayersNow();
+    });
+
+    document.querySelectorAll('.sstyle').forEach((button) => {
+      button.addEventListener('click', () => {
+        const ctx = getCtx();
+        if (!ctx) return;
+        document.querySelectorAll('.sstyle').forEach((entry) => entry.classList.remove('active'));
+        button.classList.add('active');
+        ctx.setCurrentMapStyle(button.dataset.s);
+        ctx.updateDayNight();
+      });
+    });
+
+    const sidebar = getElement('sidebar');
+    const sidebarToggle = getElement('sidebar-toggle');
+    if (sidebar && sidebarToggle) {
+      sidebarToggle.addEventListener('click', () => {
+        const collapsed = sidebar.classList.toggle('collapsed');
+        sidebarToggle.textContent = collapsed ? '>' : '<';
+        triggerResize(305);
+      });
+    }
+  }
+
+  function init() {
+    clearLegacySampleCards();
+    bindLandingControls();
+    bindStyleControls();
+    initPlatformBadge();
+    syncLandingSourceControls();
+    loadSampleManifest();
+    updateStartButtonState();
+    window.addEventListener('app-language-change', () => {
+      updateStartButtonState();
+      updateLandingPageReports();
+      syncLandingSourceControls();
+      renderSampleCards();
+    });
+    setTimeout(updateLandingPageReports, 1500);
+  }
+
+  return {
+    updateLandingPageReports,
+    setLandingUploadState,
+    toggleUI,
+    bindLandingControls,
+    bindStyleControls,
+    initPlatformBadge,
+    init,
+  };
+})();

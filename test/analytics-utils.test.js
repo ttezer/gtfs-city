@@ -1,8 +1,8 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 
-const { calcHeadway, waitingColor, calcHeadwayPairs } = require('../analytics-utils');
-const { getVehiclePos, getTripProgressAtTime, haversineM } = require('../sim-utils');
+const { calcHeadway, waitingColor, calcHeadwayPairs } = require('../src/utils/analytics-utils');
+const { getVehiclePos, getTripProgressAtTime, haversineM } = require('../src/utils/sim-utils');
 
 test('waitingColor returns green for short wait', () => {
   assert.deepEqual(waitingColor(240), [34, 197, 94, 220]);
