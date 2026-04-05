@@ -1748,10 +1748,6 @@ window.LegacyPlannerBridge = createLegacyBridge(() => ({
   }));
 
 window.LegacyServiceBridge = createLegacyBridge(() => ({
-    activeServiceOptions: getActiveServiceOptionsState(),
-    activeServiceId: getActiveServiceIdState(),
-    activeServiceIds: getActiveServiceIdsState(),
-    calendarCache: _calendarCache,
     displayText,
     currentLanguage: getLanguage(),
     t,
