@@ -118,7 +118,7 @@ Eksik kalan alanlar:
 - demo yüzeyi
 - WebGL / map recovery gibi runtime yollar
 
-## Bu Turda Ne Değişti
+## Bu Turda Ne Değişti (önceki tur)
 
 - `script.js` içinden küçük ve orta ölçekli UI/runtime yüzeyleri ayrıldı
 - `LegacyUIBridge` içindeki selection/session/state sızıntısı önemli ölçüde azaldı
@@ -129,28 +129,38 @@ Eksik kalan alanlar:
 - `data-manager` içindeki temel runtime veri yükleme hattı `AppState` alanlarını daha çok bridge setter'ları üzerinden günceller hale geldi
 - kullanılmayan `StateManager` runtime yükleme zincirinden çıkarıldı ve tasfiye edildi
 
+## Bu Turda Ne Değişti (son tur — Claude Sonnet 4.6)
+
+- `TRIPS/SHAPES/STOPS/STOP_INFO/STOP_DEPS/ADJ` global alias'ları kaldırıldı; tüm okumalar `AppState.*` üzerinden yapılıyor
+- `syncRuntimeAliases()` hem `script.js` hem `data-manager.js`'ten tamamen silindi
+- Tüm Legacy Bridge getter'ları `AppState.*` döndürecek şekilde güncellendi
+- `LegacyMapBridge`: 4 kullanılmayan üye + 16 ham değer fallback kaldırıldı
+- `LegacyServiceBridge`: `activeServiceOptions`, `activeServiceId`, `activeServiceIds`, `calendarCache` ham değerleri kaldırıldı
+- Tariff mantığı `src/runtime/tariff-sheets.js` dosyasına taşındı; `script.js` 3752 → 3065 satıra indi; 10+ duplicate fonksiyon temizlendi
+- `teknik-borc.md` sıra 3 (dataset çift kaynak) "Kapandı" olarak işaretlendi
+
 ## Bu Turda Ne Değişmedi
 
-- ana mimari yük hâlâ `src/runtime/script.js` üzerinde
-- dataset için tek resmi kaynak belirlenmiş değil
-- `LegacyMapBridge` ve `LegacyServiceBridge` hâlâ tam daraltılmış değil
+- ana mimari yük hâlâ `src/runtime/script.js` üzerinde (~3065 satır)
+- `LegacyMapBridge` QUALITY/AppState/TYPE_META için getter eklenmedi (Faz 3 açık)
+- `LegacyDataBridge` tam daraltılmadı
+- cinematic, capture, adjacency blokları hâlâ `script.js` içinde
 - encoding temizliği tamamlanmış değil
 - runtime davranış testleri hâlâ sınırlı
 
 ## Sonraki En Doğru Sıra
 
-1. dataset state için tek kaynak yönünü belirle
-2. `LegacyMapBridge` yüzeyini daralt
-3. `LegacyServiceBridge` ve `LegacyDataBridge` yazma yüzeyini daralt
-4. `script.js` üzerinde kalan ana orkestrasyon bloklarını daha sert ayır
-5. encoding / metin temizliğini dosya dosya tamamla
-6. runtime davranış testlerini kritik akışlar için artır
+1. `LegacyMapBridge` Faz 3: QUALITY/AppState/TYPE_META için getter ekle, ham erişimi kaldır
+2. `LegacyDataBridge` yazma yüzeyini daralt
+3. `script.js` içindeki cinematic, adjacency bloklarını ayrıştır
+4. encoding / metin temizliğini dosya dosya tamamla
+5. runtime davranış testlerini kritik akışlar için artır
 
 ## Kısa Hüküm
 
 Yüzey borcu ciddi biçimde azaldı.
 Çekirdek borç ise artık daha net görünür hale geldi.
 
-Bugünkü durumda en doğru cümle şu:
+Dataset tek kaynak sorunu kapandı. Kalan yük: bridge yüzey daralması ve `script.js` blok ayrıştırması.
 
-`küçük ve orta refactor borcu büyük ölçüde temizlendi, kalan yük artık doğrudan çekirdek mimari borçtur`
+`bridge getter standardizasyonu büyük ölçüde tamamlandı, kalan yük LegacyMapBridge Faz 3 ve script.js blok ayrıştırmasıdır`
