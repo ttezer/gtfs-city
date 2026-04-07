@@ -18,7 +18,7 @@ Amaç, mimari ve operasyonel yükü görünür kılmak ve zaman içindeki ilerle
 | 1 | `src/runtime/script.js` dosyasının hâlâ ana orkestrasyon omurgası olması | Kritik | Azaldı ama açık | En büyük mimari yük hâlâ burada | runtime orkestrasyonu, state bağları, bridge kurulumları |
 | 2 | Legacy bridge katmanlarının tam sözleşmeye inmemiş olması | Kritik | Azaldı ama açık | Modül sınırlarını bulanıklaştırıyor | `LegacyMapBridge`, `LegacyServiceBridge`, `LegacyDataBridge` |
 | 3 | Dataset state'in çift yüzeyli olması | Kritik | Kapandı | `AppState.*` tek resmi kaynak; global alias'lar ve `syncRuntimeAliases` kaldırıldı | `AppState.*` ve `TRIPS/SHAPES/STOPS/...` |
-| 4 | **Bağlantı Kareleri ana thread performansı** | **Kritik** | **Aktif — çözülüyor** | Büyük beslemelerde dakikalarca kasma; ana thread bloke oluyor | `stop-connectivity-utils.js`, `map-manager.js`, yeni connectivity worker |
+| 4 | Bağlantı Kareleri ana thread performansı | Kritik | Kapandı | A+B+C uygulandı; precompute Web Worker'a taşındı | `stop-connectivity-utils.js`, `map-manager.js`, `connectivity-worker.js` |
 | 5 | State akışının tek tip resmi sözleşmeye tam oturmamış olması | Yüksek | Azaldı ama açık | Yeni refactorlarda yan etki riski taşıyor | selection, session, analytics state |
 | 6 | Manager sınırlarının iyileşmiş ama hâlâ geçirgen olması | Yüksek | Açık | `runtime -> manager` bağımlılık yüzeyi geniş | `ui`, `map`, `service`, `planner`, `data` |
 | 7 | UTF-8 / metin standardının repo genelinde tam temiz olmaması | Orta | Açık | Güven ve bakım kalitesini düşürüyor | `.md`, yorumlar, UI metinleri |
@@ -129,6 +129,14 @@ Eksik kalan alanlar:
 - `LegacyCityBridge` ve `LegacyDataBridge` içinde `CITIES`, `hiddenCities`, `uploadedGtfsCities` ve `map` erişimi daha dar method yüzeyine alındı
 - `data-manager` içindeki temel runtime veri yükleme hattı `AppState` alanlarını daha çok bridge setter'ları üzerinden günceller hale geldi
 - kullanılmayan `StateManager` runtime yükleme zincirinden çıkarıldı ve tasfiye edildi
+
+## Bu Turda Ne Değişti (son tur — Bağlantı Kareleri Performans + Render Fix)
+
+- `getWindowDepartures` sonuçları `WINDOW_DEPS_CACHE` ile önbelleğe alındı; aynı durak/profil için O(N×M) yeniden filtreleme kaldırıldı
+- `getConnectivityGridCells` içindeki `getStopInfo(ctx)` döngü öncesine çekildi (her iterasyonda map lookup yapılmıyor)
+- `src/runtime/connectivity-worker.js` oluşturuldu; precompute Dijkstra hesabı Web Worker'a taşındı; `file://` protokolünde blob fallback ile Electron uyumluluğu sağlandı
+- `createLegacyBridge` refactor'ında (commit `23e06d6`) show* getter'ların extras'a taşınması nedeniyle `ctx.getShowPaths` vb. `undefined` kalıyordu ve `buildStaticLayers()` her zaman 0 katman üretiyordu; tüm 17 show* getter context factory'ye (1. argüman) geri eklendi
+- `sync-docs-app.js`'e `connectivity-worker.js` eklendi; `docs/app/` senkronize edildi
 
 ## Bu Turda Yapılacaklar (aktif tur — Bağlantı Kareleri Performans)
 
