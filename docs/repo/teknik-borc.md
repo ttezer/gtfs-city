@@ -159,30 +159,30 @@ Büyük beslemelerde (örn. IETT, Kocaeli) Bağlantı Kareleri bölümü dakikal
 
 ---
 
-## Bu Turda Ne Değişti (son tur — Claude Sonnet 4.6)
+## Bu Turda Ne Değişti (son tur — script.js modülarizasyonu)
 
-- `TRIPS/SHAPES/STOPS/STOP_INFO/STOP_DEPS/ADJ` global alias'ları kaldırıldı; tüm okumalar `AppState.*` üzerinden yapılıyor
-- `syncRuntimeAliases()` hem `script.js` hem `data-manager.js`'ten tamamen silindi
-- Tüm Legacy Bridge getter'ları `AppState.*` döndürecek şekilde güncellendi
-- `LegacyMapBridge`: 4 kullanılmayan üye + 16 ham değer fallback kaldırıldı
-- `LegacyServiceBridge`: `activeServiceOptions`, `activeServiceId`, `activeServiceIds`, `calendarCache` ham değerleri kaldırıldı
-- Tariff mantığı `src/runtime/tariff-sheets.js` dosyasına taşındı; `script.js` 3752 → 3065 satıra indi; 10+ duplicate fonksiyon temizlendi
-- `teknik-borc.md` sıra 3 (dataset çift kaynak) "Kapandı" olarak işaretlendi
+- `cinematic-controls.js` oluşturuldu: `getCinematicWaypoints` taşındı (−52 satır)
+- `adjacency-builder.js` oluşturuldu: `buildAdjacencyList` + yürüme bağlantısı taşındı (−70 satır)
+- `connectivity-grid-controls.js` oluşturuldu: legend + camera fonksiyonları taşındı; `cameraRestore`/`styleRestore` state modüle alındı (−74 satır)
+- `capture-controls.js` oluşturuldu: ekran görüntüsü bloğu taşındı; `CAPTURE_PRESET_CLASSES` + `activeCapturePreset` modüle alındı (−164 satır)
+- Vehicle/stop icon fonksiyonları `map-manager.js`'e taşındı; 3 bridge prop kaldırıldı (−73 satır)
+- GTFS parse delegate wrapper'ları (`parseCsvRows` vb.) kaldırıldı; `LegacyDataBridge` doğrudan `window.GtfsUtils` kullanıyor (−11 satır)
+- Bağlantı Kareleri rengi viewport normalizasyonundan bağımsız hale getirildi (zoom'da renk değişmiyordu)
+- `script.js` bu turda 3169 → **2725** satıra indi (−444 satır)
 
 ## Bu Turda Ne Değişmedi
 
-- ana mimari yük hâlâ `src/runtime/script.js` üzerinde (~3065 satır)
-- `LegacyMapBridge` QUALITY/AppState/TYPE_META için getter eklenmedi (Faz 3 açık)
+- ana mimari yük hâlâ `src/runtime/script.js` üzerinde (~2725 satır)
+- `LegacyMapBridge` Faz 3 açık (QUALITY/TYPE_META ham erişim)
 - `LegacyDataBridge` tam daraltılmadı
-- cinematic, capture, adjacency blokları hâlâ `script.js` içinde
 - encoding temizliği tamamlanmış değil
 - runtime davranış testleri hâlâ sınırlı
 
 ## Sonraki En Doğru Sıra
 
-1. `LegacyMapBridge` Faz 3: QUALITY/AppState/TYPE_META için getter ekle, ham erişimi kaldır
-2. `LegacyDataBridge` yazma yüzeyini daralt
-3. `script.js` içindeki cinematic, adjacency bloklarını ayrıştır
+1. Yeni özellik geliştirme (spreading animasyonu, hız çizgisi, vb.)
+2. `LegacyMapBridge` Faz 3: QUALITY/TYPE_META için getter ekle
+3. `LegacyDataBridge` yazma yüzeyini daralt
 4. encoding / metin temizliğini dosya dosya tamamla
 5. runtime davranış testlerini kritik akışlar için artır
 
