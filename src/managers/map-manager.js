@@ -329,8 +329,9 @@ window.MapManager = (function () {
       }
     });
 
+    const stopInfoMap = getStopInfo(ctx);
     Object.entries(snapshot.stops).forEach(([stopId, record]) => {
-      const stop = getStopInfo(ctx)?.[stopId];
+      const stop = stopInfoMap?.[stopId];
       const score = record?.final_score;
       if (!stop || !Number.isFinite(score)) return;
       if (filteredStopIds && filteredStopIds.size && !filteredStopIds.has(stopId)) return;

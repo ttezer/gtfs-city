@@ -256,6 +256,83 @@ async function scheduleStopConnectivityWarmup() {
   const loaded = await tryLoadStopConnectivityCache();
   if (loaded) refreshLayersNow();
 }
+
+async function createConnectivityWorkerInstance() {
+  if (typeof Worker === 'undefined') return null;
+  if (location.protocol !== 'file:') {
+    try { return new Worker('src/runtime/connectivity-worker.js'); } catch (_) {}
+  }
+  try {
+    const sources = await Promise.all([
+      fetch('src/utils/stop-connectivity-utils.js').then((r) => r.text()),
+      fetch('src/runtime/connectivity-worker.js').then((r) => r.text()),
+    ]);
+    const blob = new Blob(sources, { type: 'application/javascript' });
+    return new Worker(URL.createObjectURL(blob));
+  } catch (err) {
+    console.warn('[ConnectivityWorker] oluşturulamadı, fallback moduna geçiliyor:', err);
+    return null;
+  }
+}
+
+async function startConnectivityWorker() {
+  if (AppState.stopConnectivityScores?.meta?.validation_summary) return;
+  if (!Object.keys(AppState.stopInfo || {}).length || !Object.keys(AppState.stopDeps || {}).length) return;
+
+  if (connectivityWorker) {
+    connectivityWorker.terminate();
+    connectivityWorker = null;
+  }
+
+  const worker = await createConnectivityWorkerInstance();
+  if (!worker) {
+    ensureConnectivityViewportScores();
+    return;
+  }
+
+  connectivityWorker = worker;
+
+  worker.onmessage = (event) => {
+    const msg = event.data || {};
+    if (msg.type === 'PROGRESS') {
+      window.dispatchEvent(new CustomEvent('stop-connectivity-progress', { detail: msg.detail }));
+      return;
+    }
+    if (msg.type === 'DONE') {
+      AppState.stopConnectivityScores = msg.snapshot || AppState.stopConnectivityScores;
+      window.dispatchEvent(new CustomEvent('stop-connectivity-progress', {
+        detail: { index: 1, total: 1, done: true },
+      }));
+      refreshLayersNow();
+      persistStopConnectivityCache(msg.snapshot);
+      connectivityWorker = null;
+      worker.terminate();
+      return;
+    }
+    if (msg.type === 'ERROR') {
+      console.warn('[ConnectivityWorker]', msg.error);
+      connectivityWorker = null;
+      worker.terminate();
+      ensureConnectivityViewportScores();
+    }
+  };
+
+  worker.onerror = (err) => {
+    console.warn('[ConnectivityWorker] hata:', err);
+    connectivityWorker = null;
+    ensureConnectivityViewportScores();
+  };
+
+  worker.postMessage({
+    type: 'START',
+    trips: AppState.trips,
+    stopInfo: AppState.stopInfo,
+    stopDeps: AppState.stopDeps,
+    adj: AppState.adj,
+    feed_id: activeCity?.id || null,
+    options: {},
+  });
+}
 function buildAdjacencyList() {
   AppState.adj = {};
   // ADJ ataması fonksiyon sonunda yapılır (tüm bağlantılar eklendikten sonra)
@@ -389,6 +466,7 @@ let typeFilter = 'all';
 let connectivityGridPerfOpenAt = 0;
 let connectivityGridSelectedCell = null;
 const CONNECTIVITY_VIEWPORT_STOP_LIMIT = 250;
+let connectivityWorker = null;
 let activeRoutes = new Set();
 let focusedRoute = null;
 let selectedRouteDirection = null;
@@ -1501,13 +1579,13 @@ mapgl.on('load', () => {
   });
   mapgl.on('moveend', () => {
     if (showConnectivityGrid) {
-      ensureConnectivityViewportScores();
+      if (!connectivityWorker) ensureConnectivityViewportScores();
       refreshLayersNow();
     }
   });
   mapgl.on('zoomend', () => {
     if (showConnectivityGrid) {
-      ensureConnectivityViewportScores();
+      if (!connectivityWorker) ensureConnectivityViewportScores();
       refreshLayersNow();
     }
   });
@@ -1565,6 +1643,23 @@ window.LegacyMapBridge = createLegacyBridge(() => ({
   detectBunching,
   updateBunchingPanel,
   haversineM,
+  getShowAnim: () => !!showAnim,
+  getShowPaths: () => !!showPaths,
+  getShowStops: () => !!showStops,
+  getShowStopCoverage: () => !!showStopCoverage,
+  getShowConnectivityGrid: () => !!showConnectivityGrid,
+  getShowHeatmap: () => !!showHeatmap,
+  getShowTrail: () => !!showTrail,
+  getShow3D: () => !!show3D,
+  getShowHeadway: () => !!showHeadway,
+  getShowBunching: () => !!showBunching,
+  getShowIsochron: () => !!showIsochron,
+  getHeatmapHour: () => heatmapHour,
+  getHeatmapFollowSim: () => !!heatmapFollowSim,
+  getRouteHighlightPath: () => Array.isArray(routeHighlightPath) ? routeHighlightPath.slice() : routeHighlightPath,
+  getIsochronData: () => _isochronData,
+  getIsochronOriginSid: () => _isochronOriginSid,
+  getStopConnectivityScores: getStopConnectivityScoresState,
 }), {
   getMapgl: () => mapgl,
   getDeckgl: () => deckgl,
@@ -1806,6 +1901,10 @@ window.LegacyCityBridge = createLegacyBridge(() => ({
     setActiveServiceOptions: (value) => { setActiveServiceOptionsState(value); },
     setCalendarCache: (value) => { _calendarCache = resetCalendarCache(value); },
     clearRuntimeData: () => {
+      if (connectivityWorker) {
+        connectivityWorker.terminate();
+        connectivityWorker = null;
+      }
       AppState.trips = [];
       AppState.shapes = [];
       AppState.stops = [];
@@ -2530,8 +2629,14 @@ const togMap = {
     }
     setConnectivityGridCamera(v);
     setConnectivityGridMapStyle(v);
-    if (v) ensureConnectivityViewportScores();
-    else updateConnectivityViewportStatus();
+    if (v) startConnectivityWorker();
+    else {
+      if (connectivityWorker) {
+        connectivityWorker.terminate();
+        connectivityWorker = null;
+      }
+      updateConnectivityViewportStatus();
+    }
     refreshLayersNow();
   },
   'stop-coverage': v => {

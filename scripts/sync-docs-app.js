@@ -16,6 +16,7 @@ const fileCopies = [
   'src/utils/gtfs-utils.js',
   'src/utils/gtfs-validator.js',
   'src/runtime/gtfs-worker.js',
+  'src/runtime/connectivity-worker.js',
   'index.html',
   'src/managers/map-manager.js',
   'src/managers/planner-manager.js',

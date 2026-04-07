@@ -18,13 +18,14 @@ Amaç, mimari ve operasyonel yükü görünür kılmak ve zaman içindeki ilerle
 | 1 | `src/runtime/script.js` dosyasının hâlâ ana orkestrasyon omurgası olması | Kritik | Azaldı ama açık | En büyük mimari yük hâlâ burada | runtime orkestrasyonu, state bağları, bridge kurulumları |
 | 2 | Legacy bridge katmanlarının tam sözleşmeye inmemiş olması | Kritik | Azaldı ama açık | Modül sınırlarını bulanıklaştırıyor | `LegacyMapBridge`, `LegacyServiceBridge`, `LegacyDataBridge` |
 | 3 | Dataset state'in çift yüzeyli olması | Kritik | Kapandı | `AppState.*` tek resmi kaynak; global alias'lar ve `syncRuntimeAliases` kaldırıldı | `AppState.*` ve `TRIPS/SHAPES/STOPS/...` |
-| 4 | State akışının tek tip resmi sözleşmeye tam oturmamış olması | Yüksek | Azaldı ama açık | Yeni refactorlarda yan etki riski taşıyor | selection, session, analytics state |
-| 5 | Manager sınırlarının iyileşmiş ama hâlâ geçirgen olması | Yüksek | Açık | `runtime -> manager` bağımlılık yüzeyi geniş | `ui`, `map`, `service`, `planner`, `data` |
-| 6 | UTF-8 / metin standardının repo genelinde tam temiz olmaması | Orta | Açık | Güven ve bakım kalitesini düşürüyor | `.md`, yorumlar, UI metinleri |
-| 7 | Runtime davranış testlerinin sınırlı kalması | Orta | Açık | Manuel test yükü yüksek | toggle, panel, web demo, map davranışı |
-| 8 | `docs/app` yayın kopyasının türetilmiş ikinci ağaç olarak yaşaması | Orta | Azaldı ama açık | Senkron doğruluğu yükü taşıyor | `sync-docs-app`, root kaynaklar |
-| 9 | Feature yüzeyinde çekirdek / deneysel ayrımın her yerde net olmaması | Düşük | Açık | Ürün odağını bulanıklaştırıyor | katmanlar, analiz yüzeyleri |
-| 10 | CSS ve eski UI kalıntılarının parça parça temizlenmesi | Düşük | Açık | Bakım maliyeti yaratıyor | `style.css`, panel ve overlay stilleri |
+| 4 | **Bağlantı Kareleri ana thread performansı** | **Kritik** | **Aktif — çözülüyor** | Büyük beslemelerde dakikalarca kasma; ana thread bloke oluyor | `stop-connectivity-utils.js`, `map-manager.js`, yeni connectivity worker |
+| 5 | State akışının tek tip resmi sözleşmeye tam oturmamış olması | Yüksek | Azaldı ama açık | Yeni refactorlarda yan etki riski taşıyor | selection, session, analytics state |
+| 6 | Manager sınırlarının iyileşmiş ama hâlâ geçirgen olması | Yüksek | Açık | `runtime -> manager` bağımlılık yüzeyi geniş | `ui`, `map`, `service`, `planner`, `data` |
+| 7 | UTF-8 / metin standardının repo genelinde tam temiz olmaması | Orta | Açık | Güven ve bakım kalitesini düşürüyor | `.md`, yorumlar, UI metinleri |
+| 8 | Runtime davranış testlerinin sınırlı kalması | Orta | Açık | Manuel test yükü yüksek | toggle, panel, web demo, map davranışı |
+| 9 | `docs/app` yayın kopyasının türetilmiş ikinci ağaç olarak yaşaması | Orta | Azaldı ama açık | Senkron doğruluğu yükü taşıyor | `sync-docs-app`, root kaynaklar |
+| 10 | Feature yüzeyinde çekirdek / deneysel ayrımın her yerde net olmaması | Düşük | Açık | Ürün odağını bulanıklaştırıyor | katmanlar, analiz yüzeyleri |
+| 11 | CSS ve eski UI kalıntılarının parça parça temizlenmesi | Düşük | Açık | Bakım maliyeti yaratıyor | `style.css`, panel ve overlay stilleri |
 
 ## Ne Azaldı
 
@@ -128,6 +129,27 @@ Eksik kalan alanlar:
 - `LegacyCityBridge` ve `LegacyDataBridge` içinde `CITIES`, `hiddenCities`, `uploadedGtfsCities` ve `map` erişimi daha dar method yüzeyine alındı
 - `data-manager` içindeki temel runtime veri yükleme hattı `AppState` alanlarını daha çok bridge setter'ları üzerinden günceller hale geldi
 - kullanılmayan `StateManager` runtime yükleme zincirinden çıkarıldı ve tasfiye edildi
+
+## Bu Turda Yapılacaklar (aktif tur — Bağlantı Kareleri Performans)
+
+### Sorun
+Büyük beslemelerde (örn. IETT, Kocaeli) Bağlantı Kareleri bölümü dakikalarca yükleniyor ve harita kasıyor. Üç kök neden:
+
+1. `getWindowDepartures` her durak için precompute sırasında defalarca (O(N×M)) yeniden filtreleniyor
+2. `getStopInfo(ctx)` `getConnectivityGridCells` içindeki forEach döngüsünde her iterasyonda çağrılıyor
+3. `startStopConnectivityPrecompute` `requestIdleCallback` ile ana thread'de çalışıyor; büyük Dijkstra hesapları UI'ı bloke ediyor
+
+### Yapılacaklar
+
+- **A** (`stop-connectivity-utils.js`): Precompute başlamadan tüm durakların zaman penceresi kalkışlarını tek bir `Map` olarak hesapla; `getWindowDepartures` bu cache'i kullansın
+- **B** (`map-manager.js`): `getConnectivityGridCells` içinde `getStopInfo(ctx)` çağrısını döngü öncesine çek
+- **C** (`src/runtime/`): Connectivity precompute hesabını ayrı bir Web Worker'a (`connectivity-worker.js`) taşı; `importScripts` ile `stop-connectivity-utils.js` yüklesin; tamamlandığında `postMessage` ile ana thread'e sonuç döndürsün; `script.js` worker'ı yönetsin
+
+### Beklenen Etki
+- A+B: hesap 3–5× hızlanır
+- C: ana thread kasması tamamen biter; progress event'leri hâlâ çalışır
+
+---
 
 ## Bu Turda Ne Değişti (son tur — Claude Sonnet 4.6)
 

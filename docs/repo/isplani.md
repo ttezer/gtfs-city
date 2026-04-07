@@ -27,6 +27,10 @@ Temel ürün ilkeleri:
 
 ## Güncel Açık İşler
 
+- **Bağlantı Kareleri performans iyileştirmesi** ← aktif
+  - A: `getWindowDepartures` sonuçlarını precompute başında önbellekle (her durak için tekrar filtremi kaldır)
+  - B: `getStopInfo(ctx)` çağrısını `getConnectivityGridCells` döngüsünden dışarı çek
+  - C: `startStopConnectivityPrecompute` hesabını Web Worker'a taşı (ana thread kasmasını bitir)
 - web demo olgunlaştırma
 - bağlantı kareleri beta kalibrasyonu
 - persisted snapshot / cache araştırması

@@ -30,6 +30,7 @@
     maxStopId: null,
   };
   const STOP_TASKS = new Map();
+  const WINDOW_DEPS_CACHE = new Map();
 
   class MinHeap {
     constructor() {
@@ -188,18 +189,26 @@
   }
 
   function getWindowDepartures(stopId, ctx, profile) {
+    const cacheKey = `${stopId}|${profile.id}|${profile.time_start}|${profile.time_end}`;
+    const cached = WINDOW_DEPS_CACHE.get(cacheKey);
+    if (cached !== undefined) return cached;
     const deps = getStopDeps(ctx)?.[stopId] || [];
     const trips = getTrips(ctx);
     const start = parseClock(profile.time_start);
     const end = parseClock(profile.time_end);
-    if (!Number.isFinite(start) || !Number.isFinite(end) || end <= start) return [];
-    return deps
+    if (!Number.isFinite(start) || !Number.isFinite(end) || end <= start) {
+      WINDOW_DEPS_CACHE.set(cacheKey, []);
+      return [];
+    }
+    const result = deps
       .filter((dep) => Number.isFinite(dep?.[1]) && dep[1] >= start && dep[1] <= end)
       .map((dep) => {
         const trip = trips?.[dep[0]];
         return { dep, trip };
       })
       .filter((entry) => !!entry.trip);
+    WINDOW_DEPS_CACHE.set(cacheKey, result);
+    return result;
   }
 
   function computeMedian(values) {
@@ -615,6 +624,7 @@
     PRECOMPUTE_STATE.jobId += 1;
     PRECOMPUTE_STATE.running = false;
     STOP_TASKS.clear();
+    WINDOW_DEPS_CACHE.clear();
   }
 
   const api = {
