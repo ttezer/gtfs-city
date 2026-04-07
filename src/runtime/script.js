@@ -381,8 +381,6 @@ let simTime = 6 * 3600, simPaused = false, lastTs = null;
 let speedIdx = 3, simSpeed = 60;
 let showAnim = true, showPaths = true, showStops = true, showStopCoverage = false;
 let showConnectivityGrid = false;
-let connectivityGridCameraRestore = null;
-let connectivityGridStyleRestore = null;
 let stopCoverageRadiusM = 300;
 let stopCoverageFillColorHex = '#58a6ff';
 let stopCoverageFillOpacityPct = 14;
@@ -1328,98 +1326,26 @@ window.addEventListener('app-language-change', () => {
 ensureLanguageSwitcher();
 applyStaticTranslations();
 
-function updateConnectivityGridToggleLabel(progress = null) {
-  const row = document.querySelector('label[for="tog-connectivity-grid"], #tog-connectivity-grid')?.closest('.tog-row');
-  if (!row) return;
-  const baseLabel = t('toggleConnectivityGrid');
-  let label = baseLabel;
-  if (Number.isFinite(progress) && progress >= 0 && progress < 100) {
-    label = `${baseLabel} (%${Math.round(progress)})`;
-  }
-  row.lastChild.textContent = label;
-}
+const {
+  configureRuntimeConnectivityGrid,
+  updateConnectivityGridToggleLabel,
+  updateConnectivityLegend,
+  setConnectivityGridCamera,
+  setConnectivityGridMapStyle,
+} = window.RuntimeConnectivityGridControls;
 
 updateConnectivityGridToggleLabel();
 
-function updateConnectivityLegend(progress = null) {
-  const legend = document.getElementById('legend');
-  if (!legend) return;
-  if (!showConnectivityGrid) {
-    legend.style.display = 'none';
-    legend.innerHTML = '';
-    return;
-  }
-  const snapshotComplete = !!AppState.stopConnectivityScores?.meta?.validation_summary;
-  const statusText = Number.isFinite(progress) && progress >= 0 && progress < 100
-    ? `Bu görünüm hazırlanıyor: %${Math.round(progress)}`
-    : snapshotComplete
-      ? 'Hazır'
-      : 'Bu görünüm hazır, yeni alanlar kaydırdıkça hazırlanır.';
-  const selectedCellState = !connectivityGridSelectedCell
-    ? ''
-    : Number.isFinite(connectivityGridSelectedCell.score)
-      ? `${connectivityGridSelectedCell.score}/100`
-      : connectivityGridSelectedCell.pending
-        ? 'Henüz hesaplanmadı'
-        : 'Veri yok';
-  legend.style.display = 'block';
-  legend.innerHTML = `
-    <div class="li" style="padding-bottom:6px;border-bottom:1px solid rgba(255,255,255,.08);margin-bottom:6px;">${t('toggleConnectivityGrid')}</div>
-    <div class="li"><span class="ld" style="background:#ef4444"></span><span>Düşük bağlantı</span></div>
-    <div class="li"><span class="ld" style="background:#f97316"></span><span>Sınırlı bağlantı</span></div>
-    <div class="li"><span class="ld" style="background:#eab308"></span><span>Dengeli bağlantı</span></div>
-    <div class="li"><span class="ld" style="background:#22c55e"></span><span>Görece güçlü bağlantı</span></div>
-    <div class="li"><span class="ld" style="background:#747c8a"></span><span>Henüz hesaplanmadı / veri yok</span></div>
-    <div class="legend-note">Bu görünüm daha sert bir bağlantı metriği kullanır. Yürüme kenarları hariç tutulur, üst süre sınırı 30 dakikadır ve renkler görünümdeki skor dağılımına göre yeniden kalibre edilir.</div>
-    <div class="legend-note">Gri kareler veri yok veya henüz hesaplanmadı anlamına gelir; pan ve zoom sırasında kareler kademeli tamamlanabilir.</div>
-    <div class="legend-status">${statusText}</div>
-    ${connectivityGridSelectedCell ? `
-      <div class="legend-note" style="margin-top:8px;padding-top:8px;border-top:1px solid rgba(255,255,255,.08)">
-        <strong>Seçili Kare</strong><br>
-        Skor: ${selectedCellState}<br>
-        Durak: ${connectivityGridSelectedCell.count || 0}
-      </div>
-    ` : ''}
-  `;
-}
-
-function setConnectivityGridCamera(enabled) {
-  if (!mapgl?.easeTo || !mapgl?.getPitch || !mapgl?.getBearing) return;
-  if (enabled) {
-    if (!connectivityGridCameraRestore) {
-      connectivityGridCameraRestore = {
-        pitch: mapgl.getPitch(),
-        bearing: mapgl.getBearing(),
-      };
-    }
-    mapgl.easeTo({ pitch: 0, bearing: 0, duration: 500 });
-    return;
-  }
-  if (!connectivityGridCameraRestore) return;
-  mapgl.easeTo({
-    pitch: connectivityGridCameraRestore.pitch,
-    bearing: connectivityGridCameraRestore.bearing,
-    duration: 500,
-  });
-  connectivityGridCameraRestore = null;
-}
-
-function setConnectivityGridMapStyle(enabled) {
-  if (enabled) {
-    if (connectivityGridStyleRestore == null) {
-      connectivityGridStyleRestore = currentMapStyle || 'auto';
-    }
-    if (currentMapStyle !== 'dark') {
-      currentMapStyle = 'dark';
-      updateDayNight();
-    }
-    return;
-  }
-  if (connectivityGridStyleRestore == null) return;
-  currentMapStyle = connectivityGridStyleRestore || 'auto';
-  connectivityGridStyleRestore = null;
-  updateDayNight();
-}
+configureRuntimeConnectivityGrid({
+  getMap: () => mapgl,
+  getShowConnectivityGrid: () => !!showConnectivityGrid,
+  getSelectedCell: () => connectivityGridSelectedCell,
+  getConnectivityScores: getStopConnectivityScoresState,
+  getCurrentMapStyle: () => currentMapStyle,
+  setCurrentMapStyle: (v) => { currentMapStyle = v; },
+  updateDayNight,
+  t,
+});
 
 if ('serviceWorker' in navigator && window.PLATFORM === 'web') {
   navigator.serviceWorker.register('./sw.js').catch(() => { });
