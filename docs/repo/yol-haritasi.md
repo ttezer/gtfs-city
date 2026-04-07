@@ -61,6 +61,23 @@ Hedef, desktop ve web yüzeylerini bozmadan yeni özellikleri kontrollü biçimd
 2. Gerçek state ownership eksikliği ve geçici bridge katmanlarının kalıcılaşması
 3. Desktop/web çift kopya ve senkronizasyon maliyeti
 
+## Keşif Havuzu — Rakip Analizinden Gelen Başlıklar
+
+Rakip araçların incelenmesinden çıkan, henüz planlanmamış veya yüzeysel kalmış başlıklar.
+Bu başlıklar şu an iş listesinde değil; öncelik kararı ayrıca verilecek.
+Her başlıkta kısa bir uygulama notu var.
+
+| Başlık | Öncelik | Platform | Durum | Uygulama Notu |
+|---|---|---|---|---|
+| GTFS Veri Kalitesi Raporu | Yüksek | Her ikisi | Keşif | GTFS feed yüklendiğinde `gtfs-validator.js` çıktısını bir rapor panelinde göster; eksik `shape_id`, geçersiz koordinat, sıfır süreli sefer gibi hataları sayılı ve filtrelenebilir listele. Kullanıcı her hataya tıklayınca haritada konuma odaklan. |
+| Shape Hata Tespiti ve Geometri Uyarıları | Yüksek | Her ikisi | Keşif | `shapes.txt` boyunca ardışık noktalar arasındaki mesafeyi ve yönü kontrol et; segment başına Haversine sapma eşiği aş veya `shape_dist_traveled` monoton değilse uyarı üret. Uyarıları harita üzerinde kırmızı segment olarak göster, `shape_id` panelinde listele. |
+| Headway İstatistik Paneli | Orta | Her ikisi | Keşif | Seçili hat veya durak için seçili zaman penceresinde seferleri grupla; medyan, p90, p95 headway ve güvenilirlik skoru (geciken sefer oranı) hesapla. Sonuçları hat panelinde küçük bir istatistik satırı olarak göster. `gtfs-math-utils.js`'e `computeHeadwayStats(trips, windowStart, windowEnd)` ekle. |
+| Sefer Saatleri PDF / Tablo Dışa Aktarımı | Orta | Desktop | Keşif | Mevcut "Sefer Saatleri" görünümüne "Dışa Aktar" butonu ekle; tarayıcı `print` API'si veya `jsPDF` ile seçili hat + yön + günün seferlerini tablolu PDF olarak üret. Kolon: durak adı, planlanan varış, planlanan kalkış. |
+| Çoklu GTFS Feed Desteği (Multimodal) | Orta | Desktop | Keşif | `AppState`'e `feeds: Map<feedId, {trips, shapes, stops, ...}>` ekle; mevcut tekil `trips/shapes/stops` yapısını feed-aware hale getir. Her feed ayrı renk grubuyla haritada gösterilebilir. İlk aşama: iki feed aynı anda yüklenip çakışma olmadan render edilmeli; planlama ve analiz entegrasyonu sonraki aşama. |
+| Yoğun Saat / Peak Raporu | Orta | Her ikisi | Keşif | Seçili hat veya ağ genelinde 15'er dakikalık zaman dilimlerine göre aktif sefer sayısını hesapla; en yoğun 3 pencereyi peak olarak işaretle. Sonuçları bar chart veya tablolu metin panelde göster; `gtfs-math-utils.js`'e `computePeakWindows(trips, date, windowMinutes)` ekle. |
+| OD Matrisi (Origin-Destination) Analizi | Düşük | Her ikisi | Keşif | Seçili güzergah çifti veya durak kümeleri için teorik OD matrisini hesapla; aktarma sayısı ve toplam süre bazında matris göster. İlk sürüm statik (GTFS'ten timetable-based), canlı veri gerekmez. `planner-manager.js`'teki mevcut Dijkstra altyapısını OD döngüsüne sar. |
+| Senaryolama / What-If Analizi | Düşük | Desktop | Keşif | Kullanıcının sefer sıklığını veya yeni bir hat güzergahını geçici olarak değiştirip bağlantı skoru veya izokron üzerindeki etkiyi görmesine izin ver. Mimari: `AppState` üzerine geçici override katmanı ekle; analiz tamamlanınca override kaldır; orijinal state bozulmaz. |
+
 ## Notlar
 
 - `Bağlantı Kareleri (Beta)` için mevcut yön: `skipWalk/maxSecs` korunur; renk eşikleri görünüm dağılımına göre kalibre edilir, gri hücreler kontrollü geri gelir ve legend metriği açık anlatır.
