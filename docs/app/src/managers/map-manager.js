@@ -376,14 +376,8 @@ window.MapManager = (function () {
         pending: !Number.isFinite(score) && !complete,
       };
     }).filter(Boolean);
-    const scoreStats = getConnectivityGridScoreStats(result.map((cell) => cell.score));
     result.forEach((cell) => {
-      if (!Number.isFinite(cell.score)) {
-        cell.normalizedScore = null;
-        return;
-      }
-      const span = Math.max(1, scoreStats.ceiling - scoreStats.floor);
-      cell.normalizedScore = Math.max(0, Math.min(100, ((cell.score - scoreStats.floor) / span) * 100));
+      cell.normalizedScore = Number.isFinite(cell.score) ? cell.score : null;
     });
     connectivityGridCacheKey = cacheKey;
     connectivityGridCache = result;
