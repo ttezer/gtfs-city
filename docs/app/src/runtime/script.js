@@ -1648,13 +1648,13 @@ window.LegacyDataBridge = createLegacyBridge(() => ({
     AppState,
     deckgl,
     gtfsErrorLog,
-    parseCsvRows,
-    parseGtfsTables,
-    buildRouteMap,
-    buildShapePoints,
-    buildStopsMap,
-    buildTripMetaMap,
-    buildTripStopsMap,
+    parseCsvRows: (txt) => window.GtfsUtils.parseCsvRows(txt),
+    parseGtfsTables: (files) => window.GtfsUtils.parseGtfsTables(files),
+    buildRouteMap: (rows) => window.GtfsUtils.buildRouteMap(rows, getRouteColorRgb, TYPE_META),
+    buildShapePoints: (rows) => window.GtfsUtils.buildShapePoints(rows),
+    buildStopsMap: (rows) => window.GtfsUtils.buildStopsMap(rows),
+    buildTripMetaMap: (rows) => window.GtfsUtils.buildTripMetaMap(rows),
+    buildTripStopsMap: (rows) => window.GtfsUtils.buildTripStopsMap(rows),
     buildServiceOptions,
     autoSelectAndAdaptService,
     renderServiceDatePicker,
@@ -2494,17 +2494,6 @@ async function handleGTFSFile(file) {
 }
 window.handleGTFSFile = handleGTFSFile;
 
-// SPRINT 2: parseCsvRows GtfsUtils'e taşındı — window.GtfsUtils.parseCsvRows kullanılıyor.
-// Bu wrapper geriye dönük uyumluluk için korundu.
-function parseCsvRows(txt) { return window.GtfsUtils.parseCsvRows(txt); }
-// SPRINT 2: parseCsvRows artık GtfsUtils içinde tanımlı ve export ediliyor.
-// parseGtfsTables parametresi opsiyonel yapıldı — geçirmemek yeterli.
-function parseGtfsTables(files) { return window.GtfsUtils.parseGtfsTables(files); }
-function buildRouteMap(routeRows) { return window.GtfsUtils.buildRouteMap(routeRows, getRouteColorRgb, TYPE_META); }
-function buildShapePoints(shapeRows) { return window.GtfsUtils.buildShapePoints(shapeRows); }
-function buildStopsMap(stopRows) { return window.GtfsUtils.buildStopsMap(stopRows); }
-function buildTripMetaMap(tripRows) { return window.GtfsUtils.buildTripMetaMap(tripRows); }
-function buildTripStopsMap(stRows) { return window.GtfsUtils.buildTripStopsMap(stRows); }
 
 function buildServiceOptions(calendarRows, calendarDateRows) {
   return callManager('ServiceManager', 'buildServiceOptions', [calendarRows, calendarDateRows], []);
