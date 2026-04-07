@@ -40,18 +40,20 @@ window.BootstrapManager = (function () {
   }
 
   function loadAllData() {
-    loadScript('src/runtime/i18n-runtime.js', function () {
-      loadScript('src/runtime/stop-coverage-controls.js', function () {
-        loadScript('src/runtime/heatmap-controls.js', function () {
-          loadScript('src/runtime/bunching-controls.js', function () {
-            loadScript('src/runtime/isochron-controls.js', function () {
-              loadScript('src/runtime/playback-controls.js', function () {
-                loadScript('src/runtime/type-filter-controls.js', function () {
-                  loadScript('src/runtime/section-collapse-controls.js', function () {
-                    loadScript('src/runtime/tariff-sheets.js', function () {
-                      loadScript('src/runtime/cinematic-controls.js', function () {
-                        loadScript('src/runtime/script.js', function () {
-                          window._dataLoaded = true;
+    loadScript('src/runtime/adjacency-builder.js', function () {
+      loadScript('src/runtime/i18n-runtime.js', function () {
+        loadScript('src/runtime/stop-coverage-controls.js', function () {
+          loadScript('src/runtime/heatmap-controls.js', function () {
+            loadScript('src/runtime/bunching-controls.js', function () {
+              loadScript('src/runtime/isochron-controls.js', function () {
+                loadScript('src/runtime/playback-controls.js', function () {
+                  loadScript('src/runtime/type-filter-controls.js', function () {
+                    loadScript('src/runtime/section-collapse-controls.js', function () {
+                      loadScript('src/runtime/tariff-sheets.js', function () {
+                        loadScript('src/runtime/cinematic-controls.js', function () {
+                          loadScript('src/runtime/script.js', function () {
+                            window._dataLoaded = true;
+                          });
                         });
                       });
                     });
