@@ -1144,5 +1144,9 @@ window.MapManager = (function () {
     },
     refreshLayersNow,
     invalidateCaches,
+    clearIconCaches: () => {
+      Object.keys(VEHICLE_ICON_CACHE).forEach((k) => delete VEHICLE_ICON_CACHE[k]);
+      Object.keys(STOP_ICON_CACHE).forEach((k) => delete STOP_ICON_CACHE[k]);
+    },
   };
 })();

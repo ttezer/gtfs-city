@@ -1704,10 +1704,7 @@ window.LegacyDataBridge = createLegacyBridge(() => ({
     setLastGtfsFileName: (value) => { window._lastGtfsFileName = value; },
     setGtfsReport: (value) => { _gtfsReport = value; AppState.gtfsValidationReport = value; },
     setStaticLayerKey: (value) => { _staticLayerKey = value || ''; },
-    clearIconCaches: () => {
-      Object.keys(VEHICLE_ICON_CACHE).forEach((key) => delete VEHICLE_ICON_CACHE[key]);
-      Object.keys(STOP_ICON_CACHE).forEach((key) => delete STOP_ICON_CACHE[key]);
-    },
+    clearIconCaches: () => { window.MapManager?.clearIconCaches?.(); },
     getTrips: () => AppState.trips,
     getStopDeps: () => AppState.stopDeps,
     resetRuntimeCaches: () => {

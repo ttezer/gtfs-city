@@ -256,6 +256,18 @@ window.DataManager = (function () {
       alert(translate('gtfsJsZipMissing', 'JSZip kütüphanesi yüklenemedi.'));
       return;
     }
+    const LARGE_FILE_BYTES = 150 * 1024 * 1024;
+    const fileBytes = normalized.payload instanceof File ? normalized.payload.size : (normalized.payload?.byteLength || 0);
+    if (fileBytes >= LARGE_FILE_BYTES) {
+      const mb = Math.round(fileBytes / 1024 / 1024);
+      const ok = window.confirm(
+        `⚠️ Büyük GTFS dosyası: ${mb} MB\n\nBu boyuttaki beslemeler yüksek bellek ve GPU kullanımı gerektirir; uygulama yanıt vermeyebilir veya çökebilir.\n\nDevam etmek istiyor musun?`
+      );
+      if (!ok) {
+        window.AppManager?.setLandingUploadState?.({ loading: false });
+        return;
+      }
+    }
     if (!landingUpload) gtfsProgress(translate('loadingZipOpening', 'ZIP açılıyor...'), 5);
     if (landingUpload) updateLandingLoadingState(5, localizedUploadLabel('loadingZipOpeningShort', 'ZIP AÇILIYOR'));
     try {
@@ -725,12 +737,15 @@ window.DataManager = (function () {
         const keySet = new Set(keys);
         cappedTripMeta = Object.fromEntries(keys.map((key) => [key, filteredTripMeta[key]]));
         cappedTripStops = Object.fromEntries(Object.entries(tripStops).filter(([key]) => keySet.has(key)));
-      ctx.showToast(
-        translate('gtfsLargeDataWarning', '⚠️ Büyük veri: {total} seferden {loaded} tanesi yüklendi')
-          .replace('{total}', totalTripCount.toLocaleString(window.I18n?.getLanguage?.() === 'en' ? 'en-US' : 'tr-TR'))
-          .replace('{loaded}', tripCap.toLocaleString(window.I18n?.getLanguage?.() === 'en' ? 'en-US' : 'tr-TR')),
-        'warning'
-      );
+        const locale = window.I18n?.getLanguage?.() === 'en' ? 'en-US' : 'tr-TR';
+        console.warn(
+          `[GTFS] Büyük besleme: ${totalTripCount.toLocaleString(locale)} sefer bulundu, ${tripCap.toLocaleString(locale)} tanesi yüklendi (cap).`
+        );
+        ctx.showToast(
+          `⚠️ ${totalTripCount.toLocaleString()} sefer var — yalnızca ilk ${tripCap.toLocaleString()} tanesi yüklendi. Performans sınırlı olabilir.`,
+          'warning',
+          8000
+        );
       }
 
       if (loaderText && !landingUpload) loaderText.textContent = '3D Rotalar ve Seferler İşleniyor...';

@@ -97,6 +97,20 @@ window.ServiceManager = (function () {
     bindStatusBadges();
   }
 
+  function getSpecificityScore(row) {
+    const activeDays = CALENDAR_DAY_KEYS.filter((k) => row[k] === '1').length || 7;
+    const start = parseInt(row.start_date, 10);
+    const end = parseInt(row.end_date, 10);
+    const startDate = new Date(
+      `${String(row.start_date).slice(0, 4)}-${String(row.start_date).slice(4, 6)}-${String(row.start_date).slice(6, 8)}T00:00:00`
+    );
+    const endDate = new Date(
+      `${String(row.end_date).slice(0, 4)}-${String(row.end_date).slice(4, 6)}-${String(row.end_date).slice(6, 8)}T00:00:00`
+    );
+    const dateRangeSpan = Math.max(1, Math.round((endDate - startDate) / 86400000) + 1);
+    return activeDays * dateRangeSpan;
+  }
+
   function getServiceIdsForDate(dateStr, calendarRows, calendarDateRows) {
     const date = new Date(`${dateStr}T00:00:00`);
     const dayNames = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
@@ -113,11 +127,23 @@ window.ServiceManager = (function () {
       if (parseInt(row.date, 10) === dateNum && row.exception_type === '2') removed.add(row.service_id);
     }
 
+    const candidates = [];
     for (const row of (calendarRows || [])) {
       if (row[dayName] !== '1') continue;
       const start = parseInt(row.start_date, 10);
       const end = parseInt(row.end_date, 10);
-      if (dateNum >= start && dateNum <= end && !removed.has(row.service_id)) ids.add(row.service_id);
+      if (dateNum >= start && dateNum <= end && !removed.has(row.service_id)) {
+        candidates.push({ serviceId: row.service_id, score: getSpecificityScore(row) });
+      }
+    }
+
+    if (candidates.length > 1) {
+      const minScore = Math.min(...candidates.map((c) => c.score));
+      for (const c of candidates) {
+        if (c.score === minScore) ids.add(c.serviceId);
+      }
+    } else if (candidates.length === 1) {
+      ids.add(candidates[0].serviceId);
     }
 
     return ids;
@@ -249,7 +275,10 @@ window.ServiceManager = (function () {
           expired: translate('serviceBadgeExpired', 'EXPIRED'),
           passive: translate('serviceBadgePassive', 'PASSIVE'),
         }[entry.status] || translate('serviceBadgePassive', 'PASSIVE');
-        return `<span class="service-badge ${entry.status}" title="${entry.serviceId}">${entry.serviceId} \u00b7 ${label}</span>`;
+        const isSelected = currentIds && currentIds.has(entry.serviceId) && !allSelected;
+        const selectedClass = isSelected ? ' selected' : '';
+        const safeId = entry.serviceId.replace(/'/g, "\\'");
+        return `<button type="button" class="service-badge ${entry.status}${selectedClass} service-badge-button" title="${entry.serviceId}" onclick="window.ServiceManager?.applyService?.('${safeId}')">${entry.serviceId} \u00b7 ${label}</button>`;
       }));
       if (summary.entries.length > 10) {
         badgeEntries.push(`<span class="service-badge passive">+${summary.entries.length - 10} ${translate('serviceMore', 'services')}</span>`);
@@ -294,6 +323,25 @@ window.ServiceManager = (function () {
     }
   }
 
+  async function applyService(serviceId) {
+    const ctx = getCtx();
+    if (!ctx || !serviceId) return;
+    const ids = new Set([serviceId]);
+    ctx.setActiveServiceId(serviceId);
+    ctx.setActiveServiceIds(ids);
+    const cache = ctx.getCalendarCache();
+    renderServiceDatePicker(cache.rows || [], cache.dateRows || [], ids);
+
+    const activeCity = ctx.getActiveCity();
+    if (activeCity?.source === 'upload') {
+      const payload = ctx.getUploadedCityPayload(activeCity.id);
+      if (payload) await ctx.loadGtfsIntoSim(payload.files, payload.fileName, serviceId, ids);
+    } else if (activeCity?.source === 'builtin') {
+      const payload = await ctx.getBuiltinGtfsPayload(activeCity).catch(() => null);
+      if (payload) await ctx.loadGtfsIntoSim(payload.files, payload.fileName, serviceId, ids);
+    }
+  }
+
   async function applyAllServices() {
     const ctx = getCtx();
     if (!ctx) return;
@@ -321,6 +369,7 @@ window.ServiceManager = (function () {
     buildServiceOptions,
     renderServiceDatePicker,
     getActiveServiceLabel,
+    applyService,
     applyAllServices,
     handleDateChange,
     init,

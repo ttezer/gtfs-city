@@ -30,6 +30,7 @@ Hedef, desktop ve web yüzeylerini bozmadan yeni özellikleri kontrollü biçimd
 | Durak Bağlantı Skoru | Yeni özellik | Orta | Her ikisi | Geliştiriliyor | Lokal güç ve ağ açılımını özetleyen stop-bazlı yapı skoru üretmek |
 | Bağlantı Kareleri (Beta) | Yeni özellik | Orta | Her ikisi | Geliştiriliyor | Durak bağlantı skorlarını kare grid üzerinde görselleştirmek; önce performans, renk kalibrasyonu ve boş hücre sunumunu güvenilir hale getirmek |
 | PTAL / Erişilebilirlik Analizi Modu | Yeni özellik | Orta | Her ikisi | İnceleniyor | Ayrık analiz modu olarak daha akademik erişilebilirlik ölçümleri sunmak |
+| GTFS Özet & Takvim Sayfası | Yeni özellik | Yüksek | Her ikisi | Planlandı | Veri yüklendikten sonra haritaya geçmeden önce özet ekranı göster: rota/sefer/durak sayıları, tarih aralığı, heatmap takvim (günlük sefer yoğunluğu renk skalasıyla); hover'da gün detayı; buradan takvim seçimi yapılabilir, haritaya veya başka veri yüklemeye geçilebilir |
 
 ## Web Yol Haritası
 
