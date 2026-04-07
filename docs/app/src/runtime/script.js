@@ -601,81 +601,11 @@ function getVehiclePos(trip, time) {
   const snapData = getRouteShapeSnapData(trip);
   return interpolateOnCachedPath(snapData, progress) || rawPos;
 }
-function getVehicleMarkerColor(d) {
-  const base = getRouteColorRgb(d.trip.s, d.trip.t, d.trip.c);
-  if (!window.RenderUtils) return base;
-  const col = window.RenderUtils.getVehicleColorRgb(base, d.trip._delay || 0);
-  return [...col, 235];
-}
 function buildVehicleHeadsLayer(heads) {
   return window.MapManager?.buildVehicleHeadsLayer?.(heads) || null;
 }
-window.VEHICLE_ICON_CACHE = {};
-window.STOP_ICON_CACHE = {};
-const VEHICLE_ICON_CACHE = window.VEHICLE_ICON_CACHE;
-const STOP_ICON_CACHE = window.STOP_ICON_CACHE;
-
-function buildVehicleIconSvg(type, color) {
-  const fill = `rgb(${color[0]},${color[1]},${color[2]})`;
-  const commonStart = '<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">';
-  const commonEnd = '</svg>';
-  if (type === '4') {
-    return `${commonStart}<path d="M10 42h44l-6 10H16z" fill="${fill}"/><path d="M18 24h28l6 18H12z" fill="${fill}" opacity="0.85"/><rect x="24" y="16" width="16" height="8" rx="2" fill="#ffffff"/>${commonEnd}`;
-  }
-  if (type === '5' || type === '6') {
-    return `${commonStart}<rect x="18" y="22" width="28" height="18" rx="5" fill="${fill}"/><rect x="8" y="16" width="48" height="3" rx="2" fill="#ffffff"/><line x1="22" y1="19" x2="22" y2="22" stroke="#ffffff" stroke-width="3"/><line x1="42" y1="19" x2="42" y2="22" stroke="#ffffff" stroke-width="3"/>${commonEnd}`;
-  }
-  if (type === '0' || type === '1' || type === '2') {
-    return `${commonStart}<rect x="14" y="12" width="36" height="34" rx="10" fill="${fill}"/><rect x="20" y="18" width="10" height="8" rx="2" fill="#ffffff"/><rect x="34" y="18" width="10" height="8" rx="2" fill="#ffffff"/><rect x="24" y="30" width="16" height="7" rx="2" fill="#ffffff"/><circle cx="24" cy="50" r="4" fill="${fill}"/><circle cx="40" cy="50" r="4" fill="${fill}"/>${commonEnd}`;
-  }
-  return `${commonStart}<rect x="10" y="16" width="44" height="24" rx="6" fill="${fill}"/><rect x="16" y="20" width="12" height="8" rx="2" fill="#ffffff"/><rect x="32" y="20" width="12" height="8" rx="2" fill="#ffffff"/><rect x="14" y="30" width="36" height="6" rx="2" fill="#ffffff"/><circle cx="20" cy="44" r="5" fill="${fill}"/><circle cx="44" cy="44" r="5" fill="${fill}"/>${commonEnd}`;
-}
-
-// FIX 1: Icon cache dolunca tek yerine 50 eleman siliniyor.
-// Önce: delete VEHICLE_ICON_CACHE[firstKey]  → cache hiç küçülmüyor, döngü oluşuyor
-// Sonra: .slice(0, 50).forEach(k => delete ...)  → toplu temizlik, cache gerçekten küçülüyor
-function getVehicleIconDefinition(type, color) {
-  if (!Array.isArray(color) || !color.length) color = [88, 166, 255];
-  const key = `${type}-${color.join('-')}`;
-  if (!VEHICLE_ICON_CACHE[key]) {
-    if (Object.keys(VEHICLE_ICON_CACHE).length > 200) {
-      Object.keys(VEHICLE_ICON_CACHE).slice(0, 50).forEach(k => delete VEHICLE_ICON_CACHE[k]);
-    }
-    const svg = buildVehicleIconSvg(type, color);
-    VEHICLE_ICON_CACHE[key] = {
-      url: `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`,
-      width: 64,
-      height: 64,
-      anchorY: 52
-    };
-  }
-  return VEHICLE_ICON_CACHE[key];
-}
-
 function buildVehicleIconLayer(heads) {
   return window.MapManager?.buildVehicleIconLayer?.(heads) || null;
-}
-
-function buildStopIconSvg(color) {
-  const fill = `rgb(${color[0]},${color[1]},${color[2]})`;
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64"><circle cx="32" cy="32" r="18" fill="${fill}" stroke="#f5fbff" stroke-width="6"/><circle cx="32" cy="32" r="6" fill="#f5fbff"/></svg>`;
-}
-
-// FIX 1 (devam): Stop icon cache için de aynı toplu silme uygulandı
-function getStopIconDefinition(color) {
-  const key = color.join('-');
-  if (!STOP_ICON_CACHE[key]) {
-    if (Object.keys(STOP_ICON_CACHE).length > 200) {
-      Object.keys(STOP_ICON_CACHE).slice(0, 50).forEach(k => delete STOP_ICON_CACHE[k]);
-    }
-    STOP_ICON_CACHE[key] = {
-      url: `data:image/svg+xml;charset=utf-8,${encodeURIComponent(buildStopIconSvg(color))}`,
-      width: 64,
-      height: 64,
-      anchorY: 32
-    };
-  }
-  return STOP_ICON_CACHE[key];
 }
 
 function repairMojibake(text) {
@@ -1419,9 +1349,6 @@ window.LegacyMapBridge = createLegacyBridge(() => ({
   followTripIdx: getFollowTripIdxState(),
   activeServiceId: getActiveServiceIdState(),
   getVehiclePos,
-  getVehicleMarkerColor,
-  getVehicleIconDefinition,
-  getStopIconDefinition,
   getRouteColorRgb,
   getRouteMeta,
   getFocusedStopsData,
