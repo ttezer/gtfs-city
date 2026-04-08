@@ -219,8 +219,8 @@
     const TRIP_CAP = total <= 30000 ? Infinity : total <= 100000 ? 25000 : 30000;
     const includeStops = total <= 30000;
     const MAX_DEPS_PER_STOP = total <= 30000 ? 200 : 30;
-    const PATH_PTS = total <= 30000 ? 150 : total <= 100000 ? 60 : 30;
-    const SHAPE_PTS = total <= 30000 ? 100 : 40;
+    const PATH_PTS = total <= 30000 ? 800 : total <= 100000 ? 400 : 200;
+    const SHAPE_PTS = total <= 30000 ? 600 : total <= 100000 ? 300 : 150;
     const MAX_STOPS = total <= 30000 ? Infinity : 40000;
     let tripCount = 0;
 
@@ -467,8 +467,8 @@ if (location.protocol !== 'file:') return new Worker('src/runtime/gtfs-worker.js
     const TRIP_CAP = total <= 30000 ? Infinity : total <= 100000 ? 25000 : 30000;
     const includeStops = total <= 30000;
     const MAX_DEPS_PER_STOP = total <= 30000 ? 200 : 30;
-    const PATH_PTS = total <= 30000 ? 150 : total <= 100000 ? 60 : 30;
-    const SHAPE_PTS = total <= 30000 ? 100 : 40;
+    const PATH_PTS = total <= 30000 ? 800 : total <= 100000 ? 400 : 200;
+    const SHAPE_PTS = total <= 30000 ? 600 : total <= 100000 ? 300 : 150;
     const MAX_STOPS = total <= 30000 ? Infinity : 40000;
     let tripCount = 0;
 

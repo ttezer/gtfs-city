@@ -57,9 +57,9 @@ async function buildGtfsRuntimeData(routeMap, shapePts, stopsMap, tripMeta, trip
   const includeStops = total <= 30000;
   // nSTOP_DEPS per durak limiti
   const MAX_DEPS_PER_STOP = total <= 30000 ? 200 : 30;
-  // Path nokta sayısı — büyük veri setlerinde agresif simplify
-  const PATH_PTS = total <= 30000 ? 150 : total <= 100000 ? 60 : 30;
-  const SHAPE_PTS = total <= 30000 ? 100 : 40;
+  // Path nokta sayısı — yüksek değerler = detaylı çizgi, çok yüksek = WebGL crash
+  const PATH_PTS = total <= 30000 ? 800 : total <= 100000 ? 400 : 200;
+  const SHAPE_PTS = total <= 30000 ? 600 : total <= 100000 ? 300 : 150;
   // nSTOPS cap — Berlin'de 670K durak var, hepsini transfer etme
   const MAX_STOPS = total <= 30000 ? Infinity : 40000;
 
