@@ -1340,7 +1340,8 @@ body.capture-preset-comic-panel #isochron-panel {
 }
 
 #route-tariff-toggle-btn,
-#stop-tariff-toggle-btn {
+#stop-tariff-toggle-btn,
+#metro-map-toggle-btn {
   position: fixed;
   right: 20px;
   z-index: 1091;
@@ -1358,9 +1359,11 @@ body.capture-preset-comic-panel #isochron-panel {
 
 #route-tariff-toggle-btn { top: 168px; }
 #stop-tariff-toggle-btn { top: 224px; }
+#metro-map-toggle-btn { top: 280px; }
 
 #route-tariff-toggle-btn:hover,
-#stop-tariff-toggle-btn:hover {
+#stop-tariff-toggle-btn:hover,
+#metro-map-toggle-btn:hover {
   background: rgba(18, 26, 36, 0.96);
 }
 
@@ -1488,6 +1491,131 @@ body.capture-watermark #capture-credit {
   display: none;
 }
 
+#metro-map-modal,
+#metro-map-output-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 760;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(6, 10, 16, 0.68);
+  backdrop-filter: blur(8px);
+}
+
+#metro-map-modal.hidden,
+#metro-map-output-modal.hidden {
+  display: none;
+}
+
+.metro-map-modal-box {
+  width: min(640px, calc(100vw - 32px));
+  background: linear-gradient(180deg, rgba(15, 22, 31, 0.98), rgba(10, 16, 24, 0.98));
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 20px;
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.4);
+  overflow: hidden;
+}
+
+.metro-map-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.metro-map-toolbar span {
+  margin-left: auto;
+  font-size: 12px;
+  color: #c3d0df;
+}
+
+.metro-map-route-list {
+  max-height: min(48vh, 420px);
+  overflow: auto;
+  display: grid;
+  gap: 8px;
+  padding-right: 4px;
+}
+
+.metro-route-option {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.035);
+  cursor: pointer;
+}
+
+.metro-route-option input {
+  width: auto;
+  min-height: auto;
+}
+
+.metro-route-chip {
+  width: 14px;
+  height: 14px;
+  border-radius: 999px;
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.1);
+}
+
+.metro-route-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.metro-route-copy strong {
+  color: #f5f7fb;
+  font-size: 14px;
+}
+
+.metro-route-copy small {
+  color: #aab5c2;
+  font-size: 12px;
+}
+
+#metro-map-output-box {
+  width: min(1200px, calc(100vw - 40px));
+  height: min(92vh, 980px);
+  background: #07111c;
+  border-radius: 24px;
+  overflow: hidden;
+  box-shadow: 0 28px 90px rgba(0, 0, 0, 0.38);
+  display: flex;
+  flex-direction: column;
+}
+
+#metro-map-output-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 18px 20px;
+  color: #f3f6fa;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(9, 15, 24, 0.96);
+}
+
+#metro-map-output-content {
+  flex: 1;
+  overflow: auto;
+  padding: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background:
+    radial-gradient(circle at top, rgba(88, 166, 255, 0.14), transparent 38%),
+    linear-gradient(180deg, #050b14, #08111c);
+}
+
+#metro-map-output-content svg {
+  width: min(100%, 1120px);
+  height: auto;
+  border-radius: 22px;
+  box-shadow: 0 22px 60px rgba(0, 0, 0, 0.35);
+}
+
 body.tariff-output-open #map,
 body.tariff-output-open #deck-canvas {
   visibility: hidden !important;
@@ -1548,6 +1676,7 @@ body.tariff-output-open #deck-canvas {
 .tariff-sheet-stop {
   background: linear-gradient(180deg, #fbfdff 0%, #eef5fb 100%);
 }
+
 
 .tariff-brand {
   display: flex;

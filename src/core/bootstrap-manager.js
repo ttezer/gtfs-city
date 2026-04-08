@@ -51,12 +51,14 @@ window.BootstrapManager = (function () {
                     loadScript('src/runtime/section-collapse-controls.js', function () {
                       loadScript('src/runtime/tariff-sheets.js', function () {
                         loadScript('src/runtime/capture-controls.js', function () {
+                          loadScript('src/runtime/metro-map-controls.js', function () {
                           loadScript('src/runtime/connectivity-grid-controls.js', function () {
                             loadScript('src/runtime/cinematic-controls.js', function () {
                               loadScript('src/runtime/script.js', function () {
                                 window._dataLoaded = true;
                               });
                             });
+                          });
                           });
                         });
                       });

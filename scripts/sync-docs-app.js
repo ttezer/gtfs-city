@@ -32,6 +32,7 @@ const fileCopies = [
   'src/runtime/tariff-sheets.js',
   'src/runtime/adjacency-builder.js',
   'src/runtime/capture-controls.js',
+  'src/runtime/metro-map-controls.js',
   'src/runtime/connectivity-grid-controls.js',
   'src/runtime/cinematic-controls.js',
   'src/runtime/script.js',

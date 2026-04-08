@@ -151,6 +151,7 @@
 <button id="capture-toggle-btn" class="hidden" title="Ekran Görüntüsü Al">📸</button>
 <button id="route-tariff-toggle-btn" class="hidden" title="Hat Tarifesi">🚌</button>
 <button id="stop-tariff-toggle-btn" class="hidden" title="Durak Tarifesi">📍</button>
+<button id="metro-map-toggle-btn" class="hidden" title="Metro Diyagramı">🚇</button>
 <div id="legend" style="display:none;"></div>
 <div id="capture-credit" class="hidden">© GTFS City tarafından üretilmiştir • https://ttezer.github.io/gtfs-city/app/</div>
 
@@ -672,6 +673,45 @@
       </div>
     </div>
     <div id="tariff-output-content"></div>
+  </div>
+</div>
+
+<div id="metro-map-modal" class="hidden">
+  <div class="metro-map-modal-box">
+    <div class="tariff-modal-header">
+      <span>🚇 Metro Diyagramı</span>
+      <button id="metro-map-close" type="button">✕</button>
+    </div>
+    <div class="tariff-modal-body">
+      <label class="capture-field">
+        <span>Hat ara</span>
+        <input type="text" id="metro-map-route-filter" placeholder="Hat kodu veya uzun ad">
+      </label>
+      <div class="metro-map-toolbar">
+        <button type="button" class="cbtn" id="metro-map-select-all">Tümünü Seç</button>
+        <button type="button" class="cbtn" id="metro-map-clear">Temizle</button>
+        <span id="metro-map-selection-count">Hat seçilmedi</span>
+      </div>
+      <div id="metro-map-route-list" class="metro-map-route-list"></div>
+      <div class="tariff-summary">Yalnızca baş/son ve transfer durakları etiketlenir. Çizim, seçilen hatların gerçek koordinatlarından türetilmiş sadeleştirilmiş metro diyagramıdır.</div>
+    </div>
+    <div class="tariff-modal-actions">
+      <button type="button" class="cbtn" id="metro-map-cancel">Vazgeç</button>
+      <button type="button" class="cbtn accent" id="metro-map-generate">Diyagram Üret</button>
+    </div>
+  </div>
+</div>
+
+<div id="metro-map-output-modal" class="hidden">
+  <div id="metro-map-output-box">
+    <div id="metro-map-output-header">
+      <span>Metro Diyagramı Önizleme</span>
+      <div class="tariff-output-actions">
+        <button type="button" class="cbtn accent" id="metro-map-download">PNG Kaydet</button>
+        <button type="button" class="cbtn" id="metro-map-output-close">Kapat</button>
+      </div>
+    </div>
+    <div id="metro-map-output-content"></div>
   </div>
 </div>
 

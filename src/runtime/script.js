@@ -277,7 +277,10 @@ async function createConnectivityWorkerInstance() {
 
 async function startConnectivityWorker() {
   if (AppState.stopConnectivityScores?.meta?.validation_summary) return;
-  if (!Object.keys(AppState.stopInfo || {}).length || !Object.keys(AppState.stopDeps || {}).length) return;
+  if (!Object.keys(AppState.stopInfo || {}).length || !Object.keys(AppState.stopDeps || {}).length) {
+    console.warn('[Connectivity] stopInfo veya stopDeps boş, bağlantı kareleri hesaplanamıyor');
+    return;
+  }
 
   if (connectivityWorker) {
     connectivityWorker.terminate();
@@ -294,6 +297,7 @@ async function startConnectivityWorker() {
 
   worker.onmessage = (event) => {
     const msg = event.data || {};
+    console.log('[ConnectivityWorker] mesaj alındı:', msg.type);
     if (msg.type === 'PROGRESS') {
       window.dispatchEvent(new CustomEvent('stop-connectivity-progress', { detail: msg.detail }));
       return;
@@ -323,6 +327,10 @@ async function startConnectivityWorker() {
     ensureConnectivityViewportScores();
   };
 
+  console.log('[ConnectivityWorker] postMessage gönderiliyor', {
+    tripsCount: AppState.trips?.length,
+    adjCount: Object.keys(AppState.adj || {}).length,
+  });
   worker.postMessage({
     type: 'START',
     trips: AppState.trips,
@@ -2329,6 +2337,10 @@ const togMap = {
     showStops = v;
     refreshLayersNow();
   },
+  'trail': v => {
+    showTrail = v;
+    refreshLayersNow();
+  },
   'connectivity-grid': v => {
     showConnectivityGrid = v;
     connectivityGridPerfOpenAt = v ? performance.now() : 0;
@@ -2338,7 +2350,11 @@ const togMap = {
       updateConnectivityLegend(null);
     }
     if (v) {
-      console.log('[ConnectivityPerf]', { phase: 'start' });
+      console.log('[ConnectivityPerf]', {
+        phase: 'start',
+        stopInfoCount: Object.keys(AppState.stopInfo || {}).length,
+        stopDepsCount: Object.keys(AppState.stopDeps || {}).length,
+      });
       if (AppState.stopConnectivityScores?.meta?.validation_summary) {
         console.log('[ConnectivityPerf]', {
           phase: 'cached',
@@ -2686,6 +2702,10 @@ const {
   closeCaptureModal,
   getCaptureDefaultFileName,
 } = window.RuntimeCaptureControls;
+const {
+  configureRuntimeMetroMap,
+  bindMetroMapControls,
+} = window.RuntimeMetroMapControls;
 
 function updateLandingPageReports() {
   return callManager('AppManager', 'updateLandingPageReports');
@@ -2706,6 +2726,15 @@ window.DataManager?.init?.();
 window.AppManager?.init?.();
 configureRuntimeCapture({ getTypeFilter: getTypeFilterState, showToast });
 bindCaptureControls();
+configureRuntimeMetroMap({
+  getTrips: () => AppState.trips,
+  getStopInfo: () => AppState.stopInfo,
+  getRouteMeta,
+  colorToCss,
+  displayText,
+  showToast,
+});
+bindMetroMapControls();
 initializeTariffUi();
 window.CityManager?.init?.().catch((err) => {
   console.warn('[Init] Başlangıç yüklemesi başarısız:', err);
