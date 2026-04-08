@@ -4,189 +4,605 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>GTFS City</title>
-  <meta name="description" content="GTFS City, GTFS viewer ve transit analysis tool olarak masaüstünde tam akış, web tarafında ise ücretsiz demo sunar.">
+  <meta name="description" content="GTFS City — Toplu taşıma verinizi haritada görün, analiz edin. Ücretsiz, açık kaynak.">
   <link rel="icon" type="image/x-icon" href="./favicon.ico">
-  <link rel="stylesheet" href="./styles.css">
-  <script async src="https://www.googletagmanager.com/gtag/js?id=G-PRJPC1JRDH"></script>
-  <script>
-    window.dataLayer = window.dataLayer || [];
-    function gtag(){dataLayer.push(arguments);}
-    gtag('js', new Date());
-    gtag('config', 'G-PRJPC1JRDH');
-  </script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #07111f;
+      color: #eaf2ff;
+      line-height: 1.6;
+      overflow-x: hidden;
+    }
+
+    /* ═══════════════════════════════════════════════════════════
+       SOFT GRADIENT BACKGROUND
+       ═══════════════════════════════════════════════════════════ */
+    .gradient-bg {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 0;
+      background:
+        radial-gradient(ellipse at 10% 20%, rgba(34,197,94,0.15) 0%, transparent 50%),
+        radial-gradient(ellipse at 90% 80%, rgba(59,130,246,0.12) 0%, transparent 50%),
+        radial-gradient(ellipse at 50% 50%, rgba(103,232,249,0.08) 0%, transparent 60%),
+        linear-gradient(180deg, #0a1628 0%, #07111f 50%, #050d18 100%);
+    }
+
+    /* ═══════════════════════════════════════════════════════════
+       LAYOUT
+       ═══════════════════════════════════════════════════════════ */
+    .page-content {
+      position: relative;
+      z-index: 1;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .main-content {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      max-width: 1400px;
+      margin: 0 auto;
+      padding: 40px 48px;
+      width: 100%;
+    }
+
+    /* ═══════════════════════════════════════════════════════════
+       HERO - LOGO SOLDA, BUTON SAĞDA
+       ═══════════════════════════════════════════════════════════ */
+    .hero {
+      display: flex;
+      align-items: center;
+      gap: 48px;
+      margin-bottom: 48px;
+    }
+
+    .hero-logo {
+      width: 160px;
+      height: 160px;
+      flex-shrink: 0;
+    }
+
+    .hero-logo img {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      filter: drop-shadow(0 0 30px rgba(103,232,249,0.25));
+    }
+
+    .hero-content {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 32px;
+    }
+
+    .hero-text {
+      flex: 1;
+    }
+
+    .hero-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 16px;
+      border-radius: 50px;
+      border: 1px solid rgba(103,232,249,0.25);
+      background: rgba(103,232,249,0.1);
+      font-size: 0.7rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      color: #67e8f9;
+      margin-bottom: 16px;
+    }
+
+    .hero-badge-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: #67e8f9;
+      box-shadow: 0 0 10px rgba(103,232,249,0.8);
+    }
+
+    .hero h1 {
+      font-size: 3.2rem;
+      font-weight: 800;
+      margin-bottom: 12px;
+      color: #fff;
+      letter-spacing: -0.02em;
+    }
+
+    .hero .tagline {
+      font-size: 1.25rem;
+      color: rgba(255,255,255,0.72);
+      margin-bottom: 8px;
+    }
+
+    .hero .subtitle {
+      font-size: 1rem;
+      color: #67e8f9;
+      font-weight: 500;
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px 48px;
+      border-radius: 16px;
+      text-decoration: none;
+      font-weight: 700;
+      font-size: 1.2rem;
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .btn-primary {
+      background: linear-gradient(135deg, #1f8f45 0%, #16a34a 100%);
+      color: #fff;
+      box-shadow: 0 4px 20px rgba(31,143,69,0.4);
+    }
+
+    .btn-primary::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: -100%;
+      width: 100%;
+      height: 100%;
+      background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+      transition: left 0.5s;
+    }
+
+    .btn-primary:hover {
+      transform: translateY(-4px) scale(1.02);
+      box-shadow: 0 8px 35px rgba(31,143,69,0.5);
+    }
+
+    .btn-primary:hover::before {
+      left: 100%;
+    }
+
+    /* ═══════════════════════════════════════════════════════════
+       SECTION TITLES
+       ═══════════════════════════════════════════════════════════ */
+    .section-title {
+      font-size: 1.4rem;
+      font-weight: 700;
+      margin-bottom: 20px;
+      color: #fff;
+      text-align: center;
+    }
+
+    /* ═══════════════════════════════════════════════════════════
+       WORKFLOW - AKIŞ STİLİ OK İLE
+       ═══════════════════════════════════════════════════════════ */
+    .workflow {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0;
+      margin-bottom: 32px;
+    }
+
+    .workflow-step {
+      text-align: center;
+      padding: 20px 24px;
+      background: rgba(6,13,24,0.6);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 16px;
+      backdrop-filter: blur(12px);
+      transition: all 0.3s;
+      flex: 1;
+      max-width: 280px;
+    }
+
+    .workflow-step:hover {
+      border-color: rgba(103,232,249,0.3);
+      transform: translateY(-2px);
+    }
+
+    .workflow-icon {
+      font-size: 1.8rem;
+      margin-bottom: 10px;
+    }
+
+    .workflow-step h3 {
+      font-size: 1rem;
+      margin-bottom: 6px;
+      color: #fff;
+      font-weight: 600;
+    }
+
+    .workflow-step p {
+      font-size: 0.85rem;
+      color: rgba(255,255,255,0.6);
+    }
+
+    .workflow-arrow {
+      font-size: 2.5rem;
+      color: #67e8f9;
+      padding: 0 20px;
+      animation: arrowPulse 1.5s ease-in-out infinite;
+    }
+
+    @keyframes arrowPulse {
+      0%, 100% {
+        opacity: 0.5;
+        transform: translateX(0);
+      }
+      50% {
+        opacity: 1;
+        transform: translateX(6px);
+      }
+    }
+
+    /* ═══════════════════════════════════════════════════════════
+       FEATURES - HOVER İLE RESİM
+       ═══════════════════════════════════════════════════════════ */
+    .features {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 16px;
+      margin-bottom: 32px;
+    }
+
+    .feature-card {
+      background: rgba(6,13,24,0.6);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 16px;
+      padding: 20px;
+      backdrop-filter: blur(12px);
+      transition: all 0.3s;
+      position: relative;
+      overflow: hidden;
+      min-height: 140px;
+    }
+
+    .feature-card:hover {
+      border-color: rgba(103,232,249,0.4);
+      transform: translateY(-2px);
+    }
+
+    .feature-card-content {
+      position: relative;
+      z-index: 2;
+      transition: opacity 0.3s;
+    }
+
+    .feature-card:hover .feature-card-content {
+      opacity: 0;
+    }
+
+    .feature-icon {
+      font-size: 1.6rem;
+      margin-bottom: 10px;
+    }
+
+    .feature-card h3 {
+      font-size: 1rem;
+      margin-bottom: 6px;
+      color: #fff;
+      font-weight: 600;
+    }
+
+    .feature-card p {
+      font-size: 0.85rem;
+      color: rgba(255,255,255,0.6);
+      line-height: 1.5;
+    }
+
+    .feature-preview {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      opacity: 0;
+      transition: opacity 0.3s;
+      z-index: 1;
+    }
+
+    .feature-preview img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      border-radius: 15px;
+    }
+
+    .feature-preview::after {
+      content: '';
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      height: 60px;
+      background: linear-gradient(transparent, rgba(0,0,0,0.85));
+      border-radius: 0 0 15px 15px;
+    }
+
+    .feature-preview-label {
+      position: absolute;
+      bottom: 14px;
+      left: 18px;
+      font-weight: 600;
+      color: #fff;
+      font-size: 0.95rem;
+      z-index: 3;
+    }
+
+    .feature-card:hover .feature-preview {
+      opacity: 1;
+    }
+
+    /* ═══════════════════════════════════════════════════════════
+       OPEN SOURCE - KOMPAKT
+       ═══════════════════════════════════════════════════════════ */
+    .opensource {
+      text-align: center;
+      padding: 24px;
+      background: rgba(6,13,24,0.6);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 16px;
+      backdrop-filter: blur(12px);
+    }
+
+    .opensource h2 {
+      font-size: 1.2rem;
+      margin-bottom: 8px;
+      color: #fff;
+    }
+
+    .opensource p {
+      color: rgba(255,255,255,0.6);
+      font-size: 0.9rem;
+    }
+
+    /* ═══════════════════════════════════════════════════════════
+       FOOTER
+       ═══════════════════════════════════════════════════════════ */
+    .footer {
+      text-align: center;
+      padding: 24px;
+      border-top: 1px solid rgba(255,255,255,0.08);
+    }
+
+    .footer-github {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 20px;
+      border-radius: 10px;
+      background: rgba(255,255,255,0.05);
+      border: 1px solid rgba(255,255,255,0.1);
+      text-decoration: none;
+      color: #fff;
+      font-weight: 600;
+      font-size: 0.9rem;
+      margin-bottom: 16px;
+      transition: all 0.2s;
+    }
+
+    .footer-github:hover {
+      background: rgba(255,255,255,0.1);
+    }
+
+    .footer-github svg {
+      width: 20px;
+      height: 20px;
+      fill: #fff;
+    }
+
+    .footer-info {
+      color: rgba(255,255,255,0.5);
+      font-size: 0.85rem;
+      line-height: 1.7;
+    }
+
+    .footer-info a {
+      color: #67e8f9;
+      text-decoration: none;
+    }
+
+    .footer-info a:hover {
+      text-decoration: underline;
+    }
+
+    /* ═══════════════════════════════════════════════════════════
+       RESPONSIVE
+       ═══════════════════════════════════════════════════════════ */
+    @media (max-width: 1100px) {
+      .hero-content { flex-direction: column; align-items: flex-start; }
+      .btn { align-self: flex-start; }
+    }
+
+    @media (max-width: 900px) {
+      .main-content { padding: 24px; }
+      .hero { flex-direction: column; text-align: center; gap: 24px; }
+      .hero-logo { width: 120px; height: 120px; }
+      .hero h1 { font-size: 2.2rem; }
+      .hero-content { align-items: center; }
+      .btn { align-self: center; }
+      .workflow { flex-direction: column; gap: 12px; }
+      .workflow-arrow { transform: rotate(90deg); padding: 8px 0; animation-name: arrowPulseVertical; }
+      @keyframes arrowPulseVertical {
+        0%, 100% { opacity: 0.5; transform: rotate(90deg) translateX(0); }
+        50% { opacity: 1; transform: rotate(90deg) translateX(6px); }
+      }
+      .workflow-step { max-width: 100%; }
+      .features { grid-template-columns: 1fr; }
+    }
+
+    @media (min-width: 901px) and (max-height: 900px) {
+      .main-content { padding: 24px 48px; }
+      .hero { margin-bottom: 32px; }
+      .hero-logo { width: 120px; height: 120px; }
+      .hero h1 { font-size: 2.6rem; }
+      .workflow-step { padding: 16px 20px; }
+      .feature-card { padding: 16px; min-height: 120px; }
+    }
+  </style>
 </head>
 <body>
-  <main class="page">
-    <section class="hero">
-      <div class="hero-copy">
-        <p class="eyebrow">GTFS Viewer ve Analiz Aracı</p>
-        <h1>GTFS City</h1>
-        <p class="lead">
-          GTFS ZIP verisini yükleyip hatları, durakları, araç akışını ve analiz katmanlarını tek uygulama içinde inceleyin.
-          Desktop sürüm tam akışı sunar; ücretsiz web demo ise tarayıcı içinde hızlı bir GTFS viewer deneyimi sağlar.
-        </p>
-        <div class="hero-actions">
-          <a class="btn primary" href="./app/">Ücretsiz Web Demo</a>
-          <a class="btn" href="https://github.com/ttezer/gtfs-city" target="_blank" rel="noreferrer">GitHub</a>
-          <a class="btn" href="https://github.com/ttezer/gtfs-city/blob/main/README.md" target="_blank" rel="noreferrer">README</a>
-          <a class="btn" href="https://github.com/ttezer/gtfs-city/blob/main/docs/repo/mimari.md" target="_blank" rel="noreferrer">Mimari</a>
+
+  <!-- SOFT GRADIENT BACKGROUND -->
+  <div class="gradient-bg"></div>
+
+  <!-- PAGE CONTENT -->
+  <div class="page-content">
+    <div class="main-content">
+
+      <!-- HERO -->
+      <section class="hero">
+        <div class="hero-logo">
+          <img src="./logo-mark.png" alt="GTFS City logo">
         </div>
-      </div>
-      <div class="hero-mark-wrap">
-        <img src="./logo-mark.png" alt="GTFS City logo" class="hero-logo">
-      </div>
-    </section>
-
-    <section class="grid three">
-      <article class="card stat-card">
-        <h2>Tek Veri Seti</h2>
-        <p>Aynı anda tek aktif GTFS veri seti tutulur. Bu yaklaşım veri bağlamını sade tutar ve şehir karışmasını önler.</p>
-      </article>
-      <article class="card stat-card">
-        <h2>Analiz Katmanları</h2>
-        <p>Headway, bekleme, yoğunluk, kapsama ve izokron katmanları aktif filtrelerle birlikte çalışır.</p>
-      </article>
-      <article class="card stat-card">
-        <h2>Çift Platform</h2>
-        <p>Desktop sürüm yerel dosya ve HTTPS ZIP linki destekler. Web demo ise tarayıcı içinde doğrudan ZIP yükleme ile çalışır.</p>
-      </article>
-    </section>
-
-    <section class="grid two section-gap">
-      <article class="card">
-        <p class="eyebrow">Ne Başarır?</p>
-        <ul>
-          <li>GTFS ZIP verisini doğrular ve çalışma ekranına tek kaynak olarak bağlar.</li>
-          <li>Hat, durak ve araç panellerini aynı veri modeli üzerinden tutarlı gösterir.</li>
-          <li>Hat tipi filtresi, odaklı hat görünümü ve ilgili katmanları birlikte yönetir.</li>
-          <li>Simülasyon saati, replay ve analiz katmanlarını tek arayüzde toplar.</li>
-        </ul>
-      </article>
-      <article class="card">
-        <p class="eyebrow">Neden Farklı?</p>
-        <ul>
-          <li>Tek veri seti mantığıyla karmaşık preload zincirini terk eder.</li>
-          <li>Upload-first akış ile veri gelmeden haritaya geçmez.</li>
-          <li>Desktop ve web deneyimini aynı temel kod tabanı üzerinde taşır.</li>
-          <li>Analiz odaklıdır; sadece harita göstermekle kalmaz, operasyonel yorum üretir.</li>
-        </ul>
-      </article>
-    </section>
-
-    <section class="section-block">
-      <div class="section-head">
-        <div>
-          <p class="eyebrow">Arayüz</p>
-          <h2>Öne çıkan ekranlar</h2>
-        </div>
-      </div>
-
-      <div class="feature-stack">
-        <article class="feature-card feature-wide hero-shot">
-          <div class="feature-copy">
-            <p class="eyebrow">Giriş Ekranı</p>
-            <h3>İlk Yükleme</h3>
-            <p>Uygulama veri gelmeden haritaya geçmez. ZIP yükleme ve masaüstünde HTTPS linkten indirme aynı veri hattına bağlanır.</p>
+        <div class="hero-content">
+          <div class="hero-text">
+            <div class="hero-badge">
+              <span class="hero-badge-dot"></span>
+              Açık Kaynak GTFS Aracı
+            </div>
+            <h1>GTFS City</h1>
+            <p class="tagline">Toplu taşıma verinizi haritada görün, analiz edin.</p>
+            <p class="subtitle">Ücretsiz. Açık kaynak.</p>
           </div>
-          <img src="./screens/giris_sayfasi.jpg" alt="GTFS City giriş sayfası" class="feature-shot">
-        </article>
-
-        <div class="gallery-grid">
-          <article class="feature-card">
-            <img src="./screens/ornek_GTFS_Konya.jpg" alt="GTFS yükleme örneği" class="feature-shot">
-            <div class="feature-copy">
-              <h3>GTFS yükleme</h3>
-              <p>Veri seti doğrulanır, hazırlanır ve çalışma ekranına tek aktif kaynak olarak bağlanır.</p>
-            </div>
-          </article>
-
-          <article class="feature-card">
-            <img src="./screens/hat_bilgi.jpg" alt="Hat bilgi paneli" class="feature-shot">
-            <div class="feature-copy">
-              <h3>Hat paneli</h3>
-              <p>Yön bilgisi, servis takvimi ve güzergâh özeti tek panel içinde toplanır.</p>
-            </div>
-          </article>
-
-          <article class="feature-card">
-            <img src="./screens/arac_bilgi.jpg" alt="Araç bilgi paneli" class="feature-shot">
-            <div class="feature-copy">
-              <h3>Araç paneli</h3>
-              <p>Seçilen araç için hat, yön, ilerleme ve durak ilişkisi tek panelde izlenir.</p>
-            </div>
-          </article>
-
-          <article class="feature-card">
-            <img src="./screens/durak_bilgi.jpg" alt="Durak bilgi paneli" class="feature-shot contain">
-            <div class="feature-copy">
-              <h3>Durak paneli</h3>
-              <p>İlk gelen ve sonraki araç süreleri tablo yapısında izlenir. Durak tarafında okunabilirlik önceliklidir.</p>
-            </div>
-          </article>
+          <a href="./app/" class="btn btn-primary">Şimdi Ücretsiz Kullanın</a>
         </div>
+      </section>
 
-        <article class="feature-card feature-wide iso-shot">
-          <img src="./screens/durak_bazli_izokran.jpg" alt="Durak bazlı izokron analizi" class="feature-shot">
-          <div class="feature-copy">
-            <p class="eyebrow">Analiz Katmanı</p>
-            <h3>İzokron analizi</h3>
-            <p>Seçilen duraktan erişilebilir alanlar süre temelli renklendirilir. İzokron, bekleme ve diğer katmanlarla birlikte yorumlanır.</p>
+      <!-- NASIL ÇALIŞIR -->
+      <section>
+        <h2 class="section-title">Nasıl Çalışır?</h2>
+        <div class="workflow">
+          <div class="workflow-step">
+            <div class="workflow-icon">📦</div>
+            <h3>Yükleyin</h3>
+            <p>GTFS ZIP dosyanızı sürükleyin</p>
           </div>
-        </article>
-      </div>
-    </section>
-
-    <section class="grid two section-gap">
-      <article class="card">
-        <p class="eyebrow">Web ve Desktop Ayrımı</p>
-        <ul>
-          <li>Web demo: tarayıcı içinde yerel ZIP yükleme ve temel deneyim</li>
-          <li>Desktop: yerel dosya, HTTPS ZIP linki ve tam masaüstü akışı</li>
-          <li>HTTPS linkten yükleme güvenlik ve platform sebepleriyle yalnızca Electron sürümünde tutulur</li>
-        </ul>
-      </article>
-      <article class="card">
-        <p class="eyebrow">Dokümanlar</p>
-        <ul>
-          <li><a href="https://github.com/ttezer/gtfs-city/blob/main/README.md" target="_blank" rel="noreferrer">README</a></li>
-          <li><a href="https://github.com/ttezer/gtfs-city/blob/main/docs/repo/mimari.md" target="_blank" rel="noreferrer">Mimari</a></li>
-          <li><a href="https://github.com/ttezer/gtfs-city/blob/main/docs/repo/kontrol.md" target="_blank" rel="noreferrer">Kontrol</a></li>
-          <li><a href="https://github.com/ttezer/gtfs-city/blob/main/docs/repo/isplani.md" target="_blank" rel="noreferrer">Güncel Durum</a></li>
-        </ul>
-      </article>
-    </section>
-
-    <section class="section-block">
-      <div class="section-head">
-        <div>
-          <p class="eyebrow">Açık Veri</p>
-          <h2>Türkiye'deki GTFS kaynakları</h2>
+          <div class="workflow-arrow">›</div>
+          <div class="workflow-step">
+            <div class="workflow-icon">🗺️</div>
+            <h3>İzleyin</h3>
+            <p>Araçlar haritada hareket eder</p>
+          </div>
+          <div class="workflow-arrow">›</div>
+          <div class="workflow-step">
+            <div class="workflow-icon">📊</div>
+            <h3>Analiz Edin</h3>
+            <p>Boşlukları ve sorunları bulun</p>
+          </div>
         </div>
-      </div>
-      <div class="grid two">
-        <article class="card">
-          <ul>
-            <li><a href="https://acikveri.konya.bel.tr/tr/dataset/toplu-tasima-gtfs-verileri" target="_blank" rel="noreferrer">Konya Büyükşehir Belediyesi</a></li>
-            <li><a href="https://acikveri.bizizmir.com/tr/dataset/toplu-ulasim-gtfs-verileri" target="_blank" rel="noreferrer">İzmir Büyükşehir Belediyesi</a></li>
-            <li><a href="https://acikveri.gaziantep.bel.tr/dataset/toplu-ulasim-gtfs-verileri" target="_blank" rel="noreferrer">Gaziantep Büyükşehir Belediyesi</a></li>
-          </ul>
-        </article>
-        <article class="card">
-          <ul>
-            <li><a href="https://veri.kocaeli.bel.tr/datasets/e2a87342-d39a-4742-ae25-165e10d2bc72" target="_blank" rel="noreferrer">Kocaeli Büyükşehir Belediyesi</a></li>
-            <li><a href="https://data.ibb.gov.tr/dataset/iett-gtfs-verisi" target="_blank" rel="noreferrer">İETT</a></li>
-            <li><a href="https://data.ibb.gov.tr/dataset/public-transport-gtfs-data" target="_blank" rel="noreferrer">İstanbul Büyükşehir Belediyesi</a></li>
-          </ul>
-        </article>
-      </div>
-      <p class="lead" style="margin-top:18px;">
-        Bu bağlantılardaki GTFS ZIP dosyalarını indirip GTFS City içinde doğrudan test edebilirsiniz. Veri erişimi ve güncellik ilgili kurumların sorumluluğundadır.
-      </p>
-    </section>
-  </main>
+      </section>
 
-  <footer class="footer">
-    <span>Vatan'ın Babası Tacettin TEZER</span>
-  </footer>
+      <!-- ÖZELLİKLER -->
+      <section>
+        <h2 class="section-title">Özellikler</h2>
+        <div class="features">
+          <div class="feature-card">
+            <div class="feature-card-content">
+              <div class="feature-icon">🎬</div>
+              <h3>Simülasyon</h3>
+              <p>Sefer saatlerine göre araç hareketi</p>
+            </div>
+            <div class="feature-preview">
+              <img src="./screens/simulasyon.png" alt="Simülasyon">
+              <span class="feature-preview-label">Simülasyon</span>
+            </div>
+          </div>
+          <div class="feature-card">
+            <div class="feature-card-content">
+              <div class="feature-icon">🔵</div>
+              <h3>İzokron Analizi</h3>
+              <p>Erişilebilir alanları görün</p>
+            </div>
+            <div class="feature-preview">
+              <img src="./screens/izokron.png" alt="İzokron">
+              <span class="feature-preview-label">İzokron Analizi</span>
+            </div>
+          </div>
+          <div class="feature-card">
+            <div class="feature-card-content">
+              <div class="feature-icon">🟩</div>
+              <h3>Bağlantı Kareleri</h3>
+              <p>Ağ erişilebilirlik skoru</p>
+            </div>
+            <div class="feature-preview">
+              <img src="./screens/baglantili_kareler.png" alt="Bağlantı Kareleri">
+              <span class="feature-preview-label">Bağlantı Kareleri</span>
+            </div>
+          </div>
+          <div class="feature-card">
+            <div class="feature-card-content">
+              <div class="feature-icon">🔥</div>
+              <h3>Yoğunluk Haritası</h3>
+              <p>Sefer yoğunluğu ısı haritası</p>
+            </div>
+            <div class="feature-preview">
+              <img src="./screens/heatmap.png" alt="Yoğunluk Haritası">
+              <span class="feature-preview-label">Yoğunluk Haritası</span>
+            </div>
+          </div>
+          <div class="feature-card">
+            <div class="feature-card-content">
+              <div class="feature-icon">🚌</div>
+              <h3>Bunching Tespiti</h3>
+              <p>Yapışan araçları işaretle</p>
+            </div>
+            <div class="feature-preview">
+              <img src="./screens/bunching.png" alt="Bunching">
+              <span class="feature-preview-label">Bunching Tespiti</span>
+            </div>
+          </div>
+          <div class="feature-card">
+            <div class="feature-card-content">
+              <div class="feature-icon">📍</div>
+              <h3>Yol Tarifi</h3>
+              <p>Rota ve aktarma önerisi</p>
+            </div>
+            <div class="feature-preview">
+              <img src="./screens/nasil_giderim.png" alt="Yol Tarifi">
+              <span class="feature-preview-label">Yol Tarifi</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- AÇIK KAYNAK -->
+      <section>
+        <div class="opensource">
+          <h2>Açık Kaynak</h2>
+          <p>Kodu inceleyin, uyarlayın, katkıda bulunun. Masaüstü ve web olarak çalışır.</p>
+        </div>
+      </section>
+
+    </div>
+
+    <!-- FOOTER -->
+    <footer class="footer">
+      <a href="https://github.com/ttezer/gtfs-city" target="_blank" class="footer-github">
+        <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+          <path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/>
+        </svg>
+        ttezer/gtfs-city
+      </a>
+      <div class="footer-info">
+        <p><a href="https://github.com/vatanaksoytezer" target="_blank">Vatan</a>'ın Babası Tacettin TEZER</p>
+        <p>iletişim: ttezer@gmail.com</p>
+      </div>
+    </footer>
+  </div>
+
 </body>
 </html>
