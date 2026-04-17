@@ -1,0 +1,2 @@
+#!/bin/sh
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/pre_commit_check.ps1 -StagedOnly

@@ -1,5 +1,7 @@
 node_modules/
 dist/
+build/
+coverage/
 Ydek/
 .idea/
 .vscode/
@@ -8,5 +10,11 @@ Ydek/
 *.docx
 Data/*.zip
 *.tmp
+*.log
+.env
+.env.*
+*.local
+*.bak
 data.js
 /Originals/
+.claude/
