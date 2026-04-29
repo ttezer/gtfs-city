@@ -146,7 +146,7 @@ window.UIManager = (function () {
         ctx.refreshLayersNow();
       });
     }
-    ctx.setSelectedEntity({ type: 'route', routeShort: routeMeta.short });
+    ctx.setSelectedEntity({ type: 'route', routeShort: routeMeta.short, routeId: routeMeta.rid || null });
     showElement(panel);
     setTimeout(() => panel.classList.add('open'), 10);
   }
@@ -594,6 +594,14 @@ window.UIManager = (function () {
     });
     const typeFilter = ctx.getTypeFilter ? ctx.getTypeFilter() : ctx.typeFilter;
     filterRouteListByType(typeFilter || 'all');
+    if (ctx.AppState?.capped) {
+      const note = document.createElement('div');
+      note.className = 'route-list-cap-note';
+      const loaded = (ctx.AppState.tripCap === Infinity ? ctx.AppState.trips.length : ctx.AppState.tripCap).toLocaleString('tr');
+      const total = ctx.AppState.totalTrips.toLocaleString('tr');
+      note.textContent = translate('routeListCapNote', `Hat listesi tam · sefer animasyonu ${loaded}/${total} (temsili alt küme)`);
+      routeListEl.appendChild(note);
+    }
   }
 
   function buildStopList(filter = '') {
@@ -673,7 +681,7 @@ window.UIManager = (function () {
       return t.s === shortName && normalizeRouteType(t.t) === normalizeRouteType(routeRef.t);
     }) || getTrips(ctx).find((t) => t.s === shortName);
     if (trip) {
-      const routeMeta = ctx.getRouteMeta(shortName, trip.t, trip.c, routeRef?.ln || trip.ln || trip.h || routeRef?.an || '');
+      const routeMeta = { ...ctx.getRouteMeta(shortName, trip.t, trip.c, routeRef?.ln || trip.ln || trip.h || routeRef?.an || ''), rid: typeof routeRef === 'object' ? (routeRef.rid || null) : null };
       openRoutePanel(routeMeta, ctx.TYPE_META[trip.t] || {});
     }
     buildStopList(document.getElementById('stop-list-filter')?.value || '');

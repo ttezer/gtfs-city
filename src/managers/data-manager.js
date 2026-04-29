@@ -809,6 +809,9 @@ window.DataManager = (function () {
         if (overlay && !landingUpload) overlay.classList.add('hidden');
         return false;
       }
+      runtimeData.capped = tripCap < totalTripCount;
+      runtimeData.totalTrips = totalTripCount;
+      runtimeData.tripCap = tripCap;
 
       const runtimeRouteIds = new Set((runtimeData.nTRIPS || []).map((trip) => String(trip?.rid || '').trim()).filter(Boolean));
       if (runtimeRouteIds.size) ctx.setRouteCatalog?.(allRouteCatalog.filter((route) => runtimeRouteIds.has(route.rid)));

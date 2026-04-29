@@ -1092,6 +1092,9 @@ function setRuntimeCollectionsState(runtimeData) {
   AppState.stopDeps = runtimeData?.nSTOP_DEPS || {};
   AppState.hourlyCounts = runtimeData?.nHOURLY_COUNTS || {};
   AppState.hourlyHeat = runtimeData?.nHOURLY_HEAT || {};
+  AppState.capped = runtimeData?.capped || false;
+  AppState.totalTrips = runtimeData?.totalTrips || 0;
+  AppState.tripCap = runtimeData?.tripCap || Infinity;
 }
 
 function setStopNamesState(value) {
