@@ -2,6 +2,18 @@
 
 Bu dosya, büyük ürün dönüm noktalarını kısa biçimde özetler.
 
+## 2026-04-30
+
+### Büyük feed desteği ve route kimliği iyileştirmeleri
+
+- `routeCatalog` artık cap/runtime budamasından bağımsız; `routes.txt` tam kataloğu sidebar'da gösteriliyor. VBB gibi büyük feed'lerde cap sınırını aşan hatlar da listede görünüyor.
+- `tariffIndex` eklendi: cap uygulanmadan önce, servis filtreli tam sefer verisi saklanıyor. Sefer saatleri sayfası artık animasyon cap'inden etkilenmiyor.
+- `focusedRouteId` ile route kimliği `route_short_name` yerine `route_id` tabanlı hale getirildi; çakışan hat adları (ör. VBB `27` / `M27`) doğru ayrımlandı.
+- Cap dışı hatlar tıklandığında panel katalog verisiyle açılıyor; shape ve araç animasyonu için route-scoped loading gerekiyor (açık iş).
+- Durak aramasında 300 ön-limit kaldırıldı: sorgu varken tüm duraklar taranıyor.
+- Electron GPU crash (DXGI_ERROR_DEVICE_HUNG, exit_code=34) `use-angle=gl` ile giderildi.
+- Sidebar ve tariff sayfasında cap durumu kullanıcıya gösteriliyor.
+
 ## 2026-04-04
 
 ### Bağlantı Kareleri beta turu
