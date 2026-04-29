@@ -1,76 +1,78 @@
 # GTFS City - Güncel Durum
 
-Bu dosya, aktif ürün durumunu ve kisa vadeli odaklari tek yerde tutar.
-Uzun tarihce burada biriktirilmez.
+Bu dosya, aktif ürün durumunu ve kısa vadeli odakları tek yerde tutar.
+Uzun tarihçe burada biriktirilmez.
 
 ## Mevcut Durum
 
-Proje iki desteklenen yuzeyle ilerliyor:
+Proje iki desteklenen yüzeyle ilerliyor:
 
-- Electron masaustu uygulamasi
-- GitHub Pages uzerinden çalışan web demo
+- Electron masaüstü uygulaması
+- GitHub Pages üzerinden çalışan web demo
 
 Temel ürün ilkeleri:
 
-- upload-first baslangic akisi
+- upload-first başlangıç akışı
 - tek aktif GTFS veri seti
-- worker tabanli parse
-- desktop ve web icin ortak çekirdek
+- worker tabanlı parse
+- desktop ve web için ortak çekirdek
 
-## Karar Olarak Sabitlenen Davranislar
+## Karar Olarak Sabitlenen Davranışlar
 
-- GTFS yuklenmeden harita ekranina gecilmez
+- GTFS yüklenmeden harita ekranına geçilmez
 - tek aktif GTFS veri seti modeli korunur
-- route / stop / vehicle panel akislari temel davranis kabul edilir
-- headway, heatmap, bağlantı kareleri ve stop coverage katmanlari çekirdek ozelliktir
-- web demo desteklenen ürün yuzeyidir; sadece vitrin degildir
+- route / stop / vehicle panel akışları temel davranış kabul edilir
+- headway, heatmap, bağlantı kareleri ve stop coverage katmanları çekirdek özelliktir
+- web demo desteklenen ürün yüzeyidir; sadece vitrin değildir
 
-## Güncel Açık Isler
+## Güncel Açık İşler
 
-- Büyük feed'de cap disi hat shape/arac gostergesi
-  - routeCatalog tam (cap budamasiz); tariffIndex pre-cap; sefer saatleri tam çalışıyor.
-  - Cap disi hatlarda panel aciliyor ama shape, durak ve arac animasyonu gelmiyor.
-  - Çözüm: route-scoped on-demand loading — kullanıcı hatti secince o hattın trip/shape verisi worker'da yuklenir.
-- Büyük GTFS feed kararliligi / WebGL
-  - Cap threshold hizalandi (30K, 4 noktada).
+- Büyük feed'de cap dışı hat shape/araç göstergesi
+  - routeCatalog tam (cap budamasız); tariffIndex pre-cap; sefer saatleri tam çalışıyor.
+  - Cap dışı hatlar listede görünür; seçilirse panel açmak yerine açık bilgilendirme veriliyor.
+  - Route tariff tam veriyle çalışır; stop tariff halen runtime stopDeps/trips zincirine bağlıdır.
+  - Çözüm: route-scoped on-demand loading — kullanıcı hattı seçince o hattın trip/shape verisi worker'da yüklenir.
+- Büyük GTFS feed kararlılığı / WebGL
+  - Cap threshold hizalandı (30K, 4 noktada).
   - GPU crash (exit_code=34, DXGI_ERROR_DEVICE_HUNG) giderildi: use-angle=gl + disable-gpu-sandbox.
-  - WebGL context loss kok nedeni hala açık; semptom azaltma yapıldı.
-  - Doğrulama kapsami: harita ilk render, route focus sonrasi render, context loss tekrar ediyor mu.
-- Bağlantı Kareleri performans iyilestirmesi
-  - A: `getWindowDepartures` sonuclarini precompute basinda onbellekle
-  - B: `getStopInfo(ctx)` cagrisini `getConnectivityGridCells` dongusunden disari cek
-  - C: `startStopConnectivityPrecompute` hesabini Web Worker'a tasi
-- Kocaeli hat seciminde durak eksikligi (veri kontrolu bekliyor)
-- web demo olgunlastirma
+- WebGL context loss kök nedeni hâlâ açık; semptom azaltma yapıldı.
+  - Doğrulama kapsamı: harita ilk render, route focus sonrası render, context loss tekrar ediyor mu.
+- Bağlantı Kareleri performans iyileştirmesi
+  - A: `getWindowDepartures` sonuçlarını precompute başında önbellekle
+  - B: `getStopInfo(ctx)` çağrısını `getConnectivityGridCells` döngüsünden dışarı çek
+  - C: `startStopConnectivityPrecompute` hesabını Web Worker'a taşı
+- Kocaeli hat seçiminde durak eksikliği (veri kontrolü bekliyor)
+- web demo olgunlaştırma
 - bağlantı kareleri beta kalibrasyonu
-- persisted snapshot / cache arastirmasi
-- gerekirse GTFS-RT arastirma fazi
+- persisted snapshot / cache araştırması
+- gerekirse GTFS-RT araştırma fazı
 
 ## Tamamlanan (son oturum)
 
-- routeCatalog cap/runtime budamasindan cikarildi; allRouteCatalog tam set ediliyor
+- routeCatalog cap/runtime budamasından çıkarıldı; allRouteCatalog tam set ediliyor
 - tariffIndex: pre-cap, servis filtreli tam trip schedule; AppState.tariffIndex olarak saklanıyor
-- tariff-sheets.js AppState.trips yerine tariffIndex kullanıyor
-- focusedRouteId state tam gecisi: panel, hide/show, stop filtreleme, cache key
-- buildRoutePanelStats route_id bazli
-- selectedEntity routeId tasiyor
-- cap bilgisi UI'da gosteriliyor (sidebar notu + AppState.capped/totalTrips/tripCap)
+- tariff-sheets.js route tariff tarafında AppState.trips yerine tariffIndex kullanıyor; stop tariff halen runtime bağımlı
+- focusedRouteId state tam geçişi: panel, hide/show, stop filtreleme, cache key
+- buildRoutePanelStats route_id bazlı
+- selectedEntity routeId taşıyor
+- cap bilgisi UI'da gösteriliyor (sidebar notu + AppState.capped/totalTrips/tripCap)
+- cap dışı hat seçiminde sessiz yarım panel yerine açık bilgi mesajı veriliyor
 - Durak arama 300 on-limit düzeltildi
 - Windows GPU crash giderildi
 
 ## Bu Dosya Neyi Tutmaz
 
-- detayli bug listesi tutmaz
+- detaylı bug listesi tutmaz
 - orta ve uzun vadeli roadmap tutmaz
 - mimari detay açıklaması tutmaz
-- repo/build/deploy proseduru tutmaz
+- repo/build/deploy prosedürü tutmaz
 
-## Ilgili Belgeler
+## İlgili Belgeler
 
-- `hata-listesi.md` - açık bug ve veri dogrulugu sorunlari
-- `teknik-borc.md` - güncel teknik borc siralamasi ve değişim takibi
-- `state-sahipligi.md` - state fazi icin sahiplik tabani ve ilk cakisma listesi
-- `yol-haritasi.md` - orta ve uzun vadeli gelisim basliklari
+- `hata-listesi.md` - açık bug ve veri doğruluğu sorunları
+- `teknik-borc.md` - güncel teknik borç sıralaması ve değişim takibi
+- `state-sahipligi.md` - state fazı için sahiplik tabanı ve ilk çakışma listesi
+- `yol-haritasi.md` - orta ve uzun vadeli gelişim başlıkları
 - `mimari.md` - teknik sınırlar ve mimari ilkeler
-- `kontrol.md` - is yapma standardi ve kontrol sirasi
-- `repo-akisi.md` - repo duzeni, build, sync ve yayin akisi
+- `kontrol.md` - iş yapma standardı ve kontrol sırası
+- `repo-akisi.md` - repo düzeni, build, sync ve yayın akışı

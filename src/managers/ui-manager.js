@@ -680,13 +680,31 @@ window.UIManager = (function () {
       if (routeRef.aid && t.aid && String(t.aid) !== String(routeRef.aid)) return false;
       return t.s === shortName && normalizeRouteType(t.t) === normalizeRouteType(routeRef.t);
     }) || getTrips(ctx).find((t) => t.s === shortName);
-    const catalogEntry = trip ? null : (ctx.getRouteCatalog?.() || []).find((r) =>
-      (typeof routeRef === 'object' && routeRef.rid ? r.rid === routeRef.rid : r.s === shortName)
-    );
-    const metaSource = trip || catalogEntry;
-    if (metaSource) {
-      const routeMeta = { ...ctx.getRouteMeta(shortName, metaSource.t, metaSource.c, routeRef?.ln || metaSource.ln || metaSource.h || routeRef?.an || metaSource.an || ''), rid: typeof routeRef === 'object' ? (routeRef.rid || null) : null };
-      openRoutePanel(routeMeta, ctx.TYPE_META[metaSource.t] || {});
+    if (!trip && !shape) {
+      if (ctx.AppState?.capped) {
+        ctx.showToast?.(
+          translate(
+            'routeNotLoadedDueToCap',
+            'Bu hat katalogda var ancak performans cap nedeniyle runtime verisi yüklenmedi. Harita ve panel için daha küçük veri kümesi veya isteğe bağlı yükleme gerekiyor.'
+          ),
+          'info',
+          6000,
+        );
+      }
+      clearFocusedRouteSelection(true);
+      return;
+    }
+    if (trip) {
+      const routeMeta = {
+        ...ctx.getRouteMeta(
+          shortName,
+          trip.t,
+          trip.c,
+          routeRef?.ln || trip.ln || trip.h || routeRef?.an || trip.an || ''
+        ),
+        rid: typeof routeRef === 'object' ? (routeRef.rid || null) : null
+      };
+      openRoutePanel(routeMeta, ctx.TYPE_META[trip.t] || {});
     }
     buildStopList(document.getElementById('stop-list-filter')?.value || '');
     ctx.refreshLayersNow();

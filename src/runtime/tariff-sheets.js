@@ -309,7 +309,7 @@ function buildRouteTariffSheet() {
         <div>
           <div class="tariff-code-badge"><span class="tariff-code-label">${tariffText('Hat Kodu', 'Route Code')}</span><span class="tariff-code-value">${routeMeta.short}</span></div>
           <h1 class="tariff-headline">${tariffText('Hat Sefer Saatleri', 'Route Trip Times')}</h1>
-          <div class="tariff-subline">${displayText(routeCatalogEntry?.an || routeMeta.longName || sampleTrip?.h || tariffText('Planlı hat geçişleri', 'Planned route departures'))}</div>
+          <div class="tariff-subline">${displayText(routeCatalogEntry?.an || routeMeta.longName || tariffText('Planlı hat geçişleri', 'Planned route departures'))}</div>
         </div>
       </div>
       <div class="tariff-meta-grid">
