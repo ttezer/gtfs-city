@@ -1,226 +1,213 @@
-# GTFS City - Resmi Calisma Standarti
+# GTFS City - Resmi Çalışma Standardı
 
-Bu dosya, repo icinde bir is alininca hangi sirayla ilerlenmesi gerektigini tanimlar.
-Amac, tekrar eden unutmalari, kapsam kaymasini ve "hangi belge guncellenecek" belirsizligini azaltmaktir.
+Bu dosya, repo içinde bir iş alınınca hangi sırayla ilerlenmesi gerektiğini tanımlar.
+Amaç, tekrar eden unutmaları, kapsam kaymasını ve "hangi belge güncellenecek" belirsizliğini azaltmaktır.
 
-## Temel Ilke
+## Temel İlke
 
-- Tek is, tek amac, net sinir.
-- Her konu icin tek ana belge.
-- Kok dizin urunun kaynak noktasi.
-- Desktop ve web birlikte dusunulur.
-- Kucuk, hedefli ve dogrulanabilir degisiklik tercih edilir.
+- Tek iş, tek amaç, net sınır.
+- Her konu için tek ana belge.
+- Kök dizin ürünün kaynak noktasıdır.
+- Desktop ve web birlikte düşünülür.
+- Küçük, hedefli ve doğrulanabilir değişiklik tercih edilir.
 
-## Is Turunu Once Belirle
+## İş Türünü Önce Belirle
 
-Bir ise baslamadan once turu netlestir:
+Bir işe başlamadan önce türü netleştir:
 
 - `bug`
 - `feature`
 - `refactor`
 - `repo/ci/build`
 - `docs`
-- `data-dogrulugu`
+- `data-doğruluğu`
 
-Tur net degilse once problem tek cumlede yazilir, sonra ise baslanir.
+Tür net değilse önce problem tek cümlede yazılır, sonra işe başlanır.
 
-## Zorunlu Baslangic Sirasi
+## Zorunlu Başlangıç Sırası
 
-Her is icin minimum siralama:
+Her iş için minimum sıralama:
 
-1. Problemi veya hedefi tek cumlede tanimla.
-2. Kapsami yaz: ne dahil, ne dahil degil.
-3. Etki alanini belirle: `desktop`, `web`, `both`.
-4. Ilgili belgeleri oku.
-5. Etkilenen dosyalari sinirla.
-6. Kucuk ve hedefli degisikligi yap.
-7. Gerekli dogrulamalari calistir.
-8. Yalnizca gereken belgeleri guncelle.
-9. Commit/PR ozetini net yaz.
+1. Problemi veya hedefi tek cümlede tanımla.
+2. Kapsamı yaz: ne dahil, ne dahil değil.
+3. Etki alanını belirle: `desktop`, `web`, `both`.
+4. İlgili belgeleri oku.
+5. Etkilenen dosyaları sınırla.
+6. Küçük ve hedefli değişikliği yap.
+7. Gerekli doğrulamaları çalıştır.
+8. Yalnızca gereken belgeleri güncelle.
+9. Commit/PR özetini net yaz.
 
-## Hangi Iste Hangi Belgeler Okunur
+## Hangi İşte Hangi Belgeler Okunur
 
-Her iste:
+Her işte:
 
 - `README.md`
 - `kontrol.md`
 
-Teknik degisiklikte:
+Teknik değişiklikte:
 
 - `mimari.md`
 
-Repo, build, sync veya deploy isinde:
+Repo, build, sync veya deploy işinde:
 
-- `repo-akisi.md`
+- `repo-akışı.md`
 
-Bug isinde:
+Bug işinde:
 
 - `hata-listesi.md`
 
-Feature veya orta vadeli gelisim isinde:
+Feature veya orta vadeli gelişim işinde:
 
-- `yol-haritasi.md`
+- `yol-haritası.md`
 
-Katki ve PR beklentisi gerekiyorsa:
+Katkı ve PR beklentisi gerekiyorsa:
 
 - `CONTRIBUTING.md`
 
-## Hangi Bilgi Nereye Yazilir
+## Hangi Bilgi Nereye Yazılır
 
-- urun tanimi, kurulum, kullanici yonlendirmesi: `README.md`
-- teknik sinirlar ve modul sorumluluklari: `mimari.md`
-- repo yapisi, sync, build, release, pages akisi: `repo-akisi.md`
-- is yapma proseduru ve kontrol sirasi: `kontrol.md`
-- acik bug ve veri sorunlari: `hata-listesi.md`
-- feature, teknik borc ve orta/uzun vade: `yol-haritasi.md`
-- yayinlanmis onemli sonuc: `CHANGELOG.md`
-- kalici mimari karar: `adr/*`
+- ürün tanımı, kurulum, kullanıcı yönlendirmesi: `README.md`
+- teknik sınırlar ve modül sorumlulukları: `mimari.md`
+- repo yapısı, sync, build, release, pages akışı: `repo-akışı.md`
+- iş yapma prosedürü ve kontrol sırası: `kontrol.md`
+- açık bug ve veri sorunları: `hata-listesi.md`
+- feature, teknik borç ve orta/uzun vade: `yol-haritası.md`
+- yayınlanmış önemli sonuç: `CHANGELOG.md`
+- kalıcı mimari karar: `adr/*`
 
-Gecici tur notu icin yeni `.md` dosyasi acilmaz.
+Geçici tür notu için yeni `.md` dosyası açılmaz.
 
-## Belge Guncelleme Kurali
+## Belge Güncelleme Kuralı
 
-Her iste her belge guncellenmez.
-Yalnizca degisiklikten etkilenen belge islenir.
+Her işte her belge güncellenmez.
+Yalnızca değişiklikten etkilenen belge işlenir.
 
 - Bug fix:
   - gerekirse `hata-listesi.md`
-  - kullaniciya gorunen sonuc varsa `CHANGELOG.md`
+  - kullanıcıya görünen sonuç varsa `CHANGELOG.md`
 - Feature:
-  - gerekirse `yol-haritasi.md`
-  - kullanici akisi degistiyse `README.md`
+  - gerekirse `yol-haritası.md`
+  - kullanıcı akışı değiştiyse `README.md`
   - mimari karar varsa `adr/*`
 - Refactor:
-  - teknik sinir degistiyse `mimari.md`
-  - repo/build akisi degistiyse `repo-akisi.md`
+  - teknik sınır değiştiyse `mimari.md`
+  - repo/build akışı değiştiyse `repo-akışı.md`
 - Repo/CI/deploy:
-  - `repo-akisi.md`
+  - `repo-akışı.md`
   - gerekirse `CONTRIBUTING.md`
-- Sadece metin/yonlendirme duzeltmesi:
+- Sadece metin/yönlendirme düzeltmesi:
   - ilgili tek belge
 
-## Uygulama Sirasinda Dikkat Edilecekler
+## Uygulama Sırasında Dikkat Edilecekler
 
-- Degisiklik tek konuya odakli kalmali.
-- Kullaniciya gorunen davranis ile teknik borc ayni iste kontrolsuz karistirilmamali.
-- Desktop'ta calisan ama web'i kiran cozum kabul edilmez.
-- Web icin eklenen cozum desktop akisina zarar vermemeli.
-- Buyuk refactor, dogrulama zemini olmadan yapilmamali.
-- Encoding riski olan metin dosyalarinda dikkatli ilerlenmeli.
-- `docs/app/` elle ayrismamali; kok kaynaklar esas alinmali.
+- Değişiklik tek konuya odaklı kalmalı.
+- Kullanıcıya görünen davranış ile teknik borç aynı işte kontrolsüz karıştırılmamalı.
+- Desktop'ta çalışan ama web'i kıran çözüm kabul edilmez.
+- Web için eklenen çözüm desktop akışına zarar vermemelidir.
+- Büyük refactor, doğrulama zemini olmadan yapılmamalıdır.
+- Encoding riski olan metin dosyalarında dikkatli ilerlenmelidir.
+- `docs/app/` elle ayrıştırılmamalı; kök kaynaklar esas alınmalıdır.
 
-## Buyuk Refactor Islerinde Ajan Kullanimi
+## Büyük Refactor İşlerinde Ajan Kullanımı
 
-Bu bolum, buyuk kapsamli teknik islerde birden fazla ajan kullanilacaksa hangi rolle ilerlenmesi gerektigini tanimlar.
+Bu bölüm, büyük kapsamlı teknik işlerde birden fazla ajan kullanılacaksa hangi rolle ilerlenmesi gerektiğini tanımlar.
 
-Varsayilan rol dagilimi:
+Varsayılan rol dağılımı:
 
-- `Haritalayici`: etki alanini, dosya yuzeyini, bagimliliklari ve siniri cikarir
-- `Uygulayici`: netlesen kapsama gore kod degisikligini yapar
-- `Dogrulayici`: yazilan degisikligi bagimsiz gozle kontrol eder, test ve regresyon taramasi yapar
+- `Haritalayıcı`: etki alanını, dosya yüzeyini, bağımlılıkları ve sınırı çıkarır
+- `Uygulayıcı`: netleşen kapsama göre kod değişikliğini yapar
+- `Doğrulayıcı`: yazılan değişikliği bağımsız gözle kontrol eder, test ve regresyon taraması yapar
 
 Temel kural:
 
-- Ayni dosyada iki ajan ayni anda yazma sorumlulugu almaz.
-- Once sinir cikarilir, sonra uygulama yapilir, en son bagimsiz dogrulama gelir.
-- `kod yazsin / kontrol etsin / test yapsin` modeli tek basina yeterli degildir; once dogru sinir cikarilmis olmalidir.
+- Aynı dosyada iki ajan aynı anda yazma sorumluluğu almaz.
+- Önce sınır çıkarılır, sonra uygulama yapılır, en son bağımsız doğrulama gelir.
+- `kod yazsın / kontrol etsin / test yapsın` modeli tek başına yeterli değildir; önce doğru sınır çıkarılmış olmalıdır.
 
-Ne zaman 3 ajan kullanilir:
+Ne zaman 3 ajan kullanılır:
 
-- `state`, `bridge`, `script.js` parcala gibi buyuk refactor islerinde
-- birden fazla modulun bagimlilik yonu degisecekse
-- yan etki riski yuksek ama is yine de parcalanabilirse
+- `state`, `bridge`, `script.js` parçalama gibi büyük refactor işlerinde
+- birden fazla modülün bağımlılık yönü değişecekse
+- yan etki riski yüksek ama iş yine de parçalanabilirse
 
 Ne zaman gerekmez:
 
-- tek dosyalik bug fix
-- sadece metin veya belge duzeltmesi
-- tek sorumluluklu ve etkisi sinirli kucuk refactor
+- tek dosyalık bug fix
+- sadece metin veya belge düzeltmesi
+- tek sorumluluklu ve etkisi sınırlı küçük refactor
 
-Uygulama sirasi:
+Uygulama sırası:
 
-1. `Haritalayici` dosya ve bagimlilik haritasini cikarir.
-2. Ana koordinasyon kapsam disini netlestirir.
-3. `Uygulayici` yalnizca verilen sinir icinde degisiklik yapar.
-4. `Dogrulayici` diff, davranis ve test acisindan bagimsiz kontrol yapar.
-5. Gerekirse ana koordinasyon son duzeltmeyi yapar.
+1. `Haritalayıcı` dosya ve bağımlılık haritasını çıkarır.
+2. Ana koordinasyon kapsam dışını netleştirir.
+3. `Uygulayıcı` yalnızca verilen sınır içinde değişiklik yapar.
+4. `Doğrulayıcı` diff, davranış ve test açısından bağımsız kontrol yapar.
+5. Gerekirse ana koordinasyon son düzeltmeyi yapar.
 
-Bu modelde amac, ayni isi uce bolmek degil; ayni isi uc farkli bakisla kontrollu ilerletmektir.
+Bu modelde amaç, aynı işi üçe bölmek değil; aynı işi üç farklı bakışla kontrollü ilerletmektir.
 
-### Ajan Gorev Sablonu
+### Ajan Görev Şablonu
 
-Buyuk refactor islerinde ajanlara gorev verilirken su kalip korunur:
+Büyük refactor işlerinde ajanlara görev verilirken şu kalıp korunur:
 
-- `Rol`: `Haritalayici`, `Uygulayici`, `Dogrulayici`
-- `Scope`: hangi alanin incelenecegi veya degistirilecegi
-- `Dosyalar`: ajan hangi dosyalarda calisacagini net bilir
-- `Cikti`: beklenen cevap formati onceden tanimlanir
-- `Sinir`: kod yazip yazmayacagi, hangi dosyalara dokunmayacagi belirtilir
+- `Rol`: `Haritalayıcı`, `Uygulayıcı`, `Doğrulayıcı`
+- `Scope`: hangi alanın inceleneceği veya değiştirileceği
+- `Dosyalar`: ajan hangi dosyalarda çalışacağını net bilir
+- `Çıktı`: beklenen cevap formatı önceden tanımlanır
+- `Sınır`: kod yazıp yazmayacağı, hangi dosyalara dokunmayacağı belirtilir
 
-Ornek gorev iskeleti:
+Örnek görev iskeleti:
 
-1. `Rolun Haritalayici. Su dosyalari incele. Su alanlar icin yazim/okuma noktalarini cikar. Kod yazma.`
-2. `Rolun Uygulayici. Yalnizca su dosyalarda, su write set icinde degisiklik yap. Baska dosyaya dokunma.`
-3. `Rolun Dogrulayici. Sadece diff ve davranis riski acisindan kontrol et. Yeni uygulama yapma.`
+1. `Rolün Haritalayıcı. Şu dosyaları incele. Şu alanlar için yazım/okuma noktalarını çıkar. Kod yazma.`
+2. `Rolün Uygulayıcı. Yalnızca şu dosyalarda, şu write set içinde değişiklik yap. Başka dosyaya dokunma.`
+3. `Rolün Doğrulayıcı. Sadece diff ve davranış riski açısından kontrol et. Yeni uygulama yapma.`
 
-Bu sablonun amaci:
+## Kod Değişikliği Sırasında Standart
 
-- gorevi olculebilir yapmak
-- write set cakismasini azaltmak
-- paralel calisirken baglami korumak
-
-## Kod Degisikligi Sirasinda Standart
-
-1. Etkilenen ana dosyalari bul.
-2. Sorunun kaynagini dogrula.
-3. En kucuk dogru yamayi uygula.
-4. Gerekirse ilgili destek dosyasini guncelle.
+1. Etkilenen ana dosyaları bul.
+2. Sorunun kaynağını doğrula.
+3. En küçük doğru yamayı uygula.
+4. Gerekirse ilgili destek dosyasını güncelle.
 5. Gereksiz yan temizlik yapma.
-6. Kapsam disi fark gorduysen not et, ayni ise gizleme.
+6. Kapsam dışı fark gördüysen not et, aynı işe gizleme.
 
-## Dogrulama Standardi
+## Doğrulama Standardı
 
 Minimum:
-
-```bash
-npm run check:text
-npm test
-```
-
-Gerekirse ek olarak:
 
 ```bash
 npm run prebuild
 npm run build:win -- --dir
 ```
 
-Secim kurali:
+## Seçim Kuralı
 
-- metin, i18n, asset veya HTML/CSS/JS degisikliklerinde `npm run check:text`
-- genel kod degisikliklerinde `npm test`
-- `docs/app`, release, pages veya build akisi degisikliklerinde `npm run prebuild`
+- metin, i18n, asset veya HTML/CSS/JS değişikliklerinde `npm run check:text`
+- genel kod değişikliklerinde `npm test`
+- `docs/app`, release, pages veya build akışı değişikliklerinde `npm run prebuild`
 - desktop paketleme etkileniyorsa uygun `build:*` komutu
 
-## PR Oncesi Cikis Kriteri
+## PR Öncesi Çıkış Kriteri
 
-Su sorularin cevabi net olmadan is tamam sayilmaz:
+Şu soruların cevabı net olmadan iş tamam sayılmaz:
 
 - Kapsam tek konu mu?
-- Ilgili belge guncellemesi kontrol edildi mi?
-- Gerekli dogrulama komutlari calisti mi?
-- Desktop/web etkisi dusunuldu mu?
-- Commit ve PR ozeti neden-sonuc iliskisini anlatiyor mu?
+- İlgili belge güncellemesi kontrol edildi mi?
+- Gerekli doğrulama komutları çalıştı mı?
+- Desktop/web etkisi düşünüldü mü?
+- Commit ve PR özeti neden-sonuç ilişkisini anlatıyor mu?
 
-## Kacinilacaklar
+## Kaçınılacaklar
 
-- yeni `.md` dosyasi acarak gecici not biriktirmek
-- tek PR icinde bug + refactor + docs + UI temizligini karistirmak
-- issue veya acik gerekce olmadan buyuk kapsamli refactor yapmak
-- kok kaynak yerine `docs/app/` u dogrudan ana kaynak gibi duzenlemek
-- sadece "duzeldi" diyerek dogrulama yapmadan isi kapatmak
+- yeni `.md` dosyası açarak geçici not biriktirmek
+- tek PR içinde bug + refactor + docs + UI temizliğini karıştırmak
+- issue veya açık gerekçe olmadan büyük kapsamlı refactor yapmak
+- kök kaynak yerine `docs/app/`'i doğrudan ana kaynak gibi düzenlemek
+- sadece "düzeldi" diyerek doğrulama yapmadan işi kapatmak
 
-## Tek Cumlelik Kontrol
+## Tek Cümlelik Kontrol
 
-Bir ise baslarken su cumle kurulabiliyorsa dogru yoldayiz:
+Bir işe başlarken şu cümle kurulabiliyorsa doğru yoldayız:
 
-`Su problemi, su kapsamda, su dosyalarda cozecegim; su kontrolleri calistirip yalnizca su belgeleri guncelleyecegim.`
+`Şu problemi, şu kapsamda, şu dosyalarda çözeceğim; şu kontrolleri çalıştırıp yalnızca şu belgeleri güncelleyeceğim.`

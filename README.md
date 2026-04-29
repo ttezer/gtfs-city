@@ -32,7 +32,7 @@ GTFS ZIP dosyanızı yükleyin — araçlar, rotalar ve duraklar haritada canlan
 
 ## Hemen Deneyin
 
-👉 **[Web Uygulamas��](https://ttezer.github.io/gtfs-city/app/)** — kurulum gerektirmez
+👉 **[Web Uygulaması](https://ttezer.github.io/gtfs-city/app/)** — kurulum gerektirmez
 
 ---
 
@@ -69,5 +69,5 @@ npm start
 
 ## İletişim
 
-[Vatan](https://github.com/vatanaksoytezer)'��n Babası **Tacettin TEZER**  
+[Vatan](https://github.com/vatanaksoytezer)'ın Babası **Tacettin TEZER**  
 ttezer@gmail.com

@@ -53,6 +53,15 @@ window.UIManager = (function () {
     );
   }
 
+  function buildRouteListSubtitle(route, routeMeta, duplicateShorts) {
+    const hasDuplicateShort = (duplicateShorts.get(route.s) || 0) > 1;
+    if (hasDuplicateShort) {
+      const parts = [route.an, route.rid].filter(Boolean);
+      return parts.join(' · ');
+    }
+    return routeMeta.longName || route.an || route.rid || '';
+  }
+
   function showElement(element) {
     element?.classList.remove('hidden');
   }
@@ -467,10 +476,56 @@ window.UIManager = (function () {
     const routeListEl = document.getElementById('route-list');
     if (!routeListEl) return;
     const byType = {};
-    const routeSource = Array.isArray(ctx.getRouteCatalog?.()) && ctx.getRouteCatalog().length
-      ? ctx.getRouteCatalog()
-      : getShapes(ctx);
+    const routeCatalog = Array.isArray(ctx.getRouteCatalog?.()) ? ctx.getRouteCatalog() : [];
+    const routeSourceMap = new Map();
+    const upsertRouteLike = (routeLike) => {
+      if (!routeLike) return;
+      const shortName = String(routeLike.s || '').trim();
+      if (!shortName) return;
+      const key = buildRouteCatalogKey(routeLike);
+      const current = routeSourceMap.get(key) || {};
+      routeSourceMap.set(key, {
+        ...current,
+        ...routeLike,
+        k: current.k || routeLike.k || routeLike.rid || key,
+        rid: current.rid || routeLike.rid || routeLike.k || '',
+        aid: current.aid || routeLike.aid || '',
+        an: current.an || routeLike.an || '',
+        s: shortName,
+        c: routeLike.c ?? current.c,
+        t: routeLike.t ?? current.t,
+        ln: current.ln || routeLike.ln || routeLike.h || '',
+      });
+    };
+
+    routeCatalog.forEach(upsertRouteLike);
+    getShapes(ctx).forEach(upsertRouteLike);
+    const seenTripRouteKeys = new Set();
+    getTrips(ctx).forEach((trip) => {
+      const routeLike = {
+        k: trip.rid || `${trip.aid || 'na'}::${normalizeRouteType(trip.t)}::${trip.s || ''}`,
+        rid: trip.rid || '',
+        aid: trip.aid || '',
+        an: '',
+        s: trip.s || '',
+        c: trip.c,
+        t: trip.t,
+        ln: trip.ln || trip.h || '',
+      };
+      const routeKey = buildRouteCatalogKey(routeLike);
+      if (seenTripRouteKeys.has(routeKey)) return;
+      seenTripRouteKeys.add(routeKey);
+      upsertRouteLike(routeLike);
+    });
+
+    const routeSource = [...routeSourceMap.values()];
     const seenRoutes = new Set();
+    const duplicateShorts = new Map();
+    routeSource.forEach((routeLike) => {
+      const shortName = (routeLike.s || '').trim();
+      if (!shortName) return;
+      duplicateShorts.set(shortName, (duplicateShorts.get(shortName) || 0) + 1);
+    });
     routeSource.forEach((routeLike) => {
       const type = normalizeRouteType(routeLike.t);
       const shortName = (routeLike.s || '').trim();
@@ -507,24 +562,25 @@ window.UIManager = (function () {
         div.dataset.type = normalizeRouteType(type);
         div.innerHTML = `<div class="ri-bar" style="background:${ctx.colorToCss(routeMeta.color)}"></div>
           <div class="ri-info"><div class="ri-name"></div><div class="ri-type"></div><div class="ri-long"></div></div>
-          <input type="checkbox" class="ri-check" ${ctx.isRouteHidden?.(route.s) ? '' : 'checked'} data-short="${route.s}">`;
+          <input type="checkbox" class="ri-check" ${ctx.isRouteHidden?.(route) ? '' : 'checked'} data-short="${route.s}">`;
         div.querySelector('.ri-name').textContent = routeMeta.short;
         div.querySelector('.ri-type').textContent = ctx.getLocalizedRouteTypeName
           ? ctx.getLocalizedRouteTypeName(type, ctx.TYPE_META[type]?.n || translate('routeTypeUnknown', 'Hat'))
           : (ctx.TYPE_META[type]?.n || translate('routeTypeUnknown', 'Hat'));
-        div.querySelector('.ri-long').textContent = routeMeta.longName || route.an || '';
-        div.classList.toggle('hidden-route', ctx.isRouteHidden?.(route.s));
+        div.querySelector('.ri-long').textContent = buildRouteListSubtitle(route, routeMeta, duplicateShorts);
+        div.classList.toggle('hidden-route', ctx.isRouteHidden?.(route));
         div.onclick = (e) => {
           if (e.target.type === 'checkbox') return;
           focusRoute(route);
         };
         div.querySelector('.ri-check').onchange = (e) => {
-          if (e.target.checked) ctx.showRoute?.(route.s);
+          if (e.target.checked) ctx.showRoute?.(route);
           else {
-            ctx.hideRoute?.(route.s);
+            ctx.hideRoute?.(route);
             ctx.setRouteHighlightPath(null);
             const focusedRoute = ctx.getFocusedRoute ? ctx.getFocusedRoute() : ctx.focusedRoute;
-            if (focusedRoute === route.s) {
+            const focusedRouteId = ctx.getFocusedRouteId ? ctx.getFocusedRouteId() : null;
+            if ((route.rid && focusedRouteId && focusedRouteId === route.rid) || (!route.rid && focusedRoute === route.s)) {
               clearFocusedRouteSelection();
             }
           }
@@ -587,7 +643,9 @@ window.UIManager = (function () {
     const shortName = typeof routeRef === 'object' ? String(routeRef.s || '').trim() : String(routeRef || '').trim();
     const routeKey = typeof routeRef === 'object' ? buildRouteCatalogKey(routeRef) : shortName;
     const focusedRoute = ctx.getFocusedRoute ? ctx.getFocusedRoute() : ctx.focusedRoute;
-    if (focusedRoute === shortName) {
+    const focusedRouteId = ctx.getFocusedRouteId ? ctx.getFocusedRouteId() : null;
+    if ((typeof routeRef === 'object' && routeRef.rid && focusedRouteId === routeRef.rid)
+      || (typeof routeRef !== 'object' && focusedRoute === shortName && !focusedRouteId)) {
       clearFocusedRouteSelection(true);
       return;
     }
@@ -615,7 +673,7 @@ window.UIManager = (function () {
       return t.s === shortName && normalizeRouteType(t.t) === normalizeRouteType(routeRef.t);
     }) || getTrips(ctx).find((t) => t.s === shortName);
     if (trip) {
-      const routeMeta = ctx.getRouteMeta(shortName, trip.t, trip.c, trip.ln || trip.h || '');
+      const routeMeta = ctx.getRouteMeta(shortName, trip.t, trip.c, routeRef?.ln || trip.ln || trip.h || routeRef?.an || '');
       openRoutePanel(routeMeta, ctx.TYPE_META[trip.t] || {});
     }
     buildStopList(document.getElementById('stop-list-filter')?.value || '');

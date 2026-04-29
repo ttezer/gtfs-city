@@ -678,24 +678,22 @@ window.DataManager = (function () {
           String(row.agency_name || '').trim(),
         ])
       );
-      ctx.setRouteCatalog?.(
-        tables.routeRows.map((row) => {
-          const routeId = String(row.route_id || '').trim();
-          const route = routeMap[routeId];
-          if (!route) return null;
-          const agencyId = String(row.agency_id || '').trim();
-          return {
-            k: routeId,
-            rid: routeId,
-            aid: agencyId,
-            an: agencyById[agencyId] || '',
-            s: route.short,
-            c: route.color,
-            t: route.type,
-            ln: route.longName || '',
-          };
-        }).filter(Boolean)
-      );
+      const allRouteCatalog = tables.routeRows.map((row) => {
+        const routeId = String(row.route_id || '').trim();
+        const route = routeMap[routeId];
+        if (!route) return null;
+        const agencyId = String(row.agency_id || '').trim();
+        return {
+          k: routeId,
+          rid: routeId,
+          aid: agencyId,
+          an: agencyById[agencyId] || '',
+          s: route.short,
+          c: route.color,
+          t: route.type,
+          ln: route.longName || '',
+        };
+      }).filter(Boolean);
       setProgress(14);
       const shapePts = ctx.buildShapePoints(tables.shapeRows);
       setProgress(18);
@@ -790,6 +788,12 @@ window.DataManager = (function () {
           8000
         );
       }
+      const candidateRouteIds = new Set(
+        Object.values(cappedTripMeta)
+          .map((meta) => String(meta?.route_id || '').trim())
+          .filter(Boolean)
+      );
+      ctx.setRouteCatalog?.(allRouteCatalog.filter((route) => candidateRouteIds.has(route.rid)));
 
       if (loaderText && !landingUpload) loaderText.textContent = '3D Rotalar ve Seferler İşleniyor...';
       const runtimeData = await window.GtfsUtils.buildGtfsRuntimeDataAsync(
@@ -806,6 +810,8 @@ window.DataManager = (function () {
         return false;
       }
 
+      const runtimeRouteIds = new Set((runtimeData.nTRIPS || []).map((trip) => String(trip?.rid || '').trim()).filter(Boolean));
+      if (runtimeRouteIds.size) ctx.setRouteCatalog?.(allRouteCatalog.filter((route) => runtimeRouteIds.has(route.rid)));
       ctx.resetViewToggles();
       applyGtfsRuntimeData(runtimeData);
       if (isLandingVisible()) {

@@ -135,6 +135,22 @@ window.MapManager = (function () {
     return ctx?.getFocusedRoute ? ctx.getFocusedRoute() : (ctx?.focusedRoute || null);
   }
 
+  function getFocusedRouteId(ctx) {
+    return ctx?.getFocusedRouteId ? ctx.getFocusedRouteId() : null;
+  }
+
+  function isHiddenRoute(ctx, routeLike) {
+    return ctx?.isRouteHidden ? ctx.isRouteHidden(routeLike) : false;
+  }
+
+  function routeMatchesFocus(ctx, routeLike) {
+    const focusedRoute = getFocusedRoute(ctx);
+    const focusedRouteId = getFocusedRouteId(ctx);
+    if (!focusedRoute) return true;
+    if (focusedRouteId) return routeLike?.rid === focusedRouteId;
+    return routeLike?.s === focusedRoute;
+  }
+
   function getSelectedRouteDirection(ctx) {
     return ctx?.getSelectedRouteDirection ? ctx.getSelectedRouteDirection() : ctx?.selectedRouteDirection;
   }
@@ -177,8 +193,8 @@ window.MapManager = (function () {
     const trip = entry?.trip || entry;
     const focusedRoute = getFocusedRoute(ctx);
     const baseColor = ctx.getRouteColorRgb(trip.s, trip.t, trip.c);
-    if (focusedRoute && trip.s !== focusedRoute) return [120, 125, 130];
-    if (focusedRoute && trip.s === focusedRoute) return getDirectionColor(baseColor, trip.dir);
+    if (focusedRoute && !routeMatchesFocus(ctx, trip)) return [120, 125, 130];
+    if (focusedRoute && routeMatchesFocus(ctx, trip)) return getDirectionColor(baseColor, trip.dir);
     return baseColor;
   }
 
@@ -599,14 +615,14 @@ window.MapManager = (function () {
     cacheSelectedRouteDirection = selectedRouteDirection ?? null;
     cachedVisTrips = getTrips(ctx).filter((trip) => (
       (typeFilter === 'all' || normalizeRouteType(trip.t) === normalizeRouteType(typeFilter))
-      && !activeRoutes.has(trip.s)
-      && (!focusedRoute || trip.s === focusedRoute)
+      && !isHiddenRoute(ctx, trip)
+      && routeMatchesFocus(ctx, trip)
       && (selectedRouteDirection === null || selectedRouteDirection === undefined || trip.dir === selectedRouteDirection)
     ));
     cachedVisShapes = getShapes(ctx).filter((shape) => (
       (typeFilter === 'all' || normalizeRouteType(shape.t) === normalizeRouteType(typeFilter))
-      && !activeRoutes.has(shape.s)
-      && (!focusedRoute || shape.s === focusedRoute)
+      && !isHiddenRoute(ctx, shape)
+      && routeMatchesFocus(ctx, shape)
       && (selectedRouteDirection === null || selectedRouteDirection === undefined || shape.dir === selectedRouteDirection)
     ));
     return { visTrips: cachedVisTrips, visShapes: cachedVisShapes };
@@ -656,7 +672,7 @@ window.MapManager = (function () {
         getTargetPosition: (d) => d.to,
         getColor: (d) => {
           const color = getShapeColor(ctx, d);
-          return focusedRoute && d.s !== focusedRoute ? [...color, 18] : [...color, 138];
+          return focusedRoute && !routeMatchesFocus(ctx, d) ? [...color, 18] : [...color, 138];
         },
         getWidth: (d) => ctx.TYPE_META[d.t]?.w || 2,
         widthUnits: 'pixels',
@@ -673,7 +689,7 @@ window.MapManager = (function () {
         getTargetPosition: (d) => d.to,
         getColor: (d) => {
           const color = getShapeColor(ctx, d);
-          return focusedRoute && d.s !== focusedRoute ? [...color, 18] : [...color, 165];
+          return focusedRoute && !routeMatchesFocus(ctx, d) ? [...color, 18] : [...color, 165];
         },
         getWidth: 5,
         widthUnits: 'pixels',
@@ -871,8 +887,8 @@ window.MapManager = (function () {
       getPosition: (d) => d.pos,
       getRadius: 52,
       getFillColor: (d) => {
-        if (focusedRoute && d.trip.s !== focusedRoute) return [50, 55, 60, 180];
-        if (focusedRoute && d.trip.s === focusedRoute) return [...getVehicleDisplayColor(ctx, d), 220];
+        if (focusedRoute && !routeMatchesFocus(ctx, d.trip)) return [50, 55, 60, 180];
+        if (focusedRoute && routeMatchesFocus(ctx, d.trip)) return [...getVehicleDisplayColor(ctx, d), 220];
         return getVehicleMarkerColor(ctx, d);
       },
       getLineColor: [24, 28, 36, 220],
@@ -966,7 +982,7 @@ window.MapManager = (function () {
     const dynamicLayers = [];
 
     if (showAnim) {
-      const sampledTrips = focusedRoute ? visTrips.filter((trip) => trip.s === focusedRoute) : visTrips;
+      const sampledTrips = focusedRoute ? visTrips.filter((trip) => routeMatchesFocus(ctx, trip)) : visTrips;
       const activeTrips = sampledTrips.filter((trip) => ctx.getVehiclePos(trip, time) !== null);
       const patchedTrips = activeTrips.filter((trip) => trip._tsPatched);
 
@@ -981,7 +997,7 @@ window.MapManager = (function () {
           getTimestamps: (d) => d.trip.ts,
           getColor: (d) => {
             const trip = d.trip;
-            const base = focusedRoute && trip.s === focusedRoute
+            const base = focusedRoute && routeMatchesFocus(ctx, trip)
               ? getDirectionColor(ctx.getRouteColorRgb(trip.s, trip.t, trip.c), trip.dir)
               : ctx.getRouteColorRgb(trip.s, trip.t, trip.c);
             return window.RenderUtils ? window.RenderUtils.getVehicleColorRgb(base, trip._delay || 0) : base;

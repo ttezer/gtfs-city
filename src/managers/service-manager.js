@@ -137,13 +137,8 @@ window.ServiceManager = (function () {
       }
     }
 
-    if (candidates.length > 1) {
-      const minScore = Math.min(...candidates.map((c) => c.score));
-      for (const c of candidates) {
-        if (c.score === minScore) ids.add(c.serviceId);
-      }
-    } else if (candidates.length === 1) {
-      ids.add(candidates[0].serviceId);
+    for (const candidate of candidates) {
+      ids.add(candidate.serviceId);
     }
 
     return ids;

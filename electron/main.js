@@ -11,8 +11,9 @@ const https = require('https');
 const isDev = process.env.NODE_ENV === 'development' || !app.isPackaged;
 const isMac = process.platform === 'darwin';
 
-// exit_code=34 (STATUS_ACCESS_VIOLATION) on Windows — GPU sandbox incompatibility
+// D3D11 device removed (DXGI_ERROR_DEVICE_HUNG 0x887A0006) — use OpenGL backend via ANGLE
 app.commandLine.appendSwitch('disable-gpu-sandbox');
+app.commandLine.appendSwitch('use-angle', 'gl');
 
 // ── PENCERE ───────────────────────────────────────────────
 let mainWindow = null;

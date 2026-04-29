@@ -790,7 +790,7 @@ function getFilteredStopsData() {
   for (const [sid, deps] of Object.entries(AppState.stopDeps || {})) {
     const hasVisibleTrip = (deps || []).some((dep) => {
       const trip = AppState.trips[dep[0]];
-      if (!trip || activeRoutes.has(trip.s)) return false;
+      if (!trip || isRouteHidden(trip)) return false;
       if (typeFilter !== 'all' && String(Number.parseInt(String(trip.t ?? '').trim(), 10)) !== typeFilter) return false;
       return true;
     });
@@ -904,16 +904,31 @@ function getHiddenRoutes() {
   return new Set(activeRoutes);
 }
 
-function isRouteHidden(routeShort) {
-  return activeRoutes.has(routeShort);
+function getRouteIdentityKey(routeLike) {
+  if (!routeLike || typeof routeLike !== 'object') return String(routeLike || '').trim();
+  if (routeLike.rid) return String(routeLike.rid).trim();
+  const short = String(routeLike.s || routeLike.short || '').trim();
+  const type = normalizeRouteType(routeLike.t ?? routeLike.type ?? '');
+  const agencyId = String(routeLike.aid || routeLike.agencyId || '').trim();
+  return `${agencyId || 'na'}::${type}::${short}`;
 }
 
-function hideRoute(routeShort) {
-  activeRoutes.add(routeShort);
+function isRouteHidden(routeLike) {
+  const key = getRouteIdentityKey(routeLike);
+  const short = typeof routeLike === 'object' ? String(routeLike.s || routeLike.short || '').trim() : key;
+  return activeRoutes.has(key) || (!!short && activeRoutes.has(short));
 }
 
-function showRoute(routeShort) {
-  activeRoutes.delete(routeShort);
+function hideRoute(routeLike) {
+  const key = getRouteIdentityKey(routeLike);
+  if (key) activeRoutes.add(key);
+}
+
+function showRoute(routeLike) {
+  const key = getRouteIdentityKey(routeLike);
+  const short = typeof routeLike === 'object' ? String(routeLike.s || routeLike.short || '').trim() : key;
+  if (key) activeRoutes.delete(key);
+  if (short) activeRoutes.delete(short);
 }
 
 function clearHiddenRoutes() {
@@ -1374,6 +1389,8 @@ window.LegacyMapBridge = createLegacyBridge(() => ({
   getVehiclePos,
   getRouteColorRgb,
   getRouteMeta,
+  getFocusedRouteId,
+  isRouteHidden,
   getFocusedStopsData,
   getFilteredStopsData,
   getFilteredStopIdSet,

@@ -1,37 +1,37 @@
-# GTFS City - Desktop ve Web Teknik Sinirlari
+# GTFS City - Desktop ve Web Teknik Sınırları
 
-Bu belge, masaustu ve web surumunun ortak ve ayrisan davranislarini kisa sekilde ozetler.
+Bu belge, masaustu ve web surumunun ortak ve ayrışan davranislarini kisa sekilde ozetler.
 Bu dosya mimari belgesi degildir; yalnizca platform farklarini netlestirir.
 
 ## Desktop
 
-- Ana urun hedefidir.
-- Electron uzerinde calisir.
-- Yerel dosya erisimi guvenli IPC uzerinden yapilir.
-- HTTPS GTFS ZIP linkten yukleme yalnizca burada desteklenir.
-- Paketleme ve dagitim akisi masaustu surume aittir.
+- Ana ürün hedefidir.
+- Electron üzerinde çalışır.
+- Yerel dosya erişimi güvenli IPC üzerinden yapılır.
+- HTTPS GTFS ZIP linkinden yükleme yalnızca burada desteklenir.
+- Paketleme ve dağıtım akışı masaüstü sürüme aittir.
 
 ## Web
 
-- GitHub Pages altinda vitrin ve sade demo olarak calisir.
-- Kullanici yerel GTFS ZIP secerek veri yukler.
-- Electron API, yerel dosya sistemi ve guvenli link indirme destegi yoktur.
-- Kapsam bilincli olarak daha dardir.
+- GitHub Pages altında vitrin ve sade demo olarak çalışır.
+- Kullanıcı yerel GTFS ZIP seçerek veri yükler.
+- Electron API, yerel dosya sistemi ve güvenli link indirme desteği yoktur.
+- Kapsam bilinçli olarak daha dardır.
 
 ## Ortak Alanlar
 
-- ayni temel arayuz mantigi
-- ayni GTFS parse ve runtime uretim cekirdegi
-- ayni route, stop, vehicle ve filtre davranislarinin ana hatlari
+- Aynı temel arayüz mantığı
+- Aynı GTFS parse ve runtime üretim çekirdeği
+- Aynı route, stop, vehicle ve filtre davranışlarının ana hatları
 
-## Temel Ayrim Kurallari
+## Temel Ayrım Kuralları
 
-- Desktop akisina zarar verecek web denemeleri yapilmaz.
-- Web icin eklenen kod, desktop davranisini degistirmemelidir.
-- Platforma ozel davranislar zamanla adapter katmanina tasinmalidir.
+- Desktop akışına zarar verecek web denemeleri yapılmaz.
+- Web için eklenen kod, desktop davranışını değiştirmemelidir.
+- Platforma özel davranışlar zamanla adapter katmanına taşınmalıdır.
 
-## Sonuc
+## Sonuç
 
-- Desktop urun kalbi olarak korunur.
-- Web surumu kontrollu ve guvenli kapsamda buyutulur.
-- Ortak kod korunur, platform farklari acik tutulur.
+- Desktop ürün kalbi olarak korunur.
+- Web sürümü kontrollü ve güvenli kapsamda büyütülür.
+- Ortak kod korunur, platform farkları açık tutulur.
