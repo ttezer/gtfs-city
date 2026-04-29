@@ -51,17 +51,17 @@ async function buildGtfsRuntimeData(routeMap, shapePts, stopsMap, tripMeta, trip
 
   // Daha agresif cap — transfer boyutunu kontrol altında tut
   // ≤30K: sınırsız | 30K-100K: 25K | 100K+: 30K
-  const TRIP_CAP = total <= 30000 ? Infinity : total <= 100000 ? 25000 : 30000;
+  const TRIP_CAP = total <= 10000 ? Infinity : total <= 30000 ? 12000 : 15000;
   const capped = TRIP_CAP < total;
   // Büyük veri setlerinde st (durak listesi) dahil edilmez
-  const includeStops = total <= 30000;
+  const includeStops = total <= 10000;
   // nSTOP_DEPS per durak limiti
-  const MAX_DEPS_PER_STOP = total <= 30000 ? 200 : 30;
+  const MAX_DEPS_PER_STOP = total <= 10000 ? 120 : total <= 30000 ? 20 : 12;
   // Path nokta sayısı — yüksek değerler = detaylı çizgi, çok yüksek = WebGL crash
-  const PATH_PTS = total <= 30000 ? 800 : total <= 100000 ? 400 : 200;
-  const SHAPE_PTS = total <= 30000 ? 600 : total <= 100000 ? 300 : 150;
+  const PATH_PTS = total <= 10000 ? 500 : total <= 30000 ? 180 : 120;
+  const SHAPE_PTS = total <= 10000 ? 350 : total <= 30000 ? 120 : 80;
   // nSTOPS cap — Berlin'de 670K durak var, hepsini transfer etme
-  const MAX_STOPS = total <= 30000 ? Infinity : 40000;
+  const MAX_STOPS = total <= 10000 ? Infinity : total <= 30000 ? 20000 : 12000;
 
   for (const [tid, stops] of entries) {
     if (nTRIPS.length >= TRIP_CAP) break; // cap'e ulaşıldı
@@ -96,6 +96,8 @@ async function buildGtfsRuntimeData(routeMap, shapePts, stopsMap, tripMeta, trip
     const tripObj = {
       s:  route.short,
       t:  route.type,
+      rid: meta.route_id,
+      aid: route.agencyId || '',
       p:  path,
       ts,
       d:  duration,
@@ -131,6 +133,8 @@ async function buildGtfsRuntimeData(routeMap, shapePts, stopsMap, tripMeta, trip
       nSHAPES.push({
         s:  route.short,
         t:  route.type,
+        rid: meta.route_id,
+        aid: route.agencyId || '',
         c:  route.color,
         p:  simplifyPathPoints(path, SHAPE_PTS),
         ln: route.longName || '',

@@ -672,6 +672,30 @@ window.DataManager = (function () {
       if (loaderText && !landingUpload) loaderText.textContent = 'Veri Haritası Oluşturuluyor...';
       await new Promise((resolve) => setTimeout(resolve, 50));
       const routeMap = ctx.buildRouteMap(tables.routeRows);
+      const agencyById = Object.fromEntries(
+        (tables.agencyRows || []).map((row) => [
+          String(row.agency_id || '').trim(),
+          String(row.agency_name || '').trim(),
+        ])
+      );
+      ctx.setRouteCatalog?.(
+        tables.routeRows.map((row) => {
+          const routeId = String(row.route_id || '').trim();
+          const route = routeMap[routeId];
+          if (!route) return null;
+          const agencyId = String(row.agency_id || '').trim();
+          return {
+            k: routeId,
+            rid: routeId,
+            aid: agencyId,
+            an: agencyById[agencyId] || '',
+            s: route.short,
+            c: route.color,
+            t: route.type,
+            ln: route.longName || '',
+          };
+        }).filter(Boolean)
+      );
       setProgress(14);
       const shapePts = ctx.buildShapePoints(tables.shapeRows);
       setProgress(18);
@@ -729,11 +753,30 @@ window.DataManager = (function () {
           stopCount: tables.stopRows.length,
         });
       }
-      const tripCap = totalTripCount <= 30000 ? Infinity : totalTripCount <= 100000 ? 25000 : 30000;
+      const tripCap = totalTripCount <= 10000 ? Infinity : totalTripCount <= 30000 ? 12000 : 15000;
       let cappedTripMeta = filteredTripMeta;
       let cappedTripStops = tripStops;
       if (tripCap < totalTripCount) {
-        const keys = Object.keys(filteredTripMeta).slice(0, tripCap);
+        const selectedKeys = [];
+        const selectedSet = new Set();
+        const representativeByRoute = new Set();
+        for (const [key, meta] of Object.entries(filteredTripMeta)) {
+          const routeId = String(meta?.route_id || '').trim();
+          if (!routeId || representativeByRoute.has(routeId)) continue;
+          representativeByRoute.add(routeId);
+          selectedSet.add(key);
+          selectedKeys.push(key);
+          if (selectedKeys.length >= tripCap) break;
+        }
+        if (selectedKeys.length < tripCap) {
+          for (const key of Object.keys(filteredTripMeta)) {
+            if (selectedSet.has(key)) continue;
+            selectedSet.add(key);
+            selectedKeys.push(key);
+            if (selectedKeys.length >= tripCap) break;
+          }
+        }
+        const keys = selectedKeys;
         const keySet = new Set(keys);
         cappedTripMeta = Object.fromEntries(keys.map((key) => [key, filteredTripMeta[key]]));
         cappedTripStops = Object.fromEntries(Object.entries(tripStops).filter(([key]) => keySet.has(key)));

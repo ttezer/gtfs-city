@@ -11,6 +11,9 @@ const https = require('https');
 const isDev = process.env.NODE_ENV === 'development' || !app.isPackaged;
 const isMac = process.platform === 'darwin';
 
+// exit_code=34 (STATUS_ACCESS_VIOLATION) on Windows — GPU sandbox incompatibility
+app.commandLine.appendSwitch('disable-gpu-sandbox');
+
 // ── PENCERE ───────────────────────────────────────────────
 let mainWindow = null;
 
@@ -33,7 +36,6 @@ function createWindow() {
 
   mainWindow.once('ready-to-show', () => {
     mainWindow.show();
-    if (isDev) mainWindow.webContents.openDevTools({ mode: 'detach' });
   });
 
   mainWindow.loadFile(path.join(__dirname, '..', 'index.html'));

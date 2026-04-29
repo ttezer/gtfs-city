@@ -37,6 +37,24 @@ window.AppManager = (function () {
     setTimeout(() => window.dispatchEvent(new Event('resize')), delay);
   }
 
+  function setLandingMode(enabled) {
+    document.body?.classList.toggle('landing-mode', !!enabled);
+  }
+
+  function closeMapOnlyUi() {
+    window.PlannerManager?.reset?.();
+    window.UIManager?.closeRoutePanel?.();
+    window.UIManager?.closeStopPanel?.();
+    window.UIManager?.closeVehiclePanel?.();
+    getElement('route-planner-panel')?.classList.add('hidden');
+    getElement('route-result')?.classList.add('hidden');
+    getElement('follow-bar')?.classList.add('hidden');
+    getElement('replay-bar')?.classList.add('hidden');
+    getElement('gtfs-warning-dash')?.classList.add('hidden');
+    const isochronPanel = getElement('isochron-panel');
+    if (isochronPanel) isochronPanel.style.display = 'none';
+  }
+
   function getLandingElements() {
     return {
       route: getElement('lp-count-routes'),
@@ -273,6 +291,7 @@ window.AppManager = (function () {
     const overlay = getElement('loading-overlay');
     const ctx = getCtx();
     if (showMap) {
+      setLandingMode(false);
       toggleHidden(lp, true);
       toggleHidden(sidebar, false);
       toggleHidden(homeBtn, false);
@@ -293,6 +312,8 @@ window.AppManager = (function () {
       return true;
     }
 
+    closeMapOnlyUi();
+    setLandingMode(true);
     toggleHidden(lp, false);
     toggleHidden(sidebar, true);
     toggleHidden(homeBtn, true);
@@ -387,6 +408,7 @@ window.AppManager = (function () {
   }
 
   function init() {
+    setLandingMode(!getElement('landing-page')?.classList.contains('hidden'));
     clearLegacySampleCards();
     bindLandingControls();
     bindStyleControls();

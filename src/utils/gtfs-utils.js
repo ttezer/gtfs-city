@@ -33,6 +33,7 @@
     const stData = files['stop_times.txt'];
     const stRows = stData && !(stData instanceof Uint8Array) ? parse(stData) : [];
     return {
+      agencyRows:       files['agency.txt']          ? parse(files['agency.txt'])          : [],
       routeRows:        files['routes.txt']         ? parse(files['routes.txt'])         : [],
       tripRows:         files['trips.txt']           ? parse(files['trips.txt'])           : [],
       stRows,
@@ -72,17 +73,35 @@
     return Array.from({ length: max }, (_, i) => pts[Math.min(Math.floor(i * step), pts.length - 1)]);
   }
 
+  function normalizeGtfsRouteType(value) {
+    const parsed = parseInt(value, 10);
+    if (!Number.isFinite(parsed)) return '3';
+    if (parsed >= 0 && parsed <= 7) return String(parsed);
+    if (parsed === 11 || parsed === 12) return '3';
+    if (parsed >= 100 && parsed < 200) return '2';
+    if (parsed >= 200 && parsed < 300) return '3';
+    if (parsed >= 400 && parsed < 500) return '1';
+    if (parsed >= 700 && parsed < 900) return '3';
+    if (parsed >= 900 && parsed < 1000) return '0';
+    if (parsed >= 1000 && parsed < 1200) return '4';
+    if (parsed >= 1300 && parsed < 1400) return '5';
+    if (parsed >= 1400 && parsed < 1500) return '7';
+    if (parsed >= 1500 && parsed < 1600) return '10';
+    return '3';
+  }
+
   function buildRouteMap(routeRows, getRouteColorRgb, typeMeta) {
     const fallback = [88, 166, 255];
     const routeMap = {};
     routeRows.forEach((r) => {
       const rid = (r.route_id || '').trim();
       if (!rid) return;
-      const parsedType = parseInt(r.route_type, 10);
-      const type = String(Number.isFinite(parsedType) ? parsedType : 3);
+      const type = normalizeGtfsRouteType(r.route_type);
       const short = (r.route_short_name || r.route_long_name || rid).trim();
       const longName = (r.route_long_name || '').trim();
       routeMap[rid] = {
+        routeId: rid,
+        agencyId: (r.agency_id || '').trim(),
         short,
         type,
         color: getRouteColorRgb(short, type, typeMeta[type]?.rgb || fallback),
@@ -216,12 +235,12 @@
     const total    = entries.length;
     let processed  = 0;
 
-    const TRIP_CAP = total <= 30000 ? Infinity : total <= 100000 ? 25000 : 30000;
-    const includeStops = total <= 30000;
-    const MAX_DEPS_PER_STOP = total <= 30000 ? 200 : 30;
-    const PATH_PTS = total <= 30000 ? 800 : total <= 100000 ? 400 : 200;
-    const SHAPE_PTS = total <= 30000 ? 600 : total <= 100000 ? 300 : 150;
-    const MAX_STOPS = total <= 30000 ? Infinity : 40000;
+    const TRIP_CAP = total <= 10000 ? Infinity : total <= 30000 ? 12000 : 15000;
+    const includeStops = total <= 10000;
+    const MAX_DEPS_PER_STOP = total <= 10000 ? 120 : total <= 30000 ? 20 : 12;
+    const PATH_PTS = total <= 10000 ? 500 : total <= 30000 ? 180 : 120;
+    const SHAPE_PTS = total <= 10000 ? 350 : total <= 30000 ? 120 : 80;
+    const MAX_STOPS = total <= 10000 ? Infinity : total <= 30000 ? 20000 : 12000;
     let tripCount = 0;
 
     for (const [tid, stops] of entries) {
@@ -257,6 +276,8 @@
       const tripObj = {
         s:  route.short,
         t:  route.type,
+        rid: meta.route_id,
+        aid: route.agencyId || '',
         p:  path,
         ts,
         d:  duration,
@@ -291,6 +312,8 @@
         nSHAPES.push({
           s:  route.short,
           t:  route.type,
+          rid: meta.route_id,
+          aid: route.agencyId || '',
           c:  route.color,
           p:  simplifyPathPoints(path, SHAPE_PTS),
           ln: route.longName || '',
@@ -464,12 +487,12 @@ if (location.protocol !== 'file:') return new Worker('src/runtime/gtfs-worker.js
     const BATCH_SIZE = 200;
 
     // Fallback cap — Worker çalışmadığında main thread'i OOM'dan koru
-    const TRIP_CAP = total <= 30000 ? Infinity : total <= 100000 ? 25000 : 30000;
-    const includeStops = total <= 30000;
-    const MAX_DEPS_PER_STOP = total <= 30000 ? 200 : 30;
-    const PATH_PTS = total <= 30000 ? 800 : total <= 100000 ? 400 : 200;
-    const SHAPE_PTS = total <= 30000 ? 600 : total <= 100000 ? 300 : 150;
-    const MAX_STOPS = total <= 30000 ? Infinity : 40000;
+    const TRIP_CAP = total <= 10000 ? Infinity : total <= 30000 ? 12000 : 15000;
+    const includeStops = total <= 10000;
+    const MAX_DEPS_PER_STOP = total <= 10000 ? 120 : total <= 30000 ? 20 : 12;
+    const PATH_PTS = total <= 10000 ? 500 : total <= 30000 ? 180 : 120;
+    const SHAPE_PTS = total <= 10000 ? 350 : total <= 30000 ? 120 : 80;
+    const MAX_STOPS = total <= 10000 ? Infinity : total <= 30000 ? 20000 : 12000;
     let tripCount = 0;
 
     for (let i = 0; i < total; i += BATCH_SIZE) {
@@ -508,6 +531,8 @@ if (location.protocol !== 'file:') return new Worker('src/runtime/gtfs-worker.js
         const tripObj = {
           s:  route.short,
           t:  route.type,
+          rid: meta.route_id,
+          aid: route.agencyId || '',
           p:  path,
           ts,
           d:  duration,
@@ -542,6 +567,8 @@ if (location.protocol !== 'file:') return new Worker('src/runtime/gtfs-worker.js
           nSHAPES.push({
             s:  route.short,
             t:  route.type,
+            rid: meta.route_id,
+            aid: route.agencyId || '',
             c:  route.color,
             p:  simplifyPathPoints(path, SHAPE_PTS),
             ln: route.longName || '',
@@ -573,6 +600,7 @@ if (location.protocol !== 'file:') return new Worker('src/runtime/gtfs-worker.js
     hhmmToSec,
     havMeters,
     simplifyPathPoints,
+    normalizeGtfsRouteType,
     buildRouteMap,
     buildShapePoints,
     buildStopsMap,

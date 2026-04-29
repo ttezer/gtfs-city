@@ -10,7 +10,7 @@
   "main": "electron/main.js",
   "scripts": {
     "start": "electron .",
-    "dev": "NODE_ENV=development electron .",
+    "dev": "set NODE_ENV=development&& electron .",
     "check:text": "node scripts/check-text-encoding.js",
     "test": "node scripts/check-text-encoding.js && node --test",
     "build": "electron-builder",

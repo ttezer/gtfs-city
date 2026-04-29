@@ -20,6 +20,7 @@ const {
 const AppState = {
   trips: typeof TRIPS !== 'undefined' ? TRIPS : [],
   shapes: typeof SHAPES !== 'undefined' ? SHAPES : [],
+  routeCatalog: [],
   stops: typeof STOPS !== 'undefined' ? STOPS : [],
   stopInfo: typeof STOP_INFO !== 'undefined' ? STOP_INFO : {},
   stopDeps: typeof STOP_DEPS !== 'undefined' ? STOP_DEPS : {},
@@ -405,6 +406,7 @@ const CONNECTIVITY_VIEWPORT_STOP_LIMIT = 250;
 let connectivityWorker = null;
 let activeRoutes = new Set();
 let focusedRoute = null;
+let focusedRouteId = null;
 let selectedRouteDirection = null;
 let followTripIdx = null, selectedTripIdx = null;
 let selectedEntity = null, panelPauseOwner = null;
@@ -761,19 +763,19 @@ function setPlaybackState(patch = {}) {
 }
 function getFocusedStopsData() {
   if (!focusedRoute) return null;
-  if (_focusedStopIdsCache?.route === focusedRoute && _focusedStopIdsCache?.direction === selectedRouteDirection) return _focusedStopIdsCache.data;
+  if (_focusedStopIdsCache?.route === focusedRoute && _focusedStopIdsCache?.routeId === focusedRouteId && _focusedStopIdsCache?.direction === selectedRouteDirection) return _focusedStopIdsCache.data;
   const data = [];
   for (const [sid, deps] of Object.entries(AppState.stopDeps)) {
     if (deps?.some(dep => {
       const trip = AppState.trips[dep[0]];
-      return trip?.s === focusedRoute
-        && (selectedRouteDirection === null || trip?.dir === selectedRouteDirection);
+      const routeMatch = focusedRouteId ? trip?.rid === focusedRouteId : trip?.s === focusedRoute;
+      return routeMatch && (selectedRouteDirection === null || trip?.dir === selectedRouteDirection);
     })) {
       const info = AppState.stopInfo[sid];
       if (info) data.push({ sid, pos: [info[0], info[1]], name: displayText(info[2]), code: displayText(info[3] || sid) });
     }
   }
-  _focusedStopIdsCache = { route: focusedRoute, direction: selectedRouteDirection, data };
+  _focusedStopIdsCache = { route: focusedRoute, routeId: focusedRouteId, direction: selectedRouteDirection, data };
   return data;
 }
 function getFilteredStopsData() {
@@ -801,7 +803,7 @@ function getFilteredStopsData() {
 }
 function getFilteredStopIdSet() {
   const stopData = getFilteredStopsData();
-  const cacheKey = `${typeFilter}|${focusedRoute || ''}|${selectedRouteDirection ?? 'all'}|${activeRoutes.size}|${stopData.length}`;
+  const cacheKey = `${typeFilter}|${focusedRoute || ''}|${focusedRouteId || ''}|${selectedRouteDirection ?? 'all'}|${activeRoutes.size}|${stopData.length}`;
   if (_filteredStopIdSetCache?.key === cacheKey) return _filteredStopIdSetCache.data;
   const data = new Set(stopData.map((stop) => stop[3]));
   _filteredStopIdSetCache = { key: cacheKey, data };
@@ -922,8 +924,17 @@ function getFocusedRoute() {
   return focusedRoute;
 }
 
+function getFocusedRouteId() {
+  return focusedRouteId;
+}
+
 function setFocusedRouteState(value) {
   focusedRoute = value || null;
+  if (!value) focusedRouteId = null;
+}
+
+function setFocusedRouteIdState(value) {
+  focusedRouteId = value || null;
 }
 
 function getSelectedRouteDirectionState() {
@@ -1070,6 +1081,10 @@ function setRuntimeCollectionsState(runtimeData) {
 
 function setStopNamesState(value) {
   AppState.stopNames = Array.isArray(value) ? value : [];
+}
+
+function setRouteCatalogState(value) {
+  AppState.routeCatalog = Array.isArray(value) ? value : [];
 }
 
 function getBaseRuntimeDataState() {
@@ -1395,6 +1410,7 @@ window.LegacyMapBridge = createLegacyBridge(() => ({
   getDeckgl: () => deckgl,
   getTrips: () => AppState.trips,
   getShapes: () => AppState.shapes,
+  getRouteCatalog: () => AppState.routeCatalog,
   getStops: () => AppState.stops,
   getStopInfo: () => AppState.stopInfo,
   getStopDeps: () => AppState.stopDeps,
@@ -1483,17 +1499,21 @@ window.LegacyUIBridge = createLegacyBridge(() => ({
     getSelectedEntity,
     getTrips: () => AppState.trips,
     getShapes: () => AppState.shapes,
+    getRouteCatalog: () => AppState.routeCatalog,
     getStops: () => AppState.stops,
     getStopInfo: () => AppState.stopInfo,
     getStopDeps: () => AppState.stopDeps,
     getStopNames: () => AppState.stopNames,
     getAppState: () => AppState,
+    setRouteCatalog: (value) => { setRouteCatalogState(value); },
     getActiveStopData: getActiveStopDataState,
     getFollowTripIdx: getFollowTripIdxState,
     getMap: getMapState,
     getTypeFilter: getTypeFilterState,
     setFocusedRoute: (value) => { setFocusedRouteState(value); },
     getFocusedRoute,
+    setFocusedRouteId: (value) => { setFocusedRouteIdState(value); },
+    getFocusedRouteId,
     getSelectedRouteDirection: getSelectedRouteDirectionState,
     setSelectedRouteDirection: (value) => { setSelectedRouteDirectionState(value); },
     setFocusedStopIdsCache: (value) => { _focusedStopIdsCache = value; },
@@ -1637,6 +1657,7 @@ window.LegacyCityBridge = createLegacyBridge(() => ({
       }
       AppState.trips = [];
       AppState.shapes = [];
+      AppState.routeCatalog = [];
       AppState.stops = [];
       AppState.stopInfo = {};
       AppState.stopDeps = {};
@@ -1701,6 +1722,7 @@ window.LegacyDataBridge = createLegacyBridge(() => ({
     clearHiddenCities: clearHiddenCitiesState,
     setRuntimeCollections: setRuntimeCollectionsState,
     setStopNames: setStopNamesState,
+    setRouteCatalog: setRouteCatalogState,
     getBaseRuntimeData: getBaseRuntimeDataState,
     setBaseRuntimeData: setBaseRuntimeDataState,
     setActiveServiceId: (value) => { setActiveServiceIdState(value); },
@@ -2004,7 +2026,10 @@ function inferTripDirectionLabel(trip) {
 }
 
 function buildRoutePanelStats(routeShort) {
-  const routeTrips = AppState.trips.filter((trip) => trip.s === routeShort);
+  const routeId = focusedRouteId;
+  const routeTrips = AppState.trips.filter((trip) =>
+    routeId ? trip.rid === routeId : trip.s === routeShort
+  );
   const filteredTrips = selectedRouteDirection === null
     ? routeTrips
     : routeTrips.filter((trip) => trip?.dir === selectedRouteDirection);
@@ -2038,7 +2063,10 @@ function buildRoutePanelStats(routeShort) {
 
   // Hat uzunluğu hesaplama: en uzun güzergahı (shape) bul
   let maxM = 0;
-  const routeShapes = AppState.shapes.filter((shape) => shape.s === routeShort && (selectedRouteDirection === null || shape.dir === selectedRouteDirection));
+  const routeShapes = AppState.shapes.filter((shape) =>
+    (routeId ? shape.rid === routeId : shape.s === routeShort) &&
+    (selectedRouteDirection === null || shape.dir === selectedRouteDirection)
+  );
   routeShapes.forEach(rs => {
     if (rs.p && rs.p.length >= 2) {
       const len = window.GtfsMathUtils ? window.GtfsMathUtils.pathLengthM(rs.p) : 0;

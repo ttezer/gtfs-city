@@ -44,6 +44,15 @@ window.UIManager = (function () {
     return ctx?.getStopNames ? ctx.getStopNames() : (ctx?.stopNames || []);
   }
 
+  function buildRouteCatalogKey(routeLike) {
+    if (!routeLike || typeof routeLike !== 'object') return String(routeLike || '');
+    return String(
+      routeLike.k
+      || routeLike.rid
+      || `${routeLike.aid || 'na'}::${normalizeRouteType(routeLike.t)}::${routeLike.s || ''}`
+    );
+  }
+
   function showElement(element) {
     element?.classList.remove('hidden');
   }
@@ -154,6 +163,7 @@ window.UIManager = (function () {
       return;
     }
     ctx.setFocusedRoute(null);
+    ctx.setFocusedRouteId?.(null);
     ctx.setSelectedRouteDirection(null);
     ctx.setFocusedStopIdsCache(null);
     ctx.setRouteHighlightPath(null);
@@ -230,7 +240,7 @@ window.UIManager = (function () {
     }
     if (obj?.s && obj?.t) {
       hideTooltip(true);
-      focusRoute(obj.s);
+      focusRoute(obj);
     }
   }
 
@@ -457,18 +467,42 @@ window.UIManager = (function () {
     const routeListEl = document.getElementById('route-list');
     if (!routeListEl) return;
     const byType = {};
-    getShapes(ctx).forEach((shape) => {
-      const type = normalizeRouteType(shape.t);
+    const routeSource = Array.isArray(ctx.getRouteCatalog?.()) && ctx.getRouteCatalog().length
+      ? ctx.getRouteCatalog()
+      : getShapes(ctx);
+    const seenRoutes = new Set();
+    routeSource.forEach((routeLike) => {
+      const type = normalizeRouteType(routeLike.t);
+      const shortName = (routeLike.s || '').trim();
+      if (!shortName) return;
+      const dedupeKey = buildRouteCatalogKey(routeLike);
+      if (seenRoutes.has(dedupeKey)) return;
+      seenRoutes.add(dedupeKey);
       if (!byType[type]) byType[type] = [];
-      if (!byType[type].find((route) => route.s === shape.s)) byType[type].push({ s: shape.s, c: shape.c, t: type, ln: shape.ln || '' });
+      byType[type].push({
+        k: dedupeKey,
+        rid: routeLike.rid || routeLike.k || '',
+        aid: routeLike.aid || '',
+        an: routeLike.an || '',
+        s: shortName,
+        c: routeLike.c,
+        t: type,
+        ln: routeLike.ln || '',
+      });
     });
     routeListEl.innerHTML = '';
-    Object.keys(ctx.TYPE_META).forEach((type) => {
+    const presentTypes = Object.keys(byType);
+    const orderedTypes = [
+      ...Object.keys(ctx.TYPE_META).filter((type) => presentTypes.includes(type)),
+      ...presentTypes.filter((type) => !Object.prototype.hasOwnProperty.call(ctx.TYPE_META, type)).sort(),
+    ];
+    orderedTypes.forEach((type) => {
       if (!byType[type]) return;
       byType[type].sort((a, b) => a.s.localeCompare(b.s, 'tr')).forEach((route) => {
         const routeMeta = ctx.getRouteMeta(route.s, type, route.c, route.ln);
         const div = document.createElement('div');
         div.className = 'route-item';
+        div.dataset.routeKey = route.k || route.s;
         div.dataset.short = route.s;
         div.dataset.type = normalizeRouteType(type);
         div.innerHTML = `<div class="ri-bar" style="background:${ctx.colorToCss(routeMeta.color)}"></div>
@@ -476,13 +510,13 @@ window.UIManager = (function () {
           <input type="checkbox" class="ri-check" ${ctx.isRouteHidden?.(route.s) ? '' : 'checked'} data-short="${route.s}">`;
         div.querySelector('.ri-name').textContent = routeMeta.short;
         div.querySelector('.ri-type').textContent = ctx.getLocalizedRouteTypeName
-          ? ctx.getLocalizedRouteTypeName(type, ctx.TYPE_META[type]?.n || type)
-          : (ctx.TYPE_META[type]?.n || type);
-        div.querySelector('.ri-long').textContent = routeMeta.longName || '';
+          ? ctx.getLocalizedRouteTypeName(type, ctx.TYPE_META[type]?.n || translate('routeTypeUnknown', 'Hat'))
+          : (ctx.TYPE_META[type]?.n || translate('routeTypeUnknown', 'Hat'));
+        div.querySelector('.ri-long').textContent = routeMeta.longName || route.an || '';
         div.classList.toggle('hidden-route', ctx.isRouteHidden?.(route.s));
         div.onclick = (e) => {
           if (e.target.type === 'checkbox') return;
-          focusRoute(route.s);
+          focusRoute(route);
         };
         div.querySelector('.ri-check').onchange = (e) => {
           if (e.target.checked) ctx.showRoute?.(route.s);
@@ -519,12 +553,12 @@ window.UIManager = (function () {
         ? (ctx.getFocusedStopsData()?.map((entry) => [entry.pos[0], entry.pos[1], entry.name || entry.sid, entry.sid, entry.name || entry.sid]) || [])
       : getStops(ctx));
     stopListEl.innerHTML = '';
-    const limitedStops = focusedRoute ? stopSource : stopSource.slice(0, 300);
-    limitedStops
-      .filter((stop) => {
-        const stopMeta = ctx.getStopMetaByArray(stop);
-        return !q || stopMeta.name.toLowerCase().includes(q) || stopMeta.code.toLowerCase().includes(q);
-      })
+    const stopsToFilter = focusedRoute ? stopSource : (q ? stopSource : stopSource.slice(0, 300));
+    const matchedStops = stopsToFilter.filter((stop) => {
+      const stopMeta = ctx.getStopMetaByArray(stop);
+      return !q || stopMeta.name.toLowerCase().includes(q) || stopMeta.code.toLowerCase().includes(q);
+    });
+    (focusedRoute ? matchedStops : matchedStops.slice(0, 300))
       .forEach((stop) => {
         const stopMeta = ctx.getStopMetaByArray(stop);
         const item = document.createElement('div');
@@ -547,26 +581,39 @@ window.UIManager = (function () {
     });
   }
 
-  function focusRoute(shortName) {
+  function focusRoute(routeRef) {
     const ctx = getCtx();
     if (!ctx) return;
+    const shortName = typeof routeRef === 'object' ? String(routeRef.s || '').trim() : String(routeRef || '').trim();
+    const routeKey = typeof routeRef === 'object' ? buildRouteCatalogKey(routeRef) : shortName;
     const focusedRoute = ctx.getFocusedRoute ? ctx.getFocusedRoute() : ctx.focusedRoute;
     if (focusedRoute === shortName) {
       clearFocusedRouteSelection(true);
       return;
     }
     ctx.setFocusedRoute(shortName);
+    ctx.setFocusedRouteId?.(typeof routeRef === 'object' ? (routeRef.rid || null) : null);
     ctx.setSelectedRouteDirection(null);
     ctx.setFocusedStopIdsCache(null);
-    document.querySelectorAll('.route-item').forEach((el) => el.classList.toggle('focused', el.dataset.short === shortName));
-    const shape = getShapes(ctx).find((s) => s.s === shortName);
+    document.querySelectorAll('.route-item').forEach((el) => el.classList.toggle('focused', el.dataset.routeKey === routeKey));
+    const shape = getShapes(ctx).find((s) => {
+      if (typeof routeRef !== 'object') return s.s === shortName;
+      if (routeRef.rid && s.rid && s.rid === routeRef.rid) return true;
+      if (routeRef.aid && s.aid && String(s.aid) !== String(routeRef.aid)) return false;
+      return s.s === shortName && normalizeRouteType(s.t) === normalizeRouteType(routeRef.t);
+    }) || getShapes(ctx).find((s) => s.s === shortName);
     if (shape?.p?.length) {
       const lons = shape.p.map((p) => p[0]);
       const lats = shape.p.map((p) => p[1]);
       const map = ctx.getMap ? ctx.getMap() : ctx.mapgl;
       map?.fitBounds([[Math.min(...lons), Math.min(...lats)], [Math.max(...lons), Math.max(...lats)]], { padding: 80, maxZoom: 15, duration: 800 });
     }
-    const trip = getTrips(ctx).find((t) => t.s === shortName);
+    const trip = getTrips(ctx).find((t) => {
+      if (typeof routeRef !== 'object') return t.s === shortName;
+      if (routeRef.rid && t.rid && t.rid === routeRef.rid) return true;
+      if (routeRef.aid && t.aid && String(t.aid) !== String(routeRef.aid)) return false;
+      return t.s === shortName && normalizeRouteType(t.t) === normalizeRouteType(routeRef.t);
+    }) || getTrips(ctx).find((t) => t.s === shortName);
     if (trip) {
       const routeMeta = ctx.getRouteMeta(shortName, trip.t, trip.c, trip.ln || trip.h || '');
       openRoutePanel(routeMeta, ctx.TYPE_META[trip.t] || {});

@@ -30,6 +30,8 @@ test('buildRouteMap creates deterministic route metadata', () => {
   );
 
   assert.deepEqual(routeMap.m4, {
+    routeId: 'm4',
+    agencyId: '',
     short: 'M4',
     type: '1',
     color: [10, 20, 30],
