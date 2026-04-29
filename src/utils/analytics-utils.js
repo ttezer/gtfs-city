@@ -115,6 +115,7 @@
       time,
       typeFilter,
       activeRoutes,
+      isRouteHidden,
       bunchingThreshold,
       headwayCfg,
       getVehiclePos,
@@ -143,7 +144,7 @@
     const byKey = {};
     for (const trip of trips) {
       if (typeFilter !== 'all' && trip.t !== typeFilter) continue;
-      if (ctx?.isRouteHidden ? ctx.isRouteHidden(trip) : (activeRoutes && activeRoutes.has(trip.s))) continue;
+      if (typeof isRouteHidden === 'function' ? isRouteHidden(trip) : (activeRoutes && activeRoutes.has(trip.s))) continue;
       const pos = getVehiclePos(trip, time);
       if (!pos) continue;
       const progress = getTripProgressAtTime(trip, time);

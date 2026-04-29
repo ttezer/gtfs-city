@@ -282,6 +282,7 @@ window.SimulationEngine = (function () {
       time,
       typeFilter: ctx.typeFilter,
       activeRoutes: ctx.activeRoutes,
+      isRouteHidden: ctx.isRouteHidden,
       bunchingThreshold: ctx.bunchingThreshold,
       headwayCfg: ctx.HEADWAY_CFG,
       getVehiclePos: ctx.getVehiclePos,
