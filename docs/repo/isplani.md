@@ -27,32 +27,36 @@ Temel urun ilkeleri:
 
 ## Guncel Acik Isler
 
-- Route list / route search dogrulugu <- VBB canli dogrulama bekliyor
-  - `routeCatalog` artik `route_id` ve `agency_id` tasiyor; liste dedupe `route_id` tabanli.
-  - `focusedRoute` yarım geçişi giderildi: `focusedRouteId` state eklendi, harita tiklamasinda artik tam obje geçiyor, stop filtreleme `trip.rid` üzerinden calisiyor.
-  - Cap threshold uyumsuzlugu giderildi: `data-manager.js`, `gtfs-worker.js` ve fallback yolu hizalandi (esik: 30K).
-  - Kalan: resmi VBB feed ile route list, route focus, panel akisi ve agency ayrimi gorsel dogrulama.
+- Buyuk feed'de cap disi hat shape/arac gostergesi
+  - routeCatalog tam (cap budamasiz); tariffIndex pre-cap; sefer saatleri tam calisiyor.
+  - Cap disi hatlarda panel aciliyor ama shape, durak ve arac animasyonu gelmiyor.
+  - Cozum: route-scoped on-demand loading — kullanici hatti secince o hattın trip/shape verisi worker'da yuklenir.
 - Buyuk GTFS feed kararliligi / WebGL
-  - Cap threshold uyumsuzlugu giderildi; 3 yerde farkli esik degeri kullaniliyordu.
-  - Runtime cap, geometri ve stop-deps yogunlugu daha once dusurulmustu.
+  - Cap threshold hizalandi (30K, 4 noktada).
+  - GPU crash (exit_code=34, DXGI_ERROR_DEVICE_HUNG) giderildi: use-angle=gl + disable-gpu-sandbox.
   - WebGL context loss kok nedeni hala acik; semptom azaltma yapildi.
   - Dogrulama kapsami: harita ilk render, route focus sonrasi render, context loss tekrar ediyor mu.
-- Landing / map-only UI ayrimi
-  - Landing acikken planner ve harita ustu overlay'ler gorunmemeli.
-  - Landing'e donuste planner sonucu, route highlight ve panel state'i temiz kalmali.
-  - Logo / baslik gorunurlugu masaustu pencerede korunmali.
-- Desktop dev ergonomisi
-  - Windows `npm run dev` akisi duzeltildi; kalici davranis dogrulanmali.
-  - DevTools auto-open kapatildi; gelistirici araclari menuden acilir durumda kalmali.
 - Baglanti Kareleri performans iyilestirmesi
   - A: `getWindowDepartures` sonuclarini precompute basinda onbellekle
   - B: `getStopInfo(ctx)` cagrisini `getConnectivityGridCells` dongusunden disari cek
   - C: `startStopConnectivityPrecompute` hesabini Web Worker'a tasi
+- Kocaeli hat seciminde durak eksikligi (veri kontrolu bekliyor)
 - web demo olgunlastirma
 - baglanti kareleri beta kalibrasyonu
 - persisted snapshot / cache arastirmasi
-- kucuk UX ve veri dogrulugu duzeltmeleri
 - gerekirse GTFS-RT arastirma fazi
+
+## Tamamlanan (son oturum)
+
+- routeCatalog cap/runtime budamasindan cikarildi; allRouteCatalog tam set ediliyor
+- tariffIndex: pre-cap, servis filtreli tam trip schedule; AppState.tariffIndex olarak saklanıyor
+- tariff-sheets.js AppState.trips yerine tariffIndex kullanıyor
+- focusedRouteId state tam gecisi: panel, hide/show, stop filtreleme, cache key
+- buildRoutePanelStats route_id bazli
+- selectedEntity routeId tasiyor
+- cap bilgisi UI'da gosteriliyor (sidebar notu + AppState.capped/totalTrips/tripCap)
+- Durak arama 300 on-limit duzeltildi
+- Windows GPU crash giderildi
 
 ## Bu Dosya Neyi Tutmaz
 
