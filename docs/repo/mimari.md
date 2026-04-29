@@ -31,11 +31,11 @@ Temel ilkeler:
 |---|---|---|
 | `script.js` | orkestrasyon, ortak state, bridge yüzeyi | gereksiz büyütülmemeli |
 | `bridge-utils.js` | bridge kurma ve ortak normalize yardımcıları | runtime yardımcı yüzeyi |
-| `i18n-runtime.js` | dil sozlugu, dil secimi, statik metin uygulama | script.js'ten ayrilan ilk buyuk runtime parcasi |
+| `i18n-runtime.js` | dil sozlugu, dil secimi, statik metin uygulama | script.js'ten ayrilan ilk büyük runtime parcasi |
 | `stop-coverage-controls.js` | durak kapsama paneli ve toggle kontrol wiring'i | script.js'ten ayrilan toggle panel parcasi |
 | `heatmap-controls.js` | heatmap paneli ve saat/takip kontrol wiring'i | script.js'ten ayrilan toggle panel parcasi |
 | `bunching-controls.js` | bunching toggle ve esik kontrol wiring'i | script.js'ten ayrilan toggle panel parcasi |
-| `section-collapse-controls.js` | katlanabilir bolum basliklari icin UI wiring | script.js'ten ayrilan kucuk DOM orkestrasyonu |
+| `section-collapse-controls.js` | katlanabilir bolum basliklari icin UI wiring | script.js'ten ayrilan küçük DOM orkestrasyonu |
 | `data-manager.js` | GTFS yükleme, doğrulama, runtime apply | veri giriş kapısı |
 | `gtfs-utils.js` | parse ve runtime veri üretimi | veri çekirdeği |
 | `gtfs-worker.js` | worker parse akışı | performans amaçlı |

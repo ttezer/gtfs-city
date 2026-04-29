@@ -1,7 +1,7 @@
 # GTFS City - Desktop ve Web Teknik Sınırları
 
-Bu belge, masaustu ve web surumunun ortak ve ayrışan davranislarini kisa sekilde ozetler.
-Bu dosya mimari belgesi degildir; yalnizca platform farklarini netlestirir.
+Bu belge, masaustu ve web surumunun ortak ve ayrışan davranislarini kisa şekilde ozetler.
+Bu dosya mimari belgesi degildir; yalnızca platform farklarini netlestirir.
 
 ## Desktop
 

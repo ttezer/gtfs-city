@@ -12,7 +12,7 @@ Ama state -> bridge -> script.js sirasinin ilk referansidir.
 
 GTFS verisinin kendisi ve ondan dogrudan uretilen temel runtime veri.
 
-Ornek:
+Örnek:
 - `AppState.trips`
 - `AppState.shapes`
 - `AppState.stops`
@@ -27,7 +27,7 @@ Ornek:
 
 Katman acikligi, harita gorunumu, dil ve UI gorunurluk tercihleri.
 
-Ornek:
+Örnek:
 - `showAnim`
 - `showPaths`
 - `showStops`
@@ -45,7 +45,7 @@ Ornek:
 
 Saat, hiz, replay ve sim akisi ile ilgili state.
 
-Ornek:
+Örnek:
 - `simTime`
 - `simPaused`
 - `simSpeed`
@@ -56,9 +56,9 @@ Ornek:
 
 ### 4. Selection state
 
-Kullanicinin odagi, secimi ve filtreli gorunum durumu.
+Kullanicinin odagi, secimi ve filtreli görünüm durumu.
 
-Ornek:
+Örnek:
 - `activeRoutes`
 - `focusedRoute`
 - `selectedRouteDirection`
@@ -72,7 +72,7 @@ Ornek:
 
 Aktif sehir, servis secimi, takvim ve yuklenmis dataset baglami.
 
-Ornek:
+Örnek:
 - `activeCity`
 - `activeServiceId`
 - `activeServiceIds`
@@ -85,7 +85,7 @@ Ornek:
 
 Analitik hesaplar, gecici cache'ler ve yeniden hesaplanabilir ara durumlar.
 
-Ornek:
+Örnek:
 - `heatmapHour`
 - `heatmapFollowSim`
 - `bunchingThreshold`
@@ -112,7 +112,7 @@ Ornek:
 | `showConnectivityGrid` | UI | `script.js` toggle sistemi | `map-manager`, legend, viewport status | toggle map, resetViewToggles | UI state halen tamamen runtime local |
 | `showHeatmap` | UI | `script.js` toggle sistemi | `map-manager`, heatmap control | toggle map, resetler | runtime local UI state |
 | `showTrail` | UI | `script.js` + `app-manager` | `map-manager`, style/controls | `app-manager`, runtime resetler | Bu alan manager setter ile de yaziliyor; sahiplik yumusak |
-| `currentMapStyle` | UI | `script.js` | `simulation-engine`, style butonlari | `app-manager`, runtime setter, UI aksiyonlari | UI state ama sim akisini da etkiliyor; sinir net degil |
+| `currentMapStyle` | UI | `script.js` | `simulation-engine`, style butonlari | `app-manager`, runtime setter, UI aksiyonlari | UI state ama sim akisini da etkiliyor; sınır net degil |
 | `typeFilter` | Selection / UI | `script.js` | `map-manager`, `ui-manager`, `simulation-engine` | `setTypeFilter`, resetRuntimeCaches | UI filtresi ve secim state'i ayni alanda birlesmis |
 | `activeRoutes` | Selection | `ui-manager` etkileşimi uzerinden runtime | `map-manager`, `simulation-engine`, `ui-manager` | route list checkbox akisi | Mutable `Set`; dogrudan degistiriliyor, merkezi mutation yok |
 | `focusedRoute` | Selection | `ui-manager` / route focus akisi | `map-manager`, `simulation-engine`, `ui-manager` | `focusRoute`, clear selection, stop/vehicle secimi | Kritik secim state'i ama runtime global |
@@ -125,14 +125,14 @@ Ornek:
 ## Ana Gozlem
 
 Bugunku yapida gercek state'in ana sahibi `src/runtime/script.js`.
-`src/core/state-manager.js` yolu kapatildi; resmi yon runtime local state + `AppState` sahipligi uzerinden devam ediyor.
+`src/core/state-manager.js` yolu kapatıldı; resmi yon runtime local state + `AppState` sahipligi uzerinden devam ediyor.
 
 Bu, state fazinin bugunku ana kararidir.
 
-Kisa sonuc:
+Kisa sonuç:
 
 - `StateManager` yasatilmadi
-- urun state'i icin fiili kaynak runtime local state + `AppState` olarak kabul edildi
+- ürün state'i icin fiili kaynak runtime local state + `AppState` olarak kabul edildi
 - bundan sonraki temizlik bu iki ekseni netlestirerek ilerlemeli
 
 ## Ilk Fazda Mutlaka Ele Alinmasi Gereken 5 Alan
@@ -142,7 +142,7 @@ Kisa sonuc:
 Sebep:
 - sistemin merkez zamani
 - harita, panel, replay ve sim akisi bunu okuyor
-- yerel runtime degisken olarak yasamasi dogru degil
+- yerel runtime değişken olarak yasamasi doğru degil
 
 ### 2. `activeRoutes`
 
