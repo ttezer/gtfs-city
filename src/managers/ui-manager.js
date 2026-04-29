@@ -680,9 +680,13 @@ window.UIManager = (function () {
       if (routeRef.aid && t.aid && String(t.aid) !== String(routeRef.aid)) return false;
       return t.s === shortName && normalizeRouteType(t.t) === normalizeRouteType(routeRef.t);
     }) || getTrips(ctx).find((t) => t.s === shortName);
-    if (trip) {
-      const routeMeta = { ...ctx.getRouteMeta(shortName, trip.t, trip.c, routeRef?.ln || trip.ln || trip.h || routeRef?.an || ''), rid: typeof routeRef === 'object' ? (routeRef.rid || null) : null };
-      openRoutePanel(routeMeta, ctx.TYPE_META[trip.t] || {});
+    const catalogEntry = trip ? null : (ctx.getRouteCatalog?.() || []).find((r) =>
+      (typeof routeRef === 'object' && routeRef.rid ? r.rid === routeRef.rid : r.s === shortName)
+    );
+    const metaSource = trip || catalogEntry;
+    if (metaSource) {
+      const routeMeta = { ...ctx.getRouteMeta(shortName, metaSource.t, metaSource.c, routeRef?.ln || metaSource.ln || metaSource.h || routeRef?.an || metaSource.an || ''), rid: typeof routeRef === 'object' ? (routeRef.rid || null) : null };
+      openRoutePanel(routeMeta, ctx.TYPE_META[metaSource.t] || {});
     }
     buildStopList(document.getElementById('stop-list-filter')?.value || '');
     ctx.refreshLayersNow();
