@@ -1095,6 +1095,7 @@ function setRuntimeCollectionsState(runtimeData) {
   AppState.capped = runtimeData?.capped || false;
   AppState.totalTrips = runtimeData?.totalTrips || 0;
   AppState.tripCap = runtimeData?.tripCap || Infinity;
+  AppState.tariffIndex = runtimeData?.tariffIndex || {};
 }
 
 function setStopNamesState(value) {

@@ -788,12 +788,27 @@ window.DataManager = (function () {
           8000
         );
       }
-      const candidateRouteIds = new Set(
-        Object.values(cappedTripMeta)
-          .map((meta) => String(meta?.route_id || '').trim())
-          .filter(Boolean)
-      );
-      ctx.setRouteCatalog?.(allRouteCatalog.filter((route) => candidateRouteIds.has(route.rid)));
+      // Tariff index: pre-cap, full trip schedule data for timetable display
+      const tariffIndex = {};
+      for (const [tripId, meta] of Object.entries(filteredTripMeta)) {
+        const routeId = String(meta?.route_id || '').trim();
+        const route = routeMap[routeId];
+        if (!route) continue;
+        const stops = tripStops[tripId] || [];
+        const times = stops.map(([, sec]) => sec).filter((s) => Number.isFinite(s));
+        if (!times.length) continue;
+        tariffIndex[tripId] = {
+          rid: routeId,
+          s: route.short || '',
+          t: route.type || '',
+          dir: meta.direction_id,
+          h: meta.head || '',
+          ts: times,
+        };
+      }
+
+      // routeCatalog: tam liste, cap veya runtime tarafından budanmaz
+      ctx.setRouteCatalog?.(allRouteCatalog);
 
       if (loaderText && !landingUpload) loaderText.textContent = '3D Rotalar ve Seferler İşleniyor...';
       const runtimeData = await window.GtfsUtils.buildGtfsRuntimeDataAsync(
@@ -812,9 +827,8 @@ window.DataManager = (function () {
       runtimeData.capped = tripCap < totalTripCount;
       runtimeData.totalTrips = totalTripCount;
       runtimeData.tripCap = tripCap;
+      runtimeData.tariffIndex = tariffIndex;
 
-      const runtimeRouteIds = new Set((runtimeData.nTRIPS || []).map((trip) => String(trip?.rid || '').trim()).filter(Boolean));
-      if (runtimeRouteIds.size) ctx.setRouteCatalog?.(allRouteCatalog.filter((route) => runtimeRouteIds.has(route.rid)));
       ctx.resetViewToggles();
       applyGtfsRuntimeData(runtimeData);
       if (isLandingVisible()) {

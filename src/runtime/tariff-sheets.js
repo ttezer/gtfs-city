@@ -114,7 +114,8 @@ function getActiveTariffDate(type) {
 function buildRouteTariffData(routeSelection, directionValue) {
   const routeShort = routeSelection?.short || '';
   const routeId = routeSelection?.rid || null;
-  const routeTrips = AppState.trips.filter((trip) =>
+  const tariffIndex = AppState.tariffIndex || {};
+  const routeTrips = Object.values(tariffIndex).filter((trip) =>
     (routeId ? trip.rid === routeId : trip.s === routeShort)
     && (directionValue === 'all' || String(trip.dir) === String(directionValue))
   );
@@ -129,7 +130,7 @@ function buildRouteTariffData(routeSelection, directionValue) {
   directionGroups.forEach((times, label) => {
     directionGroups.set(label, [...new Set(times)].sort());
   });
-  return { routeTrips, directionGroups, capped: routeTrips.length === 0 && AppState.capped };
+  return { routeTrips, directionGroups };
 }
 
 function buildStopTariffData(stopId) {
@@ -173,16 +174,15 @@ function updateRouteTariffSummary() {
     summary.textContent = 'Bir hat seçildiğinde burada kısa özet görünecek.';
     return;
   }
-  const { routeTrips, directionGroups, capped: isCapped } = buildRouteTariffData(routeSelection, document.getElementById('route-tariff-direction')?.value || 'all');
+  const { routeTrips, directionGroups } = buildRouteTariffData(routeSelection, document.getElementById('route-tariff-direction')?.value || 'all');
   const times = Array.from(directionGroups.values()).flat();
   const routeMeta = (AppState.routeCatalog || []).find((route) => route.rid === routeSelection.rid) || null;
-  const capNote = isCapped ? '<br><em>⚠️ Bu hat sefer animasyonu kapsamı dışında kaldı; saatler eksik olabilir.</em>' : '';
   summary.innerHTML = `
     <strong>${routeSelection.short}</strong>${routeMeta?.an ? `<br>${displayText(routeMeta.an)}` : ''}<br>
     Toplam sefer: ${routeTrips.length}<br>
     Yön sayısı: ${directionGroups.size}<br>
     İlk saat: ${times[0] || '—'}<br>
-    Son saat: ${times[times.length - 1] || '—'}${capNote}
+    Son saat: ${times[times.length - 1] || '—'}
   `;
 }
 
@@ -290,9 +290,8 @@ function buildRouteTariffSheet() {
   const style = document.getElementById('route-tariff-style')?.value || 'classic';
   const dateStr = getActiveTariffDate('route');
   const directionValue = document.getElementById('route-tariff-direction')?.value || 'all';
-  const sampleTrip = AppState.trips.find((trip) => routeSelection?.rid ? trip.rid === routeSelection.rid : trip.s === routeShort);
-  const routeCatalogEntry = (AppState.routeCatalog || []).find((route) => route.rid === routeSelection?.rid) || null;
-  const routeMeta = getRouteMeta(routeShort, sampleTrip?.t, sampleTrip?.c, routeCatalogEntry?.ln || sampleTrip?.ln || sampleTrip?.h || routeCatalogEntry?.an || '');
+  const routeCatalogEntry = (AppState.routeCatalog || []).find((route) => route.rid === routeSelection?.rid || route.s === routeShort) || null;
+  const routeMeta = getRouteMeta(routeShort, routeCatalogEntry?.t, routeCatalogEntry?.c, routeCatalogEntry?.ln || routeCatalogEntry?.an || '');
   const { routeTrips, directionGroups } = buildRouteTariffData(routeSelection, directionValue);
   const directionOrder = { 'Gidiş': 0, Outbound: 0, 'Dönüş': 1, Inbound: 1 };
   const directionRows = [...directionGroups.entries()]
