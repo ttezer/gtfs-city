@@ -249,18 +249,20 @@
       const routeDisplayName = isFamilySelection
         ? (familyRoutes.find((entry) => entry?.ln)?.ln || patterns[0]?.h || '—')
         : (route?.ln || patterns[0]?.h || '—');
+      const routeServiceIds = new Set(allRouteTariffs.map(([, e]) => String(e.sid || '')).filter(Boolean));
+      const routeServiceDates = getActiveDatesForRoute(routeServiceIds, calendarRows, calendarDateRows);
       bodyEl.innerHTML = [
-        buildTemporalControlHtml(activeServiceDate),
+        buildTemporalControlHtml(activeServiceDate, routeServiceDates),
         buildInspectorBlock('Hat', escapeHtml(routeDisplayName)),
         buildInspectorStats([
           { value: routeTariffs.length.toLocaleString(getLocale()), label: activeServiceDate ? 'Seçili gün seferi' : 'Tarife seferi' },
           { value: runtimeTripsForRoute.toLocaleString(getLocale()), label: 'Yüklü sefer' },
           { value: patterns.length.toLocaleString(getLocale()), label: 'Varyant' },
         ]),
-        buildInspectorBlock('Servis aralığı', `${formatSecsToHHMM(firstDep(routeTariffs))} / ${formatSecsToHHMM(lastDep(routeTariffs))}`),
-        runtimeTripsForRoute === 0 && routeTariffs.length > 0 && route?.rid
-          ? `<div class="insp-load-anim-wrap"><button type="button" class="insp-load-anim-btn" data-info-action="load-animation" data-rid="${escapeHtml(route.rid)}"><span class="insp-load-anim-label">Animasyonu Yükle</span><span class="insp-load-anim-pct">0%</span></button></div>`
+        routeTariffs.length > 0 && runtimeTripsForRoute === 0 && route?.rid
+          ? `<div class="insp-load-route-wrap"><button type="button" class="insp-load-route-btn" data-info-action="load-route" data-rid="${escapeHtml(route.rid)}">Animasyonu Yükle</button></div>`
           : '',
+        buildInspectorBlock('Servis aralığı', `${formatSecsToHHMM(firstDep(routeTariffs))} / ${formatSecsToHHMM(lastDep(routeTariffs))}`),
         isFamilySelection ? buildRouteIdentitySummaryHtml(familyRoutes, familyTariffCounts, familyRuntimeCounts) : '',
         buildPatternSummaryHtml(patterns, ctx?.getSelectedPatternKey?.() ?? null, inspectorState.dirFilter ?? null),
         stopsTrayHtml,
@@ -293,51 +295,61 @@
         window.UIManager?.focusRoute(route || selectedEntity.routeShort);
         renderInfoInspector();
       });
-      const loadAnimBtn = bodyEl.querySelector('[data-info-action="load-animation"]');
-      if (loadAnimBtn) {
-        loadAnimBtn.addEventListener('click', async () => {
-          const rid = loadAnimBtn.getAttribute('data-rid') || '';
+      const loadRouteBtn = bodyEl.querySelector('[data-info-action="load-route"]');
+      if (loadRouteBtn) {
+        loadRouteBtn.addEventListener('click', async () => {
+          const rid = loadRouteBtn.getAttribute('data-rid') || '';
           if (!rid) return;
-          loadAnimBtn.disabled = true;
-          loadAnimBtn.classList.add('loading');
-          const pctEl = loadAnimBtn.querySelector('.insp-load-anim-pct');
-          const labelEl = loadAnimBtn.querySelector('.insp-load-anim-label');
-          let fakeProgress = 0;
-          const ticker = setInterval(() => {
-            fakeProgress = Math.min(fakeProgress + Math.random() * 12, 88);
-            if (pctEl) pctEl.textContent = `${Math.round(fakeProgress)}%`;
-            loadAnimBtn.style.setProperty('--fill-pct', `${fakeProgress}%`);
-          }, 200);
+          loadRouteBtn.disabled = true;
+          loadRouteBtn.textContent = 'Yükleniyor...';
           const ok = await ctx?.loadRouteRuntimeSubset?.(rid);
-          clearInterval(ticker);
-          loadAnimBtn.style.setProperty('--fill-pct', '100%');
-          if (pctEl) pctEl.textContent = '100%';
-          if (labelEl) labelEl.textContent = ok ? 'Yüklendi' : 'Yükleme başarısız';
-          await new Promise((r) => setTimeout(r, 600));
-          renderInfoInspector();
+          if (ok) { renderInfoInspector(); } else { loadRouteBtn.textContent = 'Yükleme başarısız'; }
         });
       }
+      bodyEl.querySelector('[data-info-action="show-service-dates"]')?.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const popup = bodyEl.querySelector('#insp-service-dates-popup');
+        if (!popup) return;
+        popup.classList.toggle('hidden');
+        if (!popup.classList.contains('hidden') && !popup.dataset.built) {
+          const dates = [...routeServiceDates].sort();
+          const byMonth = {};
+          dates.forEach((d) => {
+            const key = d.slice(0, 7);
+            if (!byMonth[key]) byMonth[key] = [];
+            byMonth[key].push(d);
+          });
+          const TR_MONTHS = ['Oca','Şub','Mar','Nis','May','Haz','Tem','Ağu','Eyl','Eki','Kas','Ara'];
+          popup.innerHTML = Object.entries(byMonth).map(([ym, ds]) => {
+            const [y, m] = ym.split('-');
+            const label = `${TR_MONTHS[+m - 1]} ${y}`;
+            const dayBtns = ds.map((d) => `<button class="insp-svc-day${d === activeServiceDate ? ' active' : ''}" data-svc-date="${d}">${+d.slice(8)}</button>`).join('');
+            return `<div class="insp-svc-month-label">${label}</div><div class="insp-svc-days">${dayBtns}</div>`;
+          }).join('') || '<div class="insp-svc-empty">Sefer tarihi bulunamadı</div>';
+          popup.dataset.built = '1';
+          popup.querySelectorAll('[data-svc-date]').forEach((btn) => {
+            btn.addEventListener('click', async () => {
+              const date = btn.getAttribute('data-svc-date');
+              popup.classList.add('hidden');
+              await window.ServiceManager?.handleDateChange?.(date);
+            });
+          });
+        }
+      });
+      document.addEventListener('click', function closeSvcPopup(e) {
+        const popup = bodyEl.querySelector('#insp-service-dates-popup');
+        if (popup && !popup.classList.contains('hidden') && !popup.contains(e.target) && !e.target.closest('[data-info-action="show-service-dates"]')) {
+          popup.classList.add('hidden');
+          document.removeEventListener('click', closeSvcPopup);
+        }
+      });
       bodyEl.querySelectorAll('[data-route-member-id]').forEach((row) => {
-        row.addEventListener('click', (e) => {
-          if (e.target.closest('[data-load-rid]')) return;
+        row.addEventListener('click', () => {
           const routeId = row.getAttribute('data-route-member-id') || '';
           const routeMember = familyRoutes.find((entry) => String(entry?.rid || '').trim() === routeId) || null;
           if (!routeMember) return;
           ctx?.setSelectedEntity?.({ type: 'route', routeId, routeShort: routeMember.s || selectedEntity.routeShort || '' });
           renderInfoInspector();
-        });
-      });
-      bodyEl.querySelectorAll('[data-load-rid]').forEach((btn) => {
-        btn.addEventListener('click', async (e) => {
-          e.stopPropagation();
-          const rid = btn.getAttribute('data-load-rid') || '';
-          if (!rid) return;
-          btn.disabled = true;
-          btn.textContent = '...';
-          const ok = await ctx?.loadRouteRuntimeSubset?.(rid);
-          btn.textContent = ok ? '✓' : '✗';
-          if (ok) setTimeout(() => renderInfoInspector(), 600);
-          else btn.title = 'Yükleme başarısız — bu tarihte sefer yok olabilir';
         });
       });
       bodyEl.querySelectorAll('[data-pattern-dir]').forEach((row) => {
@@ -1559,15 +1571,11 @@
       const displayName = route?.ln || route?.an || rid || '—';
       const tariffCount = tariffCounts.get(rid) || 0;
       const runtimeCount = runtimeCounts.get(rid) || 0;
-      const loadBtn = runtimeCount === 0 && tariffCount > 0 && rid
-        ? `<button type="button" class="insp-load-row-btn" data-load-rid="${escapeHtml(rid)}" title="Animasyonu yükle">Yükle</button>`
-        : '';
       return `
         <div class="insp-pattern-row" data-route-member-id="${escapeHtml(rid)}" title="Bu kaydı aç">
           <span class="route-code-badge">${escapeHtml(route?.s || rid || '—')}</span>
           <span class="insp-pattern-head">${escapeHtml(displayName)}</span>
           <span class="insp-pattern-count">${escapeHtml(typeLabel)} · ${tariffCount.toLocaleString(getLocale())}/${runtimeCount.toLocaleString(getLocale())}</span>
-          ${loadBtn}
         </div>`;
     }).join('');
     return `<div class="info-inspector-block">
@@ -1592,11 +1600,45 @@
     </div>`;
   }
 
-  function buildTemporalControlHtml(dateValue) {
+  function buildTemporalControlHtml(dateValue, servicesDates) {
+    const calBtn = servicesDates?.size
+      ? `<button type="button" class="insp-svc-cal-btn" data-info-action="show-service-dates" title="Sefer olan günleri göster">📅</button>
+         <div class="insp-service-dates-popup hidden" id="insp-service-dates-popup"></div>`
+      : '';
     return `<div class="insp-temporal-ctrl">
       <label class="insp-temporal-label">Çalışma günü</label>
-      <input type="date" class="insp-date-input" id="insp-date-input" value="${escapeHtml(dateValue || '')}">
+      <div class="insp-date-wrap">
+        <input type="date" class="insp-date-input" id="insp-date-input" value="${escapeHtml(dateValue || '')}">
+        ${calBtn}
+      </div>
     </div>`;
+  }
+
+  function getActiveDatesForRoute(serviceIds, calendarRows, calendarDateRows) {
+    const dates = new Set();
+    const DOW = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+    for (const row of (calendarRows || [])) {
+      if (!serviceIds.has(String(row.service_id || ''))) continue;
+      const s = String(row.start_date || ''), e = String(row.end_date || '');
+      if (s.length !== 8 || e.length !== 8) continue;
+      const startMs = Date.UTC(+s.slice(0, 4), +s.slice(4, 6) - 1, +s.slice(6, 8));
+      const endMs = Date.UTC(+e.slice(0, 4), +e.slice(4, 6) - 1, +e.slice(6, 8));
+      for (let ms = startMs; ms <= endMs; ms += 86400000) {
+        const dt = new Date(ms);
+        if (String(row[DOW[dt.getUTCDay()]]) !== '1') continue;
+        const y = dt.getUTCFullYear(), mo = String(dt.getUTCMonth() + 1).padStart(2, '0'), d = String(dt.getUTCDate()).padStart(2, '0');
+        dates.add(`${y}-${mo}-${d}`);
+      }
+    }
+    for (const row of (calendarDateRows || [])) {
+      if (!serviceIds.has(String(row.service_id || ''))) continue;
+      const s = String(row.date || '');
+      if (s.length !== 8) continue;
+      const fmt = `${s.slice(0, 4)}-${s.slice(4, 6)}-${s.slice(6, 8)}`;
+      if (String(row.exception_type) === '1') dates.add(fmt);
+      else if (String(row.exception_type) === '2') dates.delete(fmt);
+    }
+    return dates;
   }
 
   function getRuntimeMode() {
