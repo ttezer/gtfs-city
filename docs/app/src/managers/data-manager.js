@@ -774,7 +774,7 @@ window.DataManager = (function () {
     const ctx = getCtx();
     const rid = String(routeId || '').trim();
     if (!ctx || !rid) return false;
-    if (ctx.isRuntimeRouteLoaded?.(rid)) return true;
+    if (ctx.isRuntimeRouteResolved?.(rid)) return true;
     if (ctx.isRuntimeRouteLoading?.(rid)) return false;
     const source = ctx.getRouteRuntimeSource?.();
     if (!source?.routeMap || !source?.shapePts || !source?.stopsMap || !source?.tripMeta || !source?.tripStops) {
@@ -811,6 +811,7 @@ window.DataManager = (function () {
       }
 
       ctx.mergeRuntimeCollections?.(runtimeData);
+      ctx.markRuntimeRouteResolved?.(rid, true);
       patchTripsAbsoluteTime(ctx.getTrips(), ctx.getStopDeps());
       normalizeTripStopOffsets(ctx.getTrips());
       attachStopSequencesFromDeps(ctx.getTrips(), ctx.getStopDeps());

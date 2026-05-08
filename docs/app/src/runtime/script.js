@@ -24,6 +24,7 @@ const AppState = {
   preparedGtfsSource: null,
   routeRuntimeSource: null,
   loadedRuntimeRouteIds: new Set(),
+  resolvedRuntimeRouteIds: new Set(),
   loadingRuntimeRouteIds: new Set(),
   routeRuntimeRequestSeq: 0,
   lastRequestedRuntimeRouteId: null,
@@ -1168,10 +1169,12 @@ function setRuntimeCollectionsState(runtimeData) {
   if (Array.isArray(runtimeData?.calendarDateRows)) AppState.calendarDateRows = runtimeData.calendarDateRows;
   AppState.tariffIndex = runtimeData?.tariffIndex || {};
   if (runtimeData?.tripCountBySid) AppState.tripCountBySid = runtimeData.tripCountBySid;
-  AppState.loadedRuntimeRouteIds = new Set([
+  const presentRouteIds = new Set([
     ...AppState.trips.map((trip) => String(trip?.rid || '').trim()).filter(Boolean),
     ...AppState.shapes.map((shape) => String(shape?.rid || '').trim()).filter(Boolean),
   ]);
+  AppState.loadedRuntimeRouteIds = presentRouteIds;
+  AppState.resolvedRuntimeRouteIds = runtimeData?.capped ? new Set() : new Set(presentRouteIds);
   window.dispatchEvent(new CustomEvent('app-runtime-data-change'));
 }
 
@@ -1245,9 +1248,26 @@ function getLoadedRuntimeRouteIdsState() {
   return AppState.loadedRuntimeRouteIds instanceof Set ? AppState.loadedRuntimeRouteIds : new Set();
 }
 
+function getResolvedRuntimeRouteIdsState() {
+  return AppState.resolvedRuntimeRouteIds instanceof Set ? AppState.resolvedRuntimeRouteIds : new Set();
+}
+
 function isRuntimeRouteLoadedState(routeId) {
   const rid = String(routeId || '').trim();
   return !!rid && getLoadedRuntimeRouteIdsState().has(rid);
+}
+
+function isRuntimeRouteResolvedState(routeId) {
+  const rid = String(routeId || '').trim();
+  return !!rid && getResolvedRuntimeRouteIdsState().has(rid);
+}
+
+function markRuntimeRouteResolvedState(routeId, resolved = true) {
+  const rid = String(routeId || '').trim();
+  if (!rid) return;
+  if (!(AppState.resolvedRuntimeRouteIds instanceof Set)) AppState.resolvedRuntimeRouteIds = new Set();
+  if (resolved) AppState.resolvedRuntimeRouteIds.add(rid);
+  else AppState.resolvedRuntimeRouteIds.delete(rid);
 }
 
 function setRuntimeRouteLoadingState(routeId, loading) {
@@ -1873,6 +1893,7 @@ window.LegacyCityBridge = createLegacyBridge(() => ({
       AppState.preparedGtfsSource = null;
       AppState.routeRuntimeSource = null;
       AppState.loadedRuntimeRouteIds = new Set();
+      AppState.resolvedRuntimeRouteIds = new Set();
       AppState.loadingRuntimeRouteIds = new Set();
       AppState.routeRuntimeRequestSeq = 0;
       AppState.lastRequestedRuntimeRouteId = null;
@@ -1952,6 +1973,9 @@ window.LegacyDataBridge = createLegacyBridge(() => ({
     mergeRuntimeCollections: mergeRuntimeCollectionsState,
     getLoadedRuntimeRouteIds: getLoadedRuntimeRouteIdsState,
     isRuntimeRouteLoaded: isRuntimeRouteLoadedState,
+    getResolvedRuntimeRouteIds: getResolvedRuntimeRouteIdsState,
+    isRuntimeRouteResolved: isRuntimeRouteResolvedState,
+    markRuntimeRouteResolved: markRuntimeRouteResolvedState,
     setRuntimeRouteLoading: setRuntimeRouteLoadingState,
     isRuntimeRouteLoading: isRuntimeRouteLoadingState,
     beginRuntimeRouteRequest: beginRuntimeRouteRequestState,
@@ -2047,6 +2071,7 @@ window.LegacyAppBridge = createLegacyBridge(() => ({
     invalidateMapCaches: () => { _cachedVisTrips = null; _cachedVisShapes = null; _filteredStopsCache = null; _filteredStopIdSetCache = null; },
     setShowTrail: (value) => { showTrail = value; },
     setCurrentMapStyle: (value) => { currentMapStyle = value || 'auto'; },
+    loadRouteRuntimeSubset: (routeId) => callManager('DataManager', 'loadRouteRuntimeSubset', [routeId]),
   }));
 
 const legacySimulationContext = {
@@ -2337,13 +2362,7 @@ function inferTripDirectionLabel(trip) {
 function getOrderedStopsForPattern(routeId, routeShort, patternDir, patternHead, filteredTrips) {
   const stopInfoMap = AppState.stopInfo || {};
 
-  // Primary: trips with pre-built stop arrays (small feeds)
-  const tripWithStops = filteredTrips.find((t) => t.st && t.st.length > 1);
-  if (tripWithStops) {
-    return tripWithStops.st.map(({ sid }) => ({ sid, name: stopInfoMap[sid]?.[2] || sid }));
-  }
-
-  // Find best trip_id from stopTariffIndex (most timepoint stops for the route/pattern)
+  // Primary: full stop list from preparedGtfsSource via stopTariffIndex (all stops, including non-timepoints)
   const tariff = AppState.stopTariffIndex || {};
   const tripCounts = {};
   for (const entries of Object.values(tariff)) {
@@ -2359,20 +2378,28 @@ function getOrderedStopsForPattern(routeId, routeShort, patternDir, patternHead,
   for (const [tripId, count] of Object.entries(tripCounts)) {
     if (count > bestCount) { bestCount = count; bestTripId = tripId; }
   }
-  if (!bestTripId) return [];
 
-  // Full stop list: on-demand loaded source first, then parse-time source (always populated)
-  const rawTripStops =
-    AppState.routeRuntimeSource?.tripStops?.[bestTripId] ||
-    AppState.preparedGtfsSource?.tripStops?.[bestTripId];
-  if (rawTripStops?.length > 0) {
-    return rawTripStops
-      .map(([seq, , sid]) => ({ sid, name: stopInfoMap[sid]?.[2] || sid, seq }))
-      .sort((a, b) => a.seq - b.seq)
-      .map(({ sid, name }) => ({ sid, name }));
+  if (bestTripId) {
+    const rawTripStops =
+      AppState.routeRuntimeSource?.tripStops?.[bestTripId] ||
+      AppState.preparedGtfsSource?.tripStops?.[bestTripId];
+    if (rawTripStops?.length > 0) {
+      return rawTripStops
+        .map(([seq, , sid]) => ({ sid, name: stopInfoMap[sid]?.[2] || sid, seq }))
+        .sort((a, b) => a.seq - b.seq)
+        .map(({ sid, name }) => ({ sid, name }));
+    }
   }
 
-  // Last resort: use only timepoint entries from stopTariffIndex for bestTripId
+  // Secondary: pre-built stop arrays on trip objects (small feeds / attachStopSequences)
+  const tripWithStops = filteredTrips.find((t) => t.st && t.st.length > 1);
+  if (tripWithStops) {
+    return tripWithStops.st.map(({ sid }) => ({ sid, name: stopInfoMap[sid]?.[2] || sid }));
+  }
+
+  if (!bestTripId) return [];
+
+  // Last resort: timepoint-only entries from stopTariffIndex for bestTripId
   const fallback = [];
   for (const [sid, entries] of Object.entries(tariff)) {
     for (const e of entries) {

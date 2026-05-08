@@ -1,6 +1,6 @@
 {
   "name": "gtfs-city",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "GTFS City - GTFS viewer ve ücretsiz web demo içeren toplu taşıma analiz aracı",
   "author": {
     "name": "GTFS City",

@@ -24,6 +24,7 @@ const AppState = {
   preparedGtfsSource: null,
   routeRuntimeSource: null,
   loadedRuntimeRouteIds: new Set(),
+  resolvedRuntimeRouteIds: new Set(),
   loadingRuntimeRouteIds: new Set(),
   routeRuntimeRequestSeq: 0,
   lastRequestedRuntimeRouteId: null,
@@ -1168,10 +1169,12 @@ function setRuntimeCollectionsState(runtimeData) {
   if (Array.isArray(runtimeData?.calendarDateRows)) AppState.calendarDateRows = runtimeData.calendarDateRows;
   AppState.tariffIndex = runtimeData?.tariffIndex || {};
   if (runtimeData?.tripCountBySid) AppState.tripCountBySid = runtimeData.tripCountBySid;
-  AppState.loadedRuntimeRouteIds = new Set([
+  const presentRouteIds = new Set([
     ...AppState.trips.map((trip) => String(trip?.rid || '').trim()).filter(Boolean),
     ...AppState.shapes.map((shape) => String(shape?.rid || '').trim()).filter(Boolean),
   ]);
+  AppState.loadedRuntimeRouteIds = presentRouteIds;
+  AppState.resolvedRuntimeRouteIds = runtimeData?.capped ? new Set() : new Set(presentRouteIds);
   window.dispatchEvent(new CustomEvent('app-runtime-data-change'));
 }
 
@@ -1245,9 +1248,26 @@ function getLoadedRuntimeRouteIdsState() {
   return AppState.loadedRuntimeRouteIds instanceof Set ? AppState.loadedRuntimeRouteIds : new Set();
 }
 
+function getResolvedRuntimeRouteIdsState() {
+  return AppState.resolvedRuntimeRouteIds instanceof Set ? AppState.resolvedRuntimeRouteIds : new Set();
+}
+
 function isRuntimeRouteLoadedState(routeId) {
   const rid = String(routeId || '').trim();
   return !!rid && getLoadedRuntimeRouteIdsState().has(rid);
+}
+
+function isRuntimeRouteResolvedState(routeId) {
+  const rid = String(routeId || '').trim();
+  return !!rid && getResolvedRuntimeRouteIdsState().has(rid);
+}
+
+function markRuntimeRouteResolvedState(routeId, resolved = true) {
+  const rid = String(routeId || '').trim();
+  if (!rid) return;
+  if (!(AppState.resolvedRuntimeRouteIds instanceof Set)) AppState.resolvedRuntimeRouteIds = new Set();
+  if (resolved) AppState.resolvedRuntimeRouteIds.add(rid);
+  else AppState.resolvedRuntimeRouteIds.delete(rid);
 }
 
 function setRuntimeRouteLoadingState(routeId, loading) {
@@ -1873,6 +1893,7 @@ window.LegacyCityBridge = createLegacyBridge(() => ({
       AppState.preparedGtfsSource = null;
       AppState.routeRuntimeSource = null;
       AppState.loadedRuntimeRouteIds = new Set();
+      AppState.resolvedRuntimeRouteIds = new Set();
       AppState.loadingRuntimeRouteIds = new Set();
       AppState.routeRuntimeRequestSeq = 0;
       AppState.lastRequestedRuntimeRouteId = null;
@@ -1952,6 +1973,9 @@ window.LegacyDataBridge = createLegacyBridge(() => ({
     mergeRuntimeCollections: mergeRuntimeCollectionsState,
     getLoadedRuntimeRouteIds: getLoadedRuntimeRouteIdsState,
     isRuntimeRouteLoaded: isRuntimeRouteLoadedState,
+    getResolvedRuntimeRouteIds: getResolvedRuntimeRouteIdsState,
+    isRuntimeRouteResolved: isRuntimeRouteResolvedState,
+    markRuntimeRouteResolved: markRuntimeRouteResolvedState,
     setRuntimeRouteLoading: setRuntimeRouteLoadingState,
     isRuntimeRouteLoading: isRuntimeRouteLoadingState,
     beginRuntimeRouteRequest: beginRuntimeRouteRequestState,
