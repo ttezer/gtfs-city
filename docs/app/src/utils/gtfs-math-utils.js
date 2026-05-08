@@ -51,10 +51,11 @@
   // ── DOUGLAS-PEUCKER PATH SADELEŞTİRME ───────────────────
   function simplifyPathPoints(pts, max) {
     if (!pts || pts.length <= 2) return pts || [];
-    max = max || 200;
+    max = max || 500;
     if (pts.length <= max) return pts;
     const ratio = pts.length / max;
-    const epsilonM = Math.min(5 + ratio * 10, 80);
+    // Daha düşük epsilon = daha detaylı çizgi (eski: 80m max, yeni: 25m max)
+    const epsilonM = Math.min(3 + ratio * 5, 25);
     const result = _douglasPeucker(pts, epsilonM);
     if (result.length > max) return _douglasPeuckerFixed(pts, max);
     return result;

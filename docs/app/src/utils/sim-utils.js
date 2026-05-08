@@ -8,7 +8,7 @@
   };
 
   function secsToHHMM(s) {
-    const h = Math.floor(s / 3600) % 24;
+    const h = Math.floor(s / 3600) % 48;
     const m = Math.floor((s % 3600) / 60);
     return (h < 10 ? '0' : '') + h + ':' + (m < 10 ? '0' : '') + m;
   }

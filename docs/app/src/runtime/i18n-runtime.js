@@ -31,6 +31,7 @@ window.RuntimeI18n = (function () {
     routePanelServiceHours: 'Çalışma Saatleri',
     routePanelRouteLength: 'Güzergâh Uzunluğu',
     routePanelAverageHeadway: 'Ort. Sefer Sıklığı',
+    routePanelStopCount: 'Durak Sayısı',
     routePanelDirectionDistribution: 'Yön Dağılımı',
     routePanelDirectionFilter: 'Hat Yönü',
     routePanelDirectionAll: 'Tüm Yönler',
@@ -50,6 +51,7 @@ window.RuntimeI18n = (function () {
     serviceNoCalendarShort: 'Takvim verisi yok',
     serviceStatusSummary: '{date} - {active} aktif - {future} planlı - {expired} geçmiş',
     serviceAll: 'Tümü',
+    serviceAllForDay: 'Seçili gün',
     serviceBadgeFuture: 'PLANLI',
     serviceBadgeExpired: 'GEÇMİŞ',
     serviceBadgeActive: 'AKTİF',
@@ -75,6 +77,13 @@ window.RuntimeI18n = (function () {
     plannerBuildRoute: 'Yol Tarifi Oluştur →',
     plannerResultTitle: 'Rota Sonucu',
     plannerIsochronOrigin: '📍 {name}',
+    plannerIsochronTitle: 'İZOKRON ANALİZ',
+    plannerIsochronHint: 'Haritada bir noktaya tıklayın',
+    plannerIsochronLegend15: '0 – 15 dakika',
+    plannerIsochronLegend30: '15 – 30 dakika',
+    plannerIsochronLegend45: '30 – 45 dakika',
+    plannerIsochronLegend60: '45 – 60 dakika',
+    plannerIsochronStats: '15dk: <b style=\"color:#3fb950\">{count15} durak</b> &nbsp; 30dk: <b style=\"color:#d29922\">{count30} durak</b> &nbsp; 60dk: <b style=\"color:#f85149\">{count60} durak</b>',
     plannerMessageErrorIcon: '⚠',
     plannerMessageInfoIcon: 'ℹ',
     plannerStopValidationTitle: 'Durak doğrulanamadı',
@@ -143,7 +152,7 @@ window.RuntimeI18n = (function () {
     platformWeb: 'WEB TARAYICI',
     routeLongNameMissing: 'Uzun ad yok',
     landingUploadButton: '📂 GTFS ZIP Yükle',
-    landingStartButton: '🗺️ Haritayı Aç',
+    landingStartButton: '🗓️ Takvimi Aç',
     sidebarLayers: 'KATMANLAR',
     sidebarRoutes: 'HATLAR',
     sidebarStops: 'DURAKLAR',
@@ -246,6 +255,7 @@ window.RuntimeI18n = (function () {
     routePanelServiceHours: 'Service Hours',
     routePanelRouteLength: 'Route Length',
     routePanelAverageHeadway: 'Avg Headway',
+    routePanelStopCount: 'Stop Count',
     routePanelDirectionDistribution: 'Direction Distribution',
     routePanelDirectionFilter: 'Route Direction',
     routePanelDirectionAll: 'All Directions',
@@ -265,6 +275,7 @@ window.RuntimeI18n = (function () {
     serviceNoCalendarShort: 'No calendar data',
     serviceStatusSummary: '{date} - {active} active - {future} scheduled - {expired} expired',
     serviceAll: 'All',
+    serviceAllForDay: 'Selected day',
     serviceBadgeFuture: 'SCHEDULED',
     serviceBadgeExpired: 'EXPIRED',
     serviceBadgeActive: 'ACTIVE',
@@ -290,6 +301,13 @@ window.RuntimeI18n = (function () {
     plannerBuildRoute: 'Build Route →',
     plannerResultTitle: 'Route Result',
     plannerIsochronOrigin: '📍 {name}',
+    plannerIsochronTitle: 'ISOCHRONE ANALYSIS',
+    plannerIsochronHint: 'Click a point on the map',
+    plannerIsochronLegend15: '0 – 15 minutes',
+    plannerIsochronLegend30: '15 – 30 minutes',
+    plannerIsochronLegend45: '30 – 45 minutes',
+    plannerIsochronLegend60: '45 – 60 minutes',
+    plannerIsochronStats: '15 min: <b style=\"color:#3fb950\">{count15} stops</b> &nbsp; 30 min: <b style=\"color:#d29922\">{count30} stops</b> &nbsp; 60 min: <b style=\"color:#f85149\">{count60} stops</b>',
     plannerMessageErrorIcon: '⚠',
     plannerMessageInfoIcon: 'ℹ',
     plannerStopValidationTitle: 'Stop could not be validated',
@@ -358,7 +376,7 @@ window.RuntimeI18n = (function () {
     platformWeb: 'WEB BROWSER',
     routeLongNameMissing: 'No long name',
     landingUploadButton: '📂 Upload GTFS ZIP',
-    landingStartButton: '🗺️ Open Map',
+    landingStartButton: '🗓️ Open Calendar',
     sidebarLayers: 'LAYERS',
     sidebarRoutes: 'ROUTES',
     sidebarStops: 'STOPS',
@@ -495,6 +513,8 @@ window.RuntimeI18n = (function () {
   if (uploadBtn && !uploadBtn.classList.contains('is-loading')) uploadBtn.textContent = t('landingUploadButton');
   const startBtn = document.getElementById('lp-btn-start');
   if (startBtn) startBtn.textContent = t('landingStartButton');
+  const openMapBtn = document.getElementById('lp-btn-open-map');
+  if (openMapBtn) openMapBtn.textContent = `🗺️ ${t('openMap')}`;
   const linkNote = document.getElementById('lp-link-note');
   if (linkNote) linkNote.textContent = t('linkNote');
   const examplesTitle = document.getElementById('lp-examples-title');
@@ -563,6 +583,9 @@ window.RuntimeI18n = (function () {
   if (stopsLabel) stopsLabel.textContent = t('sidebarStops');
   const routeTypeLabel = document.getElementById('route-type-label');
   if (routeTypeLabel) routeTypeLabel.textContent = t('sidebarRouteType');
+  const typeButtons = document.querySelectorAll('#type-btns .tbtn[data-t]');
+  const typeLabelMap = { 'all': { tr: 'Tümü', en: 'All' }, '0': { tr: 'Tramvay', en: 'Tram' }, '1': { tr: 'Metro', en: 'Metro' }, '2': { tr: 'Tren', en: 'Train' }, '3': { tr: 'Otobüs', en: 'Bus' }, '4': { tr: 'Feribot', en: 'Ferry' }, '7': { tr: 'Funicular', en: 'Funicular' }, '9': { tr: 'Minibüs', en: 'Minibus' }, '10': { tr: 'Dolmuş', en: 'Shared Taxi' } };
+  typeButtons.forEach((btn) => { const m = typeLabelMap[btn.dataset.t]; if (m) btn.textContent = currentLanguage === 'en' ? m.en : m.tr; });
   const mapStyleLabel = document.getElementById('map-style-label');
   if (mapStyleLabel) mapStyleLabel.textContent = t('sidebarMapStyle');
   const serviceLabel = document.querySelector('.service-selector-label');
@@ -581,6 +604,12 @@ window.RuntimeI18n = (function () {
   const toggleHeadwayEl = document.querySelector('label[for="tog-headway"], #tog-headway')?.closest('.tog-row');
   const toggleBunchingEl = document.querySelector('label[for="tog-bunching"], #tog-bunching')?.closest('.tog-row');
   const toggleIsochronEl = document.querySelector('label[for="tog-isochron"], #tog-isochron')?.closest('.tog-row');
+  const isochronTitle = document.getElementById('isochron-title');
+  const isochronHint = document.getElementById('isochron-hint');
+  const isochronLegend15 = document.getElementById('isochron-legend-15');
+  const isochronLegend30 = document.getElementById('isochron-legend-30');
+  const isochronLegend45 = document.getElementById('isochron-legend-45');
+  const isochronLegend60 = document.getElementById('isochron-legend-60');
   if (toggleAnim) toggleAnim.lastChild.textContent = t('toggleAnimation');
   if (togglePaths) togglePaths.lastChild.textContent = t('togglePaths');
   if (toggleStopsEl) toggleStopsEl.lastChild.textContent = t('toggleStops');
@@ -609,6 +638,12 @@ window.RuntimeI18n = (function () {
   if (toggleHeadwayEl) toggleHeadwayEl.lastChild.textContent = t('toggleHeadway');
   if (toggleBunchingEl) toggleBunchingEl.lastChild.textContent = t('toggleBunching');
   if (toggleIsochronEl) toggleIsochronEl.lastChild.textContent = t('toggleIsochron');
+  if (isochronTitle) isochronTitle.textContent = t('plannerIsochronTitle');
+  if (isochronHint) isochronHint.textContent = t('plannerIsochronHint');
+  if (isochronLegend15) isochronLegend15.textContent = t('plannerIsochronLegend15');
+  if (isochronLegend30) isochronLegend30.textContent = t('plannerIsochronLegend30');
+  if (isochronLegend45) isochronLegend45.textContent = t('plannerIsochronLegend45');
+  if (isochronLegend60) isochronLegend60.textContent = t('plannerIsochronLegend60');
   const peakLabels = document.querySelectorAll('#peak-labels .peak-label');
   if (peakLabels[0]) peakLabels[0].textContent = t('peakMorning');
   if (peakLabels[1]) peakLabels[1].textContent = t('peakEvening');

@@ -31,6 +31,7 @@ window.RuntimeI18n = (function () {
     routePanelServiceHours: 'Çalışma Saatleri',
     routePanelRouteLength: 'Güzergâh Uzunluğu',
     routePanelAverageHeadway: 'Ort. Sefer Sıklığı',
+    routePanelStopCount: 'Durak Sayısı',
     routePanelDirectionDistribution: 'Yön Dağılımı',
     routePanelDirectionFilter: 'Hat Yönü',
     routePanelDirectionAll: 'Tüm Yönler',
@@ -50,6 +51,7 @@ window.RuntimeI18n = (function () {
     serviceNoCalendarShort: 'Takvim verisi yok',
     serviceStatusSummary: '{date} - {active} aktif - {future} planlı - {expired} geçmiş',
     serviceAll: 'Tümü',
+    serviceAllForDay: 'Seçili gün',
     serviceBadgeFuture: 'PLANLI',
     serviceBadgeExpired: 'GEÇMİŞ',
     serviceBadgeActive: 'AKTİF',
@@ -150,7 +152,7 @@ window.RuntimeI18n = (function () {
     platformWeb: 'WEB TARAYICI',
     routeLongNameMissing: 'Uzun ad yok',
     landingUploadButton: '📂 GTFS ZIP Yükle',
-    landingStartButton: '🗺️ Haritayı Aç',
+    landingStartButton: '🗓️ Takvimi Aç',
     sidebarLayers: 'KATMANLAR',
     sidebarRoutes: 'HATLAR',
     sidebarStops: 'DURAKLAR',
@@ -253,6 +255,7 @@ window.RuntimeI18n = (function () {
     routePanelServiceHours: 'Service Hours',
     routePanelRouteLength: 'Route Length',
     routePanelAverageHeadway: 'Avg Headway',
+    routePanelStopCount: 'Stop Count',
     routePanelDirectionDistribution: 'Direction Distribution',
     routePanelDirectionFilter: 'Route Direction',
     routePanelDirectionAll: 'All Directions',
@@ -272,6 +275,7 @@ window.RuntimeI18n = (function () {
     serviceNoCalendarShort: 'No calendar data',
     serviceStatusSummary: '{date} - {active} active - {future} scheduled - {expired} expired',
     serviceAll: 'All',
+    serviceAllForDay: 'Selected day',
     serviceBadgeFuture: 'SCHEDULED',
     serviceBadgeExpired: 'EXPIRED',
     serviceBadgeActive: 'ACTIVE',
@@ -372,7 +376,7 @@ window.RuntimeI18n = (function () {
     platformWeb: 'WEB BROWSER',
     routeLongNameMissing: 'No long name',
     landingUploadButton: '📂 Upload GTFS ZIP',
-    landingStartButton: '🗺️ Open Map',
+    landingStartButton: '🗓️ Open Calendar',
     sidebarLayers: 'LAYERS',
     sidebarRoutes: 'ROUTES',
     sidebarStops: 'STOPS',
@@ -509,6 +513,8 @@ window.RuntimeI18n = (function () {
   if (uploadBtn && !uploadBtn.classList.contains('is-loading')) uploadBtn.textContent = t('landingUploadButton');
   const startBtn = document.getElementById('lp-btn-start');
   if (startBtn) startBtn.textContent = t('landingStartButton');
+  const openMapBtn = document.getElementById('lp-btn-open-map');
+  if (openMapBtn) openMapBtn.textContent = `🗺️ ${t('openMap')}`;
   const linkNote = document.getElementById('lp-link-note');
   if (linkNote) linkNote.textContent = t('linkNote');
   const examplesTitle = document.getElementById('lp-examples-title');
@@ -577,6 +583,9 @@ window.RuntimeI18n = (function () {
   if (stopsLabel) stopsLabel.textContent = t('sidebarStops');
   const routeTypeLabel = document.getElementById('route-type-label');
   if (routeTypeLabel) routeTypeLabel.textContent = t('sidebarRouteType');
+  const typeButtons = document.querySelectorAll('#type-btns .tbtn[data-t]');
+  const typeLabelMap = { 'all': { tr: 'Tümü', en: 'All' }, '0': { tr: 'Tramvay', en: 'Tram' }, '1': { tr: 'Metro', en: 'Metro' }, '2': { tr: 'Tren', en: 'Train' }, '3': { tr: 'Otobüs', en: 'Bus' }, '4': { tr: 'Feribot', en: 'Ferry' }, '7': { tr: 'Funicular', en: 'Funicular' }, '9': { tr: 'Minibüs', en: 'Minibus' }, '10': { tr: 'Dolmuş', en: 'Shared Taxi' } };
+  typeButtons.forEach((btn) => { const m = typeLabelMap[btn.dataset.t]; if (m) btn.textContent = currentLanguage === 'en' ? m.en : m.tr; });
   const mapStyleLabel = document.getElementById('map-style-label');
   if (mapStyleLabel) mapStyleLabel.textContent = t('sidebarMapStyle');
   const serviceLabel = document.querySelector('.service-selector-label');

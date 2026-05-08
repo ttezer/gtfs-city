@@ -2,6 +2,23 @@
 
 Bu dosya, büyük ürün dönüm noktalarını kısa biçimde özetler.
 
+## 2026-05-08
+
+### Faz 7 — Büyük Feed Mimarisi + Route Panel + Tarife İyileştirmeleri
+
+- **Büyük feed mimarisi:** Shape building trip loop'undan ayrıldı; tüm route shape'leri TRIP_CAP'ten bağımsız yükleniyor. Viewport-scoped animation ve shape point budget (60K/120K/240K) ile GPU baskısı azaltıldı.
+- **Route panel:** Yön (G/D) ve varyant seçimi harita filtresiyle senkronize. Durak listesi büyük feed'lerde de tam görünüyor (timepoint olmayan duraklar dahil). Durak sayısı özet kutusunda yön/varyant değişiminde güncelleniyor.
+- **Sefer saatleri çıktısı:** Her açılışta önceki seçim sıfırlanıyor. Tablo yön kodu (G/D) + yön adı + varyant sütunuyla zenginleştirildi; her (yön, headsign) kombinasyonu ayrı satır.
+- **Metro diyagramı:** 2 hat zorunluluğu kaldırıldı, 1 hat ile de diyagram oluşturuluyor.
+
+## 2026-05-03
+
+### Varyant seçimi, Çalışma Takvimi ve heatmap düzeltmesi
+
+- Yön filtresi `direction_id` → `direction_id + headsign` bazlı varyant seçimine dönüştürüldü. Harita ve Bilgi panellerinde "G > İstanbul / D > Kartal" formatında tıklanabilir varyant listesi. Aynı varyanta tekrar tıklayınca seçim kalkıyor; seçili varyantın sefer ve güzergahları haritada filtreleniyor.
+- "Analiz" sayfası "Çalışma Takvimi (Beta)" olarak yeniden adlandırıldı. Yıl görünümünde ısı haritası tam sayfa genişliğinde. Ay görünümünde 3 ay yan yana gösterim + ◀/▶ navigasyon. Gün görünümünde hat adı eksikse headsign kullanılıyor.
+- Takvim heatmap yoğunluk hatası düzeltildi: `tripCountBySid` artık `preparedSource.tripMeta` tamamından hesaplanıyor; önceki sürüm yalnızca bugünkü aktif service_id'lerini yansıtıyordu ve hafta içi günler boş görünüyordu.
+
 ## 2026-04-30
 
 ### Büyük feed desteği ve route kimliği iyileştirmeleri

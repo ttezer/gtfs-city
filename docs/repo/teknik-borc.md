@@ -13,6 +13,16 @@ Amaç, mimari ve operasyonel yükü görünür kılmak ve zaman içindeki ilerle
 
 ## Güncel Sıralama
 
+**2026-05-08 ek öncelik notu**
+
+Faz 7 tamamlandı. Büyük feed runtime borcu azaldı ama kapanmadı:
+- shape building iki geçiş yapısına geçti (cap'ten bağımsız)
+- viewport trip filtresi + shape point budget eklendi
+- route-scoped loading tetiklenmesi düzeltildi
+- canlı büyük feed doğrulaması hâlâ eksik
+
+**Worktree → main kopyalama riski:** Bir dosyayı worktree'den kopyalarken o dosyadaki main'e özgü yeni özellikler silinebilir. `e18814e` bunu yaşattı (ui-manager.js'deki durak listesi kaybı). Sonraki fazlarda aynı dosyayı değiştiriyorsa diff+patch yaklaşımı daha güvenli.
+
 | Sıra | Başlık | Öncelik | Durum | Etki | Ana yüzey |
 |---|---|---|---|---|---|
 | 1 | `src/runtime/script.js` dosyasının hâlâ ana orkestrasyon omurgası olması | Kritik | Azaldı ama açık | En büyük mimari yük hâlâ burada | runtime orkestrasyonu, state bağları, bridge kurulumları |
@@ -194,3 +204,19 @@ Yüzey borcu ciddi biçimde azaldı.
 Dataset tek kaynak sorunu kapandı. Kalan yük: bridge yüzey daralması ve `script.js` blok ayrıştırması.
 
 `bridge getter standardizasyonu büyük ölçüde tamamlandı, kalan yük LegacyMapBridge Faz 3 ve script.js blok ayrıştırmasıdır`
+
+## 2026-05-01 Faz 7 Notu
+
+Bu turda teknik borç tarafında şunlar değişti:
+
+- route-scoped loading iskeleti ilk çalışan sürüme ulaştı
+- route-scoped job'larda gereksiz `hourlyCounts/hourlyHeat` üretimi kapatıldı
+- `map-manager.js` tarafında viewport daraltması ve kaliteye göre render bütçesi geldi
+- `TripsLayer` için daha sert ayrı bütçe eklendi
+- çok kalabalık durumda trail, ikon, etiket ve 3D katmanları koşullu kapanıyor
+- `webglcontextlost` anında safe mode devreye giriyor
+- adjacency eager değil, bağlantı analizi açıldığında on-demand kuruluyor
+
+Bu yüzden yeni teknik borç cümlesi şudur:
+
+`Sorun artık tamamen çözümsüz büyük feed desteği değil; üretime yakın savunmaların canlı davranışının ve eşiklerinin doğrulanmasıdır.`

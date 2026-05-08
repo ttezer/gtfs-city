@@ -67,6 +67,7 @@ window.CityManager = (function () {
     if (!ctx) return;
     ctx.setActiveServiceOptions([]);
     ctx.setActiveServiceId('all');
+    ctx.setActiveServiceDate?.('');
     ctx.setActiveServiceIds(new Set());
     ctx.renderServiceDatePicker([], [], new Set());
   }
@@ -201,6 +202,7 @@ window.CityManager = (function () {
       let ids = new Set();
       if (calendarRows.length || calendarDateRows.length) {
         const autoResult = ctx.autoSelectAndAdaptService(calendarRows, calendarDateRows);
+        ctx.setActiveServiceDate?.(autoResult.selectedDate || '');
         ctx.setActiveServiceId(autoResult.serviceId);
         ids = autoResult.serviceIds || new Set([ctx.getActiveServiceId()]);
       } else {
@@ -225,7 +227,10 @@ window.CityManager = (function () {
 
     buildCityList();
     setCityLoading(false);
-    if (loadSuccess) ctx.toggleUI(true);
+    if (loadSuccess) {
+      ctx.setActiveWorkspace?.('analiz');
+      ctx.toggleUI(true);
+    }
   }
 
   function toggleCityVisibility(cityId, visible) {
@@ -288,6 +293,7 @@ window.CityManager = (function () {
       if (calendarRows.length > 0) {
         ctx.setCalendarCache({ rows: calendarRows, dateRows: calendarDateRows });
         const autoResult = ctx.autoSelectAndAdaptService(calendarRows, calendarDateRows);
+        ctx.setActiveServiceDate?.(autoResult.selectedDate || '');
         ctx.setActiveServiceId(autoResult.serviceId);
         ctx.setActiveServiceIds(autoResult.serviceIds || new Set([autoResult.serviceId]));
         ctx.renderServiceDatePicker(calendarRows, calendarDateRows, ctx.getActiveServiceIds());

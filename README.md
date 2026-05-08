@@ -23,10 +23,14 @@ GTFS ZIP dosyanızı yükleyin — araçlar, rotalar ve duraklar haritada canlan
 |---|---|
 | 🎬 **Simülasyon** | Araçlar sefer saatlerine göre haritada hareket eder |
 | 🔵 **İzokron Analizi** | Seçili durağa belirli sürede ulaşılabilecek alanı görün |
-| 🟩 **Bağlantı Kareleri** | Her durağa ağ erişilebilirlik skoru |
+| 🟩 **Bağlantı Kareleri (Beta)** | Her durağa ağ erişilebilirlik skoru |
 | 🔥 **Yoğunluk Haritası** | Durak ve sefer yoğunluğu ısı haritası |
 | 🚌 **Bunching Tespiti** | Aynı hatta birbirine yapışan araçlar |
-| 📍 **Yol Tarifi** | Gerçek sefer saatlerine göre rota önerisi |
+| 📍 **Yol Tarifi (Beta)** | Gerçek sefer saatlerine göre rota önerisi |
+| ℹ️ **Bilgi** | GTFS verisi hakkında ayrıntılı bilgi |
+| 📅 **Çalışma Takvimi (Beta)** | GTFS verisi takvim ayrıntısı |
+| 🖨️ **Sefer Saatleri Çıktısı** | Hat veya durak bazında sefer saatlerini yazdır / önizle |
+| 🗺️ **Metro Diyagramı** | Seçili hatları şematik hat diyagramında görselleştir |
 
 ---
 

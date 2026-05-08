@@ -187,7 +187,13 @@ window.PlannerManager = (function () {
       const cnt15 = data.filter((entry) => entry.secs <= 900).length;
       const cnt30 = data.filter((entry) => entry.secs <= 1800).length;
       const cnt60 = data.length;
-      stats.innerHTML = `15dk: <b style="color:#3fb950">${cnt15} durak</b> &nbsp; 30dk: <b style="color:#d29922">${cnt30} durak</b> &nbsp; 60dk: <b style="color:#f85149">${cnt60} durak</b>`;
+      stats.innerHTML = translate(
+        'plannerIsochronStats',
+        '15dk: <b style="color:#3fb950">{count15} durak</b> &nbsp; 30dk: <b style="color:#d29922">{count30} durak</b> &nbsp; 60dk: <b style="color:#f85149">{count60} durak</b>'
+      )
+        .replace('{count15}', String(cnt15))
+        .replace('{count30}', String(cnt30))
+        .replace('{count60}', String(cnt60));
       stats.style.display = 'block';
     }
   }

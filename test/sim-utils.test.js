@@ -14,7 +14,7 @@ const {
 test('secsToHHMM formats midnight and wraps 24h', () => {
   assert.equal(secsToHHMM(0), '00:00');
   assert.equal(secsToHHMM(23 * 3600 + 59 * 60), '23:59');
-  assert.equal(secsToHHMM(25 * 3600), '01:00');
+  assert.equal(secsToHHMM(25 * 3600), '25:00');
 });
 
 test('getPhase maps day segments correctly', () => {

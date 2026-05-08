@@ -33,6 +33,7 @@
     const stData = files['stop_times.txt'];
     const stRows = stData && !(stData instanceof Uint8Array) ? parse(stData) : [];
     return {
+      agencyRows:       files['agency.txt']          ? parse(files['agency.txt'])          : [],
       routeRows:        files['routes.txt']         ? parse(files['routes.txt'])         : [],
       tripRows:         files['trips.txt']           ? parse(files['trips.txt'])           : [],
       stRows,
@@ -54,6 +55,35 @@
     return h * 3600 + m * 60 + s;
   }
 
+  function addDaysIso(dateStr, dayOffset) {
+    const [year, month, day] = String(dateStr || '').split('-').map((part) => parseInt(part, 10));
+    if (![year, month, day].every(Number.isFinite)) return '';
+    const date = new Date(Date.UTC(year, month - 1, day));
+    date.setUTCDate(date.getUTCDate() + dayOffset);
+    const nextYear = date.getUTCFullYear();
+    const nextMonth = String(date.getUTCMonth() + 1).padStart(2, '0');
+    const nextDay = String(date.getUTCDate()).padStart(2, '0');
+    return `${nextYear}-${nextMonth}-${nextDay}`;
+  }
+
+  function findNearestDateWithData(today, minDate, maxDate, hasDataForDate) {
+    if (!today || !minDate || !maxDate || typeof hasDataForDate !== 'function') return '';
+    const todayMs = new Date(`${today}T00:00:00`).getTime();
+    const minMs = new Date(`${minDate}T00:00:00`).getTime();
+    const maxMs = new Date(`${maxDate}T00:00:00`).getTime();
+    const maxStepsFuture = Math.max(0, Math.round((maxMs - todayMs) / 86400000));
+    for (let step = 1; step <= maxStepsFuture; step += 1) {
+      const candidate = addDaysIso(today, step);
+      if (hasDataForDate(candidate)) return candidate;
+    }
+    const maxStepsPast = Math.max(0, Math.round((todayMs - minMs) / 86400000));
+    for (let step = 1; step <= maxStepsPast; step += 1) {
+      const candidate = addDaysIso(today, -step);
+      if (hasDataForDate(candidate)) return candidate;
+    }
+    return '';
+  }
+
   // SPRINT 5: havMeters ve simplifyPathPoints gtfs-math-utils.js'e taşındı.
   // Ana thread'de window.GtfsMathUtils üzerinden, Worker'da importScripts ile yükleniyor.
   // Fallback: GtfsMathUtils yoksa (test/node ortamı) kendi implementasyonu devreye girer.
@@ -72,17 +102,35 @@
     return Array.from({ length: max }, (_, i) => pts[Math.min(Math.floor(i * step), pts.length - 1)]);
   }
 
+  function normalizeGtfsRouteType(value) {
+    const parsed = parseInt(value, 10);
+    if (!Number.isFinite(parsed)) return '3';
+    if (parsed >= 0 && parsed <= 7) return String(parsed);
+    if (parsed === 11 || parsed === 12) return '3';
+    if (parsed >= 100 && parsed < 200) return '2';
+    if (parsed >= 200 && parsed < 300) return '3';
+    if (parsed >= 400 && parsed < 500) return '1';
+    if (parsed >= 700 && parsed < 900) return '3';
+    if (parsed >= 900 && parsed < 1000) return '0';
+    if (parsed >= 1000 && parsed < 1200) return '4';
+    if (parsed >= 1300 && parsed < 1400) return '5';
+    if (parsed >= 1400 && parsed < 1500) return '7';
+    if (parsed >= 1500 && parsed < 1600) return '10';
+    return '3';
+  }
+
   function buildRouteMap(routeRows, getRouteColorRgb, typeMeta) {
     const fallback = [88, 166, 255];
     const routeMap = {};
     routeRows.forEach((r) => {
       const rid = (r.route_id || '').trim();
       if (!rid) return;
-      const parsedType = parseInt(r.route_type, 10);
-      const type = String(Number.isFinite(parsedType) ? parsedType : 3);
+      const type = normalizeGtfsRouteType(r.route_type);
       const short = (r.route_short_name || r.route_long_name || rid).trim();
       const longName = (r.route_long_name || '').trim();
       routeMap[rid] = {
+        routeId: rid,
+        agencyId: (r.agency_id || '').trim(),
         short,
         type,
         color: getRouteColorRgb(short, type, typeMeta[type]?.rgb || fallback),
@@ -145,11 +193,21 @@
     stRows.forEach((st) => {
       const tid = (st.trip_id || '').trim();
       const dep = hhmmToSec(st.departure_time || st.arrival_time);
+      const arr = hhmmToSec(st.arrival_time || st.departure_time);
       const sid = (st.stop_id || '').trim();
       const seq = parseInt(st.stop_sequence, 10) || 0;
-      if (!tid || dep === null || !sid) return;
+      const pickupType = parseInt(st.pickup_type, 10);
+      const dropOffType = parseInt(st.drop_off_type, 10);
+      if (!tid || !sid) return;
       if (!tripStops[tid]) tripStops[tid] = [];
-      tripStops[tid].push([seq, dep, sid]);
+      tripStops[tid].push([
+        seq,
+        dep,
+        sid,
+        arr ?? dep,
+        Number.isFinite(pickupType) ? pickupType : 0,
+        Number.isFinite(dropOffType) ? dropOffType : 0,
+      ]);
     });
     Object.keys(tripStops).forEach((tid) => tripStops[tid].sort((a, b) => a[0] - b[0]));
     return tripStops;
@@ -162,7 +220,7 @@
     const CHUNK = 2 * 1024 * 1024; // 2MB
     let remainder = '';
     let headers = null;
-    let tripIdx = -1, depIdx = -1, arrIdx = -1, stopIdx = -1, seqIdx = -1;
+    let tripIdx = -1, depIdx = -1, arrIdx = -1, stopIdx = -1, seqIdx = -1, pickupIdx = -1, dropOffIdx = -1;
 
     for (let offset = 0; offset <= uint8.length; offset += CHUNK) {
       const isLast = offset + CHUNK >= uint8.length;
@@ -184,25 +242,65 @@
           arrIdx  = headers.indexOf('arrival_time');
           stopIdx = headers.indexOf('stop_id');
           seqIdx  = headers.indexOf('stop_sequence');
+          pickupIdx = headers.indexOf('pickup_type');
+          dropOffIdx = headers.indexOf('drop_off_type');
           continue;
         }
         // Basit split (quoted comma nadirdir stop_times'ta)
         const vals = trimmed.split(',');
         const tid = (vals[tripIdx] || '').trim().replace(/^"|"$/g, '');
         const depStr = (vals[depIdx] || vals[arrIdx] || '').trim().replace(/^"|"$/g, '');
+        const arrStr = (vals[arrIdx] || vals[depIdx] || '').trim().replace(/^"|"$/g, '');
         const sid = (vals[stopIdx] || '').trim().replace(/^"|"$/g, '');
         const seq = parseInt((vals[seqIdx] || '0'), 10) || 0;
+        const pickupType = parseInt((vals[pickupIdx] || '0'), 10);
+        const dropOffType = parseInt((vals[dropOffIdx] || '0'), 10);
         const dep = hhmmToSec(depStr);
-        if (!tid || dep === null || !sid) continue;
+        const arr = hhmmToSec(arrStr);
+        if (!tid || !sid) continue;
         if (!tripStops[tid]) tripStops[tid] = [];
-        tripStops[tid].push([seq, dep, sid]);
+        tripStops[tid].push([
+          seq,
+          dep,
+          sid,
+          arr ?? dep,
+          Number.isFinite(pickupType) ? pickupType : 0,
+          Number.isFinite(dropOffType) ? dropOffType : 0,
+        ]);
       }
     }
     Object.keys(tripStops).forEach((tid) => tripStops[tid].sort((a, b) => a[0] - b[0]));
     return tripStops;
   }
 
-  function buildGtfsRuntimeData(routeMap, shapePts, stopsMap, tripMeta, tripStops, onProgress) {
+  function normalizeRuntimeBuildOptions(options, total) {
+    const routeIds = Array.isArray(options?.routeIds)
+      ? [...new Set(options.routeIds.map((value) => String(value || '').trim()).filter(Boolean))]
+      : [];
+    const effectiveTotal = Number.isFinite(total) ? total : 0;
+    const defaultTripCap = effectiveTotal <= 10000 ? Infinity : effectiveTotal <= 30000 ? 12000 : 15000;
+    return {
+      routeIds,
+      tripCap: Number.isFinite(options?.tripCap) ? Math.max(1, options.tripCap) : defaultTripCap,
+      includeStops: typeof options?.includeStops === 'boolean' ? options.includeStops : effectiveTotal <= 10000,
+      includeHourlyStats: typeof options?.includeHourlyStats === 'boolean' ? options.includeHourlyStats : true,
+      maxDepsPerStop: Number.isFinite(options?.maxDepsPerStop) ? Math.max(1, options.maxDepsPerStop) : (effectiveTotal <= 10000 ? 120 : effectiveTotal <= 30000 ? 20 : 12),
+      pathPts: Number.isFinite(options?.pathPts) ? Math.max(2, options.pathPts) : (effectiveTotal <= 10000 ? 500 : effectiveTotal <= 30000 ? 180 : 120),
+      shapePts: Number.isFinite(options?.shapePts) ? Math.max(2, options.shapePts) : (effectiveTotal <= 10000 ? 350 : effectiveTotal <= 30000 ? 120 : 80),
+      maxStops: Number.isFinite(options?.maxStops) ? Math.max(1, options.maxStops) : (effectiveTotal <= 10000 ? Infinity : effectiveTotal <= 30000 ? 20000 : 12000),
+    };
+  }
+
+  function buildRuntimeEntries(tripMeta, tripStops, routeIds) {
+    const routeIdSet = Array.isArray(routeIds) && routeIds.length ? new Set(routeIds) : null;
+    return Object.entries(tripStops).filter(([tripId]) => {
+      if (!routeIdSet) return true;
+      const routeId = String(tripMeta?.[tripId]?.route_id || '').trim();
+      return routeIdSet.has(routeId);
+    });
+  }
+
+  function buildGtfsRuntimeData(routeMap, shapePts, stopsMap, tripMeta, tripStops, onProgress, options = {}) {
     const nTRIPS         = [];
     const nSHAPES        = [];
     const nSTOPS         = [];
@@ -212,18 +310,58 @@
     const nHOURLY_HEAT   = {};
     const seenShapes     = new Set();
 
-    const entries  = Object.entries(tripStops);
+    const entries  = buildRuntimeEntries(tripMeta, tripStops, options?.routeIds);
     const total    = entries.length;
     let processed  = 0;
+    const runtimeOpts = normalizeRuntimeBuildOptions(options, total);
+    const TRIP_CAP = runtimeOpts.tripCap;
+    const includeStops = runtimeOpts.includeStops;
+    const includeHourlyStats = runtimeOpts.includeHourlyStats;
+    const MAX_DEPS_PER_STOP = runtimeOpts.maxDepsPerStop;
+    const PATH_PTS = runtimeOpts.pathPts;
+    const SHAPE_PTS = runtimeOpts.shapePts;
+    const MAX_STOPS = runtimeOpts.maxStops;
 
-    const TRIP_CAP = total <= 30000 ? Infinity : total <= 100000 ? 25000 : 30000;
-    const includeStops = total <= 30000;
-    const MAX_DEPS_PER_STOP = total <= 30000 ? 200 : 30;
-    const PATH_PTS = total <= 30000 ? 150 : total <= 100000 ? 60 : 30;
-    const SHAPE_PTS = total <= 30000 ? 100 : 40;
-    const MAX_STOPS = total <= 30000 ? Infinity : 40000;
+    // Geçiş 1: tüm entry'leri tara, cap'ten bağımsız nSHAPES doldur
+    for (const [tid, stops] of entries) {
+      if (!stops.length) continue;
+      const meta  = tripMeta[tid];
+      const route = meta && routeMap[meta.route_id];
+      if (!meta || !route) continue;
+
+      const shapeKey = `${route.short}::${meta.shape_id || tid}::${meta.direction_id ?? 'x'}`;
+      if (seenShapes.has(shapeKey)) continue;
+
+      let rawPath = [];
+      let hasRealShape = false;
+      if (meta.shape_id && shapePts[meta.shape_id]?.length >= 2) {
+        rawPath = shapePts[meta.shape_id];
+        hasRealShape = true;
+      } else {
+        stops.forEach(([, , sid]) => {
+          const s = stopsMap[sid];
+          if (s) rawPath.push([s[0], s[1]]);
+        });
+      }
+      if (rawPath.length < 2) continue;
+
+      seenShapes.add(shapeKey);
+      nSHAPES.push({
+        s:  route.short,
+        t:  route.type,
+        rid: meta.route_id,
+        aid: route.agencyId || '',
+        c:  route.color,
+        p:  simplifyPathPoints(rawPath, SHAPE_PTS),
+        ln: route.longName || '',
+        dir: meta.direction_id,
+        h:  meta.head || '',
+        noShape: !hasRealShape,
+      });
+    }
+
+    // Geçiş 2: trip cap'li animasyon verisi
     let tripCount = 0;
-
     for (const [tid, stops] of entries) {
       if (tripCount >= TRIP_CAP) break;
       if (!stops.length) continue;
@@ -242,10 +380,12 @@
       }
       if (rawPath.length < 2) continue;
 
-      const path     = simplifyPathPoints(rawPath, PATH_PTS);
-      const startSec = stops[0][1];
-      const endSec   = stops[stops.length - 1][1];
-      const duration = Math.max(endSec - startSec, 60);
+      const path      = simplifyPathPoints(rawPath, PATH_PTS);
+      const validDeps = stops.map(([, d]) => d).filter((d) => Number.isFinite(d));
+      if (!validDeps.length) continue;
+      const startSec  = validDeps[0];
+      const endSec    = validDeps[validDeps.length - 1];
+      const duration  = Math.max(endSec - startSec, 60);
 
       const cumD = [0];
       for (let j = 1; j < path.length; j++) {
@@ -257,14 +397,17 @@
       const tripObj = {
         s:  route.short,
         t:  route.type,
+        rid: meta.route_id,
+        aid: route.agencyId || '',
         p:  path,
         ts,
+        _tsPatched: true,
         d:  duration,
         c:  route.color,
         h:  meta.head || '',
         ln: route.longName || '',
         dir: meta.direction_id,
-        st: includeStops ? stops.map(st => ({ sid: st[2], off: st[1] })) : []
+        st: includeStops ? stops.map(st => ({ sid: st[2], off: Number.isFinite(st[1]) ? st[1] - startSec : 0 })) : []
       };
       nTRIPS.push(tripObj);
       tripCount++;
@@ -280,28 +423,21 @@
         nSTOP_INFO[sid] = nSTOP_INFO[sid] || [s[0], s[1], s[2]];
       });
 
-      const hour = Math.floor(startSec / 3600) % 24;
-      nHOURLY_COUNTS[hour]++;
-      if (!nHOURLY_HEAT[String(hour)]) nHOURLY_HEAT[String(hour)] = [];
-      if (nHOURLY_HEAT[String(hour)].length < 500) nHOURLY_HEAT[String(hour)].push(path[0]);
-
-      const shapeKey = `${route.short}::${meta.shape_id || tid}::${meta.direction_id ?? 'x'}`;
-      if (!seenShapes.has(shapeKey)) {
-        seenShapes.add(shapeKey);
-        nSHAPES.push({
-          s:  route.short,
-          t:  route.type,
-          c:  route.color,
-          p:  simplifyPathPoints(path, SHAPE_PTS),
-          ln: route.longName || '',
-          dir: meta.direction_id,
-          h: meta.head || ''
-        });
+      if (includeHourlyStats) {
+        const hour = Math.floor(startSec / 3600) % 24;
+        nHOURLY_COUNTS[hour]++;
+        if (!nHOURLY_HEAT[String(hour)]) nHOURLY_HEAT[String(hour)] = [];
+        if (nHOURLY_HEAT[String(hour)].length < 500) nHOURLY_HEAT[String(hour)].push(path[0]);
       }
 
       processed++;
       if (onProgress && total) onProgress(Math.floor((processed / total) * 100));
     }
+
+    // Populate nSTOP_INFO from full stopsMap so stops on capped-out trips are still visible
+    Object.entries(stopsMap).forEach(([sid, s]) => {
+      if (!nSTOP_INFO[sid]) nSTOP_INFO[sid] = [s[0], s[1], s[2]];
+    });
 
     const allStops = [];
     Object.entries(nSTOP_INFO).forEach(([sid, [lon, lat, name]]) => {
@@ -314,7 +450,7 @@
     return { nTRIPS, nSHAPES, nSTOPS, nSTOP_INFO, nSTOP_DEPS, nHOURLY_COUNTS, nHOURLY_HEAT };
   }
 
-  async function buildGtfsRuntimeDataAsync(routeMap, shapePts, stopsMap, tripMeta, tripStops, onProgress) {
+  async function buildGtfsRuntimeDataAsync(routeMap, shapePts, stopsMap, tripMeta, tripStops, onProgress, options = {}) {
     function toWindowsFilePath(urlLike) {
       try {
         return decodeURIComponent(String(urlLike || ''))
@@ -441,7 +577,7 @@ if (location.protocol !== 'file:') return new Worker('src/runtime/gtfs-worker.js
             worker.terminate();
             reject(err);
           };
-          worker.postMessage({ routeMap, shapePts, stopsMap, tripMeta, tripStops });
+          worker.postMessage({ routeMap, shapePts, stopsMap, tripMeta, tripStops, options });
         });
       } catch (e) {
         console.warn('[GTFS] Worker başlatılamadı, fallback moduna geçiliyor:', e);
@@ -458,18 +594,19 @@ if (location.protocol !== 'file:') return new Worker('src/runtime/gtfs-worker.js
     const nHOURLY_HEAT   = {};
     const seenShapes     = new Set();
 
-    const entries  = Object.entries(tripStops);
+    const entries  = buildRuntimeEntries(tripMeta, tripStops, options?.routeIds);
     const total    = entries.length;
     let processed  = 0;
     const BATCH_SIZE = 200;
 
-    // Fallback cap — Worker çalışmadığında main thread'i OOM'dan koru
-    const TRIP_CAP = total <= 30000 ? Infinity : total <= 100000 ? 25000 : 30000;
-    const includeStops = total <= 30000;
-    const MAX_DEPS_PER_STOP = total <= 30000 ? 200 : 30;
-    const PATH_PTS = total <= 30000 ? 150 : total <= 100000 ? 60 : 30;
-    const SHAPE_PTS = total <= 30000 ? 100 : 40;
-    const MAX_STOPS = total <= 30000 ? Infinity : 40000;
+    const runtimeOpts = normalizeRuntimeBuildOptions(options, total);
+    const TRIP_CAP = runtimeOpts.tripCap;
+    const includeStops = runtimeOpts.includeStops;
+    const includeHourlyStats = runtimeOpts.includeHourlyStats;
+    const MAX_DEPS_PER_STOP = runtimeOpts.maxDepsPerStop;
+    const PATH_PTS = runtimeOpts.pathPts;
+    const SHAPE_PTS = runtimeOpts.shapePts;
+    const MAX_STOPS = runtimeOpts.maxStops;
     let tripCount = 0;
 
     for (let i = 0; i < total; i += BATCH_SIZE) {
@@ -503,19 +640,22 @@ if (location.protocol !== 'file:') return new Worker('src/runtime/gtfs-worker.js
           cumD.push(cumD[j - 1] + havMeters(path[j - 1], path[j]));
         }
         const totalD = cumD[cumD.length - 1] || 1;
-        const ts = cumD.map((d) => Math.round((startSec + (d / totalD) * duration) % 86400));
+        const ts = cumD.map((d) => Math.round(startSec + (d / totalD) * duration));
 
         const tripObj = {
           s:  route.short,
           t:  route.type,
+          rid: meta.route_id,
+          aid: route.agencyId || '',
           p:  path,
           ts,
+          _tsPatched: true,
           d:  duration,
           c:  route.color,
           h:  meta.head || '',
           ln: route.longName || '',
           dir: meta.direction_id,
-          st: includeStops ? stops.map(st => ({ sid: st[2], off: st[1] % 86400 })) : []
+          st: includeStops ? stops.map(st => ({ sid: st[2], off: Number.isFinite(st[1]) ? st[1] - startSec : 0 })) : []
         };
         nTRIPS.push(tripObj);
         tripCount++;
@@ -531,10 +671,12 @@ if (location.protocol !== 'file:') return new Worker('src/runtime/gtfs-worker.js
           nSTOP_INFO[sid] = nSTOP_INFO[sid] || [s[0], s[1], s[2]];
         });
 
-        const hour = Math.floor(startSec / 3600) % 24;
-        nHOURLY_COUNTS[hour]++;
-        if (!nHOURLY_HEAT[String(hour)]) nHOURLY_HEAT[String(hour)] = [];
-        if (nHOURLY_HEAT[String(hour)].length < 500) nHOURLY_HEAT[String(hour)].push(path[0]);
+        if (includeHourlyStats) {
+          const hour = Math.floor(startSec / 3600) % 24;
+          nHOURLY_COUNTS[hour]++;
+          if (!nHOURLY_HEAT[String(hour)]) nHOURLY_HEAT[String(hour)] = [];
+          if (nHOURLY_HEAT[String(hour)].length < 500) nHOURLY_HEAT[String(hour)].push(path[0]);
+        }
 
         const shapeKey = `${route.short}::${meta.shape_id || tid}::${meta.direction_id ?? 'x'}`;
         if (!seenShapes.has(shapeKey)) {
@@ -542,6 +684,8 @@ if (location.protocol !== 'file:') return new Worker('src/runtime/gtfs-worker.js
           nSHAPES.push({
             s:  route.short,
             t:  route.type,
+            rid: meta.route_id,
+            aid: route.agencyId || '',
             c:  route.color,
             p:  simplifyPathPoints(path, SHAPE_PTS),
             ln: route.longName || '',
@@ -555,6 +699,11 @@ if (location.protocol !== 'file:') return new Worker('src/runtime/gtfs-worker.js
       if (onProgress) onProgress(Math.floor((processed / total) * 100));
       await new Promise(resolve => setTimeout(resolve, 0));
     }
+
+    // Populate nSTOP_INFO from full stopsMap so stops on capped-out trips are still visible
+    Object.entries(stopsMap).forEach(([sid, s]) => {
+      if (!nSTOP_INFO[sid]) nSTOP_INFO[sid] = [s[0], s[1], s[2]];
+    });
 
     const allStops = [];
     Object.entries(nSTOP_INFO).forEach(([sid, [lon, lat, name]]) => {
@@ -571,8 +720,11 @@ if (location.protocol !== 'file:') return new Worker('src/runtime/gtfs-worker.js
     parseCsvRows,
     parseGtfsTables,
     hhmmToSec,
+    addDaysIso,
+    findNearestDateWithData,
     havMeters,
     simplifyPathPoints,
+    normalizeGtfsRouteType,
     buildRouteMap,
     buildShapePoints,
     buildStopsMap,

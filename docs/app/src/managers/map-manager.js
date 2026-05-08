@@ -13,6 +13,9 @@ window.MapManager = (function () {
   let cacheActiveRoutes = '';
   let cacheFocusedRoute = null;
   let cacheSelectedRouteDirection = null;
+  let cachedViewportTrips = null;
+  let cacheViewportKey = '';
+  let cacheViewportTimeBucket = null;
   let connectivityGridCache = null;
   let connectivityGridCacheKey = '';
   const CONNECTIVITY_GRID_SCORE_MIN = 0;
@@ -135,8 +138,24 @@ window.MapManager = (function () {
     return ctx?.getFocusedRoute ? ctx.getFocusedRoute() : (ctx?.focusedRoute || null);
   }
 
-  function getSelectedRouteDirection(ctx) {
-    return ctx?.getSelectedRouteDirection ? ctx.getSelectedRouteDirection() : ctx?.selectedRouteDirection;
+  function getFocusedRouteId(ctx) {
+    return ctx?.getFocusedRouteId ? ctx.getFocusedRouteId() : null;
+  }
+
+  function isHiddenRoute(ctx, routeLike) {
+    return ctx?.isRouteHidden ? ctx.isRouteHidden(routeLike) : false;
+  }
+
+  function routeMatchesFocus(ctx, routeLike) {
+    const focusedRoute = getFocusedRoute(ctx);
+    const focusedRouteId = getFocusedRouteId(ctx);
+    if (!focusedRoute) return true;
+    if (focusedRouteId) return routeLike?.rid === focusedRouteId;
+    return routeLike?.s === focusedRoute;
+  }
+
+  function getSelectedPatternKey(ctx) {
+    return ctx?.getSelectedPatternKey ? ctx.getSelectedPatternKey() : ctx?.selectedPatternKey ?? null;
   }
 
   function getFollowTripIdx(ctx) {
@@ -177,8 +196,8 @@ window.MapManager = (function () {
     const trip = entry?.trip || entry;
     const focusedRoute = getFocusedRoute(ctx);
     const baseColor = ctx.getRouteColorRgb(trip.s, trip.t, trip.c);
-    if (focusedRoute && trip.s !== focusedRoute) return [120, 125, 130];
-    if (focusedRoute && trip.s === focusedRoute) return getDirectionColor(baseColor, trip.dir);
+    if (focusedRoute && !routeMatchesFocus(ctx, trip)) return [120, 125, 130];
+    if (focusedRoute && routeMatchesFocus(ctx, trip)) return getDirectionColor(baseColor, trip.dir);
     return baseColor;
   }
 
@@ -302,9 +321,10 @@ window.MapManager = (function () {
   function buildConnectivityGridCacheKey(ctx, bounds, zoom, snapshot, filteredStopIds) {
     const typeFilter = getTypeFilter(ctx);
     const focusedRoute = getFocusedRoute(ctx);
-    const selectedRouteDirection = getSelectedRouteDirection(ctx);
+    const selectedPatternKey = getSelectedPatternKey(ctx);
     const activeRoutes = getActiveRoutes(ctx);
     const snapshotStopCount = Object.keys(snapshot?.stops || {}).length;
+    const patStr = selectedPatternKey ? `${selectedPatternKey.dir ?? '?'}:${selectedPatternKey.h || ''}` : 'all';
     return [
       `z:${zoom.toFixed(2)}`,
       `w:${bounds.west.toFixed(3)}`,
@@ -315,7 +335,7 @@ window.MapManager = (function () {
       `complete:${snapshot?.meta?.validation_summary ? 1 : 0}`,
       `type:${typeFilter || 'all'}`,
       `focus:${focusedRoute || 'all'}`,
-      `dir:${selectedRouteDirection ?? 'all'}`,
+      `dir:${patStr}`,
       `hidden:${activeRoutes ? [...activeRoutes].sort().join(',') : ''}`,
       `filter:${filteredStopIds?.size || 0}`,
     ].join('|');
@@ -531,6 +551,9 @@ window.MapManager = (function () {
     cacheActiveRoutes = '';
     cacheFocusedRoute = null;
     cacheSelectedRouteDirection = null;
+    cachedViewportTrips = null;
+    cacheViewportKey = '';
+    cacheViewportTimeBucket = null;
     connectivityGridCache = null;
     connectivityGridCacheKey = '';
   }
@@ -543,7 +566,7 @@ window.MapManager = (function () {
 
   function getStaticLayerKey(ctx, time) {
     const focusedRoute = getFocusedRoute(ctx);
-    const selectedRouteDirection = getSelectedRouteDirection(ctx);
+    const selectedPatternKey = getSelectedPatternKey(ctx);
     const showPaths = ctx.getShowPaths ? ctx.getShowPaths() : ctx.showPaths;
     const showStops = ctx.getShowStops ? ctx.getShowStops() : ctx.showStops;
     const showStopCoverage = ctx.getShowStopCoverage ? ctx.getShowStopCoverage() : ctx.showStopCoverage;
@@ -556,7 +579,7 @@ window.MapManager = (function () {
       cacheTypeFilter,
       cacheActiveRoutes,
       focusedRoute || '',
-      selectedRouteDirection ?? 'all',
+      selectedPatternKey ? `${selectedPatternKey.dir ?? '?'}:${selectedPatternKey.h || ''}` : 'all',
       ctx.QUALITY.level,
       showPaths ? 1 : 0,
       showStops ? 1 : 0,
@@ -581,14 +604,15 @@ window.MapManager = (function () {
     const typeFilter = getTypeFilter(ctx);
     const activeRoutes = getActiveRoutes(ctx);
     const focusedRoute = getFocusedRoute(ctx);
-    const selectedRouteDirection = getSelectedRouteDirection(ctx);
+    const selectedPatternKey = getSelectedPatternKey(ctx);
     const activeRoutesKey = [...activeRoutes].sort().join(',');
+    const patCacheStr = selectedPatternKey ? `${selectedPatternKey.dir ?? '?'}:${selectedPatternKey.h || ''}` : null;
     if (
       cachedVisTrips
       && typeFilter === cacheTypeFilter
       && activeRoutesKey === cacheActiveRoutes
       && (focusedRoute || null) === cacheFocusedRoute
-      && (selectedRouteDirection ?? null) === cacheSelectedRouteDirection
+      && patCacheStr === cacheSelectedRouteDirection
     ) {
       return { visTrips: cachedVisTrips, visShapes: cachedVisShapes };
     }
@@ -596,20 +620,151 @@ window.MapManager = (function () {
     cacheTypeFilter = typeFilter;
     cacheActiveRoutes = activeRoutesKey;
     cacheFocusedRoute = focusedRoute || null;
-    cacheSelectedRouteDirection = selectedRouteDirection ?? null;
+    cacheSelectedRouteDirection = patCacheStr;
     cachedVisTrips = getTrips(ctx).filter((trip) => (
       (typeFilter === 'all' || normalizeRouteType(trip.t) === normalizeRouteType(typeFilter))
-      && !activeRoutes.has(trip.s)
-      && (!focusedRoute || trip.s === focusedRoute)
-      && (selectedRouteDirection === null || selectedRouteDirection === undefined || trip.dir === selectedRouteDirection)
+      && !isHiddenRoute(ctx, trip)
+      && routeMatchesFocus(ctx, trip)
+      && (selectedPatternKey === null || (trip.dir === selectedPatternKey.dir && trip.h === selectedPatternKey.h))
     ));
     cachedVisShapes = getShapes(ctx).filter((shape) => (
       (typeFilter === 'all' || normalizeRouteType(shape.t) === normalizeRouteType(typeFilter))
-      && !activeRoutes.has(shape.s)
-      && (!focusedRoute || shape.s === focusedRoute)
-      && (selectedRouteDirection === null || selectedRouteDirection === undefined || shape.dir === selectedRouteDirection)
+      && !isHiddenRoute(ctx, shape)
+      && routeMatchesFocus(ctx, shape)
+      && (selectedPatternKey === null || (shape.dir === selectedPatternKey.dir && (!selectedPatternKey.h || shape.h === selectedPatternKey.h)))
     ));
     return { visTrips: cachedVisTrips, visShapes: cachedVisShapes };
+  }
+
+  function getViewportBounds(ctx) {
+    const mapgl = getMapgl();
+    const bounds = typeof mapgl?.getBounds === 'function' ? mapgl.getBounds() : null;
+    const west = typeof bounds?.getWest === 'function' ? bounds.getWest() : bounds?._sw?.lng;
+    const south = typeof bounds?.getSouth === 'function' ? bounds.getSouth() : bounds?._sw?.lat;
+    const east = typeof bounds?.getEast === 'function' ? bounds.getEast() : bounds?._ne?.lng;
+    const north = typeof bounds?.getNorth === 'function' ? bounds.getNorth() : bounds?._ne?.lat;
+    if (![west, south, east, north].every(Number.isFinite)) return null;
+    return { west, south, east, north };
+  }
+
+  function expandViewportBounds(bounds, factor = 0.18) {
+    if (!bounds) return null;
+    const lngPad = Math.max(0.002, (bounds.east - bounds.west) * factor);
+    const latPad = Math.max(0.002, (bounds.north - bounds.south) * factor);
+    return {
+      west: bounds.west - lngPad,
+      south: bounds.south - latPad,
+      east: bounds.east + lngPad,
+      north: bounds.north + latPad,
+    };
+  }
+
+  function positionInBounds(pos, bounds) {
+    if (!Array.isArray(pos) || pos.length < 2 || !bounds) return false;
+    return (
+      pos[0] >= bounds.west
+      && pos[0] <= bounds.east
+      && pos[1] >= bounds.south
+      && pos[1] <= bounds.north
+    );
+  }
+
+  function getViewportTripSubset(ctx, trips, time) {
+    const focusedRoute = getFocusedRoute(ctx);
+    if (focusedRoute) return trips;
+    const viewport = expandViewportBounds(getViewportBounds(ctx));
+    if (!viewport) return trips;
+    const viewportKey = [
+      viewport.west.toFixed(3),
+      viewport.south.toFixed(3),
+      viewport.east.toFixed(3),
+      viewport.north.toFixed(3),
+      getTypeFilter(ctx) || 'all',
+      getFocusedRoute(ctx) || 'all',
+      (() => { const p = getSelectedPatternKey(ctx); return p ? `${p.dir ?? '?'}:${p.h || ''}` : 'all'; })(),
+    ].join('|');
+    const timeBucket = Math.floor((Number(time) || 0) / 15);
+    if (
+      cachedViewportTrips
+      && cacheViewportKey === viewportKey
+      && cacheViewportTimeBucket === timeBucket
+    ) {
+      return cachedViewportTrips;
+    }
+    cachedViewportTrips = trips.filter((trip) => {
+      const pos = ctx.getVehiclePos(trip, time);
+      return pos && positionInBounds(pos, viewport);
+    });
+    cacheViewportKey = viewportKey;
+    cacheViewportTimeBucket = timeBucket;
+    return cachedViewportTrips;
+  }
+
+  function getVehicleRenderBudget(ctx) {
+    const mapgl = getMapgl();
+    const zoom = typeof mapgl?.getZoom === 'function' ? mapgl.getZoom() : 12;
+    const qualityLevel = Number(ctx?.QUALITY?.level ?? 1);
+    if (zoom >= 14.5) return [700, 1200, 1800][qualityLevel] || 1200;
+    if (zoom >= 12.5) return [450, 800, 1200][qualityLevel] || 800;
+    return [220, 360, 520][qualityLevel] || 360;
+  }
+
+  function getTripsLayerBudget(ctx) {
+    const mapgl = getMapgl();
+    const zoom = typeof mapgl?.getZoom === 'function' ? mapgl.getZoom() : 12;
+    const qualityLevel = Number(ctx?.QUALITY?.level ?? 1);
+    if (zoom >= 14.5) return [260, 420, 620][qualityLevel] || 420;
+    if (zoom >= 12.5) return [180, 280, 420][qualityLevel] || 280;
+    return [100, 160, 240][qualityLevel] || 160;
+  }
+
+  function applyVehicleRenderBudget(ctx, trips) {
+    const focusedRoute = getFocusedRoute(ctx);
+    if (focusedRoute || !Array.isArray(trips) || trips.length <= 1) return trips;
+    const budget = getVehicleRenderBudget(ctx);
+    if (!Number.isFinite(budget) || trips.length <= budget) return trips;
+    const step = Math.max(1, Math.ceil(trips.length / budget));
+    const result = [];
+    for (let index = 0; index < trips.length; index += step) {
+      result.push(trips[index]);
+    }
+    return result;
+  }
+
+  function applyTripsLayerBudget(ctx, trips) {
+    const focusedRoute = getFocusedRoute(ctx);
+    if (focusedRoute || !Array.isArray(trips) || trips.length <= 1) return trips;
+    const budget = getTripsLayerBudget(ctx);
+    if (!Number.isFinite(budget) || trips.length <= budget) return trips;
+    const step = Math.max(1, Math.ceil(trips.length / budget));
+    const result = [];
+    for (let index = 0; index < trips.length; index += step) {
+      result.push(trips[index]);
+    }
+    return result;
+  }
+
+
+  function getHeavyLayerPolicy(ctx, activeCount) {
+    const focusedRoute = getFocusedRoute(ctx);
+    if (focusedRoute) {
+      return {
+        allowTripsLayer: true,
+        allowTrail: true,
+        allowIcons: true,
+        allowLabels: true,
+        allow3D: true,
+      };
+    }
+    const qualityLevel = Number(ctx?.QUALITY?.level ?? 1);
+    const tripCount = Number(activeCount) || 0;
+    return {
+      allowTripsLayer: tripCount <= [220, 360, 520][qualityLevel],
+      allowTrail: tripCount <= [160, 260, 380][qualityLevel],
+      allowIcons: tripCount <= [350, 560, 820][qualityLevel],
+      allowLabels: tripCount <= [80, 120, 180][qualityLevel],
+      allow3D: tripCount <= [90, 140, 220][qualityLevel],
+    };
   }
 
   function buildPathLayers(ctx, visShapes) {
@@ -639,24 +794,42 @@ window.MapManager = (function () {
           const to = shape.path[idx + 1];
           if (!from || !to) continue;
           if (from[0] === to[0] && from[1] === to[1]) continue;
-          segments.push({ s: shape.s, t: shape.t, c: shape.c, from, to });
+          segments.push({ s: shape.s, t: shape.t, c: shape.c, from, to, noShape: !!shape.noShape });
         }
       }
       return segments;
     };
 
-    const nonMetroSegments = toSegments(nonMetro);
+    const nonMetroSolid = toSegments(nonMetro.filter((s) => !s.noShape));
+    const nonMetroDashed = toSegments(nonMetro.filter((s) => s.noShape));
     const metroSegments = toSegments(metro);
 
-    if (nonMetroSegments.length) {
+    if (nonMetroSolid.length) {
       layers.push(new LineLayer({
         id: 'paths-above',
-        data: nonMetroSegments,
+        data: nonMetroSolid,
         getSourcePosition: (d) => d.from,
         getTargetPosition: (d) => d.to,
         getColor: (d) => {
           const color = getShapeColor(ctx, d);
-          return focusedRoute && d.s !== focusedRoute ? [...color, 18] : [...color, 138];
+          return focusedRoute && !routeMatchesFocus(ctx, d) ? [...color, 18] : [...color, 138];
+        },
+        getWidth: (d) => ctx.TYPE_META[d.t]?.w || 2,
+        widthUnits: 'pixels',
+        widthMinPixels: 1,
+        pickable: true,
+      }));
+    }
+
+    if (nonMetroDashed.length) {
+      layers.push(new LineLayer({
+        id: 'paths-dashed',
+        data: nonMetroDashed,
+        getSourcePosition: (d) => d.from,
+        getTargetPosition: (d) => d.to,
+        getColor: (d) => {
+          const color = getShapeColor(ctx, d);
+          return focusedRoute && !routeMatchesFocus(ctx, d) ? [...color, 10] : [...color, 70];
         },
         getWidth: (d) => ctx.TYPE_META[d.t]?.w || 2,
         widthUnits: 'pixels',
@@ -673,7 +846,7 @@ window.MapManager = (function () {
         getTargetPosition: (d) => d.to,
         getColor: (d) => {
           const color = getShapeColor(ctx, d);
-          return focusedRoute && d.s !== focusedRoute ? [...color, 18] : [...color, 165];
+          return focusedRoute && !routeMatchesFocus(ctx, d) ? [...color, 18] : [...color, 165];
         },
         getWidth: 5,
         widthUnits: 'pixels',
@@ -704,7 +877,8 @@ window.MapManager = (function () {
       const heatTime = heatmapFollowSim ? time : heatmapHour * 3600;
       const pts = [];
       const { visTrips } = getVisData(ctx);
-      for (const trip of visTrips) {
+      const heatTrips = applyVehicleRenderBudget(ctx, getViewportTripSubset(ctx, visTrips, heatTime));
+      for (const trip of heatTrips) {
         const pos = ctx.getVehiclePos(trip, heatTime);
         if (pos) pts.push({ position: pos, weight: 1 });
       }
@@ -871,8 +1045,8 @@ window.MapManager = (function () {
       getPosition: (d) => d.pos,
       getRadius: 52,
       getFillColor: (d) => {
-        if (focusedRoute && d.trip.s !== focusedRoute) return [50, 55, 60, 180];
-        if (focusedRoute && d.trip.s === focusedRoute) return [...getVehicleDisplayColor(ctx, d), 220];
+        if (focusedRoute && !routeMatchesFocus(ctx, d.trip)) return [50, 55, 60, 180];
+        if (focusedRoute && routeMatchesFocus(ctx, d.trip)) return [...getVehicleDisplayColor(ctx, d), 220];
         return getVehicleMarkerColor(ctx, d);
       },
       getLineColor: [24, 28, 36, 220],
@@ -896,7 +1070,7 @@ window.MapManager = (function () {
       sizeMaxPixels: 34,
       billboard: true,
       alphaCutoff: 0.05,
-      pickable: false,
+      pickable: true,
     });
   }
 
@@ -966,11 +1140,15 @@ window.MapManager = (function () {
     const dynamicLayers = [];
 
     if (showAnim) {
-      const sampledTrips = focusedRoute ? visTrips.filter((trip) => trip.s === focusedRoute) : visTrips;
+      const sampledTrips = focusedRoute ? visTrips.filter((trip) => routeMatchesFocus(ctx, trip)) : visTrips;
       const activeTrips = sampledTrips.filter((trip) => ctx.getVehiclePos(trip, time) !== null);
-      const patchedTrips = activeTrips.filter((trip) => trip._tsPatched);
+      const renderedTrips = applyVehicleRenderBudget(ctx, getViewportTripSubset(ctx, activeTrips, time));
+      const patchedTrips = applyTripsLayerBudget(ctx, renderedTrips.filter((trip) => trip._tsPatched));
 
-      if (patchedTrips.length) {
+      const totalActive = renderedTrips.length;
+      const layerPolicy = getHeavyLayerPolicy(ctx, totalActive);
+
+      if (layerPolicy.allowTripsLayer && patchedTrips.length) {
         const tripsCurrentTime = patchedTrips.some((trip) => Array.isArray(trip.ts) && trip.ts.length && trip.ts[trip.ts.length - 1] >= 86400)
           ? time
           : (time % 86400);
@@ -981,13 +1159,13 @@ window.MapManager = (function () {
           getTimestamps: (d) => d.trip.ts,
           getColor: (d) => {
             const trip = d.trip;
-            const base = focusedRoute && trip.s === focusedRoute
+            const base = focusedRoute && routeMatchesFocus(ctx, trip)
               ? getDirectionColor(ctx.getRouteColorRgb(trip.s, trip.t, trip.c), trip.dir)
               : ctx.getRouteColorRgb(trip.s, trip.t, trip.c);
             return window.RenderUtils ? window.RenderUtils.getVehicleColorRgb(base, trip._delay || 0) : base;
           },
           currentTime: tripsCurrentTime,
-          trailLength: showTrail ? ctx.QUALITY.trailLength : 0.01,
+          trailLength: (showTrail && layerPolicy.allowTrail) ? ctx.QUALITY.trailLength : 0.01,
           widthMinPixels: 2,
           capRounded: ctx.QUALITY.rounded,
           jointRounded: ctx.QUALITY.rounded,
@@ -998,22 +1176,21 @@ window.MapManager = (function () {
       }
 
       const heads = [];
-      activeTrips.forEach((trip, index) => {
+      renderedTrips.forEach((trip, index) => {
         const pos = ctx.getVehiclePos(trip, time);
         if (!pos) return;
         const color = getVehicleDisplayColor(ctx, trip);
         heads.push({ pos, color, c: color, trip, idx: trip._idx ?? index });
       });
 
-      const totalActive = activeTrips.length;
       ctx.updateActiveBadge(totalActive, visTrips, visShapes);
-      dynamicLayers.push(buildVehicleHeadsLayer(ctx, heads));
-      dynamicLayers.push(buildVehicleIconLayer(ctx, heads));
-      const vehicleLabelLayer = buildVehicleLabelLayer(ctx, heads);
+      if (layerPolicy.allowIcons) dynamicLayers.push(buildVehicleIconLayer(ctx, heads));
+      else dynamicLayers.push(buildVehicleHeadsLayer(ctx, heads));
+      const vehicleLabelLayer = layerPolicy.allowLabels ? buildVehicleLabelLayer(ctx, heads) : null;
       if (vehicleLabelLayer) dynamicLayers.push(vehicleLabelLayer);
 
-      if (show3D) {
-        const modelLayers = build3DVehicleLayer(ctx, activeTrips, time);
+      if (show3D && layerPolicy.allow3D) {
+        const modelLayers = build3DVehicleLayer(ctx, renderedTrips, time);
         if (modelLayers?.length) modelLayers.forEach((layer) => dynamicLayers.push(layer));
       }
 

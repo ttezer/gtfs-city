@@ -18,7 +18,7 @@
 <script src="https://unpkg.com/deck.gl@9.0.3/dist.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
-<link rel="stylesheet" href="style.css?v=20260402b">
+<link rel="stylesheet" href="style.css?v=20260508g">
 <link rel="icon" type="image/x-icon" href="./favicon.ico?v=20260402b">
 
 </head>
@@ -53,9 +53,15 @@
       </div>
     </div>
 
+    <div id="lp-import-summary" class="lp-import-summary hidden"></div>
+
     <div class="lp-actions">
       <button class="lp-btn primary" id="lp-btn-upload">📂 GTFS ZIP YÜKLE</button>
-      <button class="lp-btn outline hidden" id="lp-btn-start" disabled>🗺️ HARİTAYI AÇ</button>
+      <button class="lp-btn outline hidden" id="lp-btn-start" disabled>🗓️ TAKVİMİ AÇ</button>
+      <div id="lp-map-open-wrap" class="lp-map-open-wrap hidden">
+        <button class="lp-btn outline" id="lp-btn-open-map" disabled>🗺️ HARİTAYI AÇ</button>
+        <div id="lp-map-open-note" class="lp-map-open-note">Çalışma günü: —</div>
+      </div>
     </div>
     <div class="lp-link-row hidden" id="lp-link-row">
       <input type="url" id="lp-gtfs-url" class="lp-url-input" placeholder="https://.../gtfs.zip">
@@ -111,6 +117,14 @@
     <!-- Platform Badge (İş-15) -->
     <div id="platform-badge" class="platform-badge"></div>
   </div>
+
+  <div class="workspace-switch-row">
+    <button id="workspace-map-btn" class="workspace-btn active" data-workspace="harita" type="button">Harita</button>
+    <button id="workspace-info-btn" class="workspace-btn" data-workspace="bilgi" type="button">Bilgi</button>
+    <button id="workspace-analysis-btn" class="workspace-btn" data-workspace="analiz" type="button" disabled>Çalışma Takvimi <span class="ws-btn-beta">Beta</span></button>
+    <button id="workspace-settings-btn" class="workspace-btn" data-workspace="ayarlar" type="button">⚙</button>
+  </div>
+  <div id="active-service-date-badge" class="active-service-date-badge">Çalışma günü: —</div>
 
   <!-- CLOCK + TIME CONTROLS -->
   <div id="time-block">
@@ -306,6 +320,113 @@
 <!-- ══ END SIDEBAR ════════════════════════════════════════ -->
 
 <!-- ARAÇ DETAY PANELİ (Bölüm 2) -->
+<section id="info-workspace-shell" class="hidden">
+  <div class="info-workspace-layout">
+    <div class="info-workspace-main">
+      <div class="info-workspace-card">
+        <div class="info-workspace-card-head">
+          <h3 id="info-workspace-title">GTFS Bilgi Yüzeyi</h3>
+          <span class="info-workspace-badge">Seçili gün</span>
+        </div>
+        <div id="info-workspace-summary">Henüz veri yüklenmedi.</div>
+      </div>
+      <div class="info-workspace-card info-service-browser">
+        <div class="info-workspace-card-head">
+          <h3>Seçili Gün Özeti</h3>
+        </div>
+        <div id="info-service-summary">Henüz servis özeti yok.</div>
+      </div>
+      <div class="info-workspace-card info-route-browser">
+        <div class="info-workspace-card-head">
+          <h3>Hatlar</h3>
+        </div>
+        <input id="info-route-filter" type="text" placeholder="Hat ara…">
+        <div id="info-route-list"></div>
+      </div>
+      <div class="info-workspace-card info-stop-browser">
+        <div class="info-workspace-card-head">
+          <h3>Duraklar</h3>
+        </div>
+        <input id="info-stop-filter" type="text" placeholder="Durak ara…">
+        <div id="info-stop-list"></div>
+      </div>
+    </div>
+    <aside class="info-inspector-shell">
+      <div class="info-workspace-card">
+        <div class="info-workspace-card-head">
+          <h3 class="info-inspector-title">Inspector</h3>
+          <span class="info-inspector-subtitle">Seçim bekleniyor</span>
+        </div>
+        <div class="info-inspector-meta"></div>
+        <div class="info-inspector-empty">Harita veya bu sayfadaki listeler üzerinden bir seçim yapıldığında ayrıntılar burada görünecek.</div>
+      </div>
+    </aside>
+  </div>
+</section>
+
+<!-- ══ ANALİZ WORKSPACE ════════════════════════════════════ -->
+<div id="analiz-workspace-shell">
+  <div class="analiz-workspace-layout">
+    <div class="info-workspace-card-head analiz-cal-head">
+      <h3 id="info-calendar-title">Takvim</h3>
+      <div class="info-cal-nav" id="info-cal-nav"></div>
+    </div>
+    <div id="info-calendar-body">Henüz takvim verisi yok.</div>
+  </div>
+</div>
+
+<!-- ══ AYARLAR WORKSPACE ═══════════════════════════════════ -->
+<div id="settings-workspace-shell">
+  <div class="settings-section">
+    <div class="settings-section-title">Harita</div>
+    <div class="settings-row">
+      <div class="settings-label-wrap">
+        <span class="settings-label">Tema</span>
+        <span class="settings-hint">Harita arka plan rengi</span>
+      </div>
+      <select class="settings-select" id="settings-map-theme">
+        <option value="dark">Koyu</option>
+        <option value="light">Açık</option>
+        <option value="satellite">Uydu</option>
+      </select>
+    </div>
+  </div>
+  <div class="settings-section">
+    <div class="settings-section-title">Zaman ve Tarih</div>
+    <div class="settings-row">
+      <div class="settings-label-wrap">
+        <span class="settings-label">Saat formatı</span>
+      </div>
+      <select class="settings-select" id="settings-time-format">
+        <option value="24">24 saat</option>
+        <option value="12">12 saat (AM/PM)</option>
+      </select>
+    </div>
+    <div class="settings-row">
+      <div class="settings-label-wrap">
+        <span class="settings-label">Hafta başlangıcı</span>
+      </div>
+      <select class="settings-select" id="settings-week-start">
+        <option value="1">Pazartesi</option>
+        <option value="0">Pazar</option>
+        <option value="6">Cumartesi</option>
+      </select>
+    </div>
+  </div>
+  <div class="settings-section">
+    <div class="settings-section-title">Uygulama</div>
+    <div class="settings-row">
+      <div class="settings-label-wrap">
+        <span class="settings-label">Dil</span>
+      </div>
+      <select class="settings-select" id="settings-language">
+        <option value="tr">Türkçe</option>
+        <option value="en">English</option>
+      </select>
+    </div>
+  </div>
+</div>
+
 <div id="vehicle-panel" class="drawer hidden">
   <div id="vp-header" class="drawer-header">
     <span id="vp-icon">🚌</span>
@@ -700,22 +821,22 @@
 <script src="src/utils/gtfs-math-utils.js?v=20260402b"></script>
 <script src="src/runtime/bridge-utils.js?v=20260405a"></script>
 <script src="src/runtime/simulation-engine.js?v=20260402b"></script>
-<script src="src/managers/map-manager.js?v=20260402b"></script>
-<script src="src/managers/ui-manager.js?v=20260402b"></script>
+<script src="src/managers/map-manager.js?v=20260508i"></script>
+<script src="src/managers/ui-manager.js?v=20260508f"></script>
 <script src="src/managers/planner-manager.js?v=20260402b"></script>
 <script src="src/utils/stop-connectivity-utils.js?v=20260403a"></script>
 <script src="src/managers/service-manager.js?v=20260402b"></script>
 <script src="src/managers/city-manager.js?v=20260402b"></script>
-<script src="src/managers/data-manager.js?v=20260402b"></script>
-<script src="src/managers/app-manager.js?v=20260402b"></script>
+<script src="src/managers/data-manager.js?v=20260503c"></script>
+<script src="src/managers/app-manager.js?v=20260503c"></script>
 <script src="src/core/config.js?v=20260402b"></script>
 <script src="src/utils/sim-utils.js?v=20260402b"></script>
 <script src="src/utils/analytics-utils.js?v=20260402b"></script>
-<script src="src/utils/gtfs-utils.js?v=20260402b"></script>
+<script src="src/utils/gtfs-utils.js?v=20260508j"></script>
 <script src="src/utils/gtfs-validator.js?v=20260402b"></script>
 <script src="src/utils/render-utils.js?v=20260402b"></script>
 <script src="src/utils/ui-utils.js?v=20260402b"></script>
-<script src="src/core/bootstrap-manager.js?v=20260402b"></script>
+<script src="src/core/bootstrap-manager.js?v=20260503c"></script>
 <script>
 window.BootstrapManager?.start?.();
 </script>

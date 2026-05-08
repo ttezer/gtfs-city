@@ -21,12 +21,16 @@ Upload your GTFS ZIP file — vehicles, routes, and stops come to life on the ma
 
 | | |
 |---|---|
-| 🎬 **Simulation** | Vehicles move on the map according to trip schedules |
-| 🔵 **Isochrone Analysis** | See areas reachable within a specific time from a stop |
-| 🟩 **Connectivity Grid** | Network accessibility score for each stop |
-| 🔥 **Heatmap** | Stop and trip density as a heat map |
-| 🚌 **Bunching Detection** | Vehicles bunching on the same route |
-| 📍 **Route Planner** | Route suggestions based on actual trip times |
+| 🎬 **Simulation** | Vehicles move on the map according to scheduled trips |
+| 🔵 **Isochrone Analysis** | See areas reachable from the selected stop within a given time |
+| 🟩 **Connectivity Grid (Beta)** | Network accessibility score for each stop |
+| 🔥 **Density Map** | Heatmap of stop and trip density |
+| 🚌 **Bunching Detection** | Vehicles clustering on the same route |
+| 📍 **Route Planning (Beta)** | Route suggestions based on real schedules |
+| ℹ️ **Information** | Detailed information about GTFS data |
+| 📅 **Service Calendar (Beta)** | GTFS service calendar details |
+| 🖨️ **Schedule Print** | Print or preview trip schedules by route or stop |
+| 🗺️ **Metro Diagram** | Visualize selected routes as a schematic line diagram |
 
 ---
 

@@ -7,7 +7,7 @@ GTFS City, GTFS ZIP verisini çalışma anında parse edip harita, panel ve anal
 Desteklenen yüzeyler:
 
 - Electron masaüstü
-- GitHub Pages web demo
+- GitHub Pages web
 
 Temel ilkeler:
 
@@ -141,6 +141,20 @@ Refactor sırası `state -> bridge -> script.js` olarak ilerleyecekse, önce sah
 - Runtime katmanlarında hesap ile render ayrımı korunur.
 - Viewport'a bağlı görselleştirmelerde viewport değişimi cache anahtarına dahil edilir.
 - `Bağlantı Kareleri` gibi beta durumundaki katmanlarda hesap metodunu sık değiştirmek yerine önce görsel kalibrasyon, legend ve boş hücre sunumu düzeltilir.
+
+### Büyük Feed Performans Çizgisi
+
+Büyük feed mimarisinde şu kurallar artık fiilen geçerlidir:
+
+- routeCatalog ve timetable indeksleri tam veriyle yaşar
+- harita/runtime veri seti seçmeli ve kademeli büyüyebilir
+- cap dışı bir route seçildiğinde o route için ayrı runtime subset yüklenebilir
+- araç, trail ve heatmap katmanları viewport ve kalite seviyesine göre daraltılabilir
+- `TripsLayer` bütçesi, ikon/head bütçesinden daha sert olabilir
+- çok kalabalık durumda trail, ikon, etiket ve 3D katmanları koşullu kapanabilir
+- `webglcontextlost` sonrasında sistem safe mode'a geçip pahalı katmanları kapatarak kendini hafifletir
+
+Bu çizgi, büyük feed desteğini "tam veriyi her zaman aynı anda çiz" yaklaşımından bilinçli olarak ayırır.
 
 ## Web Demo Notu
 

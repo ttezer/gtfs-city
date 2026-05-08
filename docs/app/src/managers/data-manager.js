@@ -478,7 +478,6 @@ window.DataManager = (function () {
       trip._tsPatched = true;
       patched++;
     }
-    console.log(`[patchTrips] ${patched} patch edildi, ${skipped} atlandı (start_time yok)`);
   }
 
   function attachStopSequencesFromDeps(trips, stopDeps) {
@@ -600,14 +599,242 @@ window.DataManager = (function () {
         duration: 1200,
       });
     }
-    if (runtimeData.nSTOP_DEPS && Object.keys(runtimeData.nSTOP_DEPS).length > 0) {
-      setTimeout(ctx.buildAdjacencyList, 200);
-    }
     if (!ctx.getBaseRuntimeData?.() && runtimeData.nTRIPS.length > 0) {
       ctx.setBaseRuntimeData?.(ctx.captureRuntimeDataSnapshot());
     }
     ctx.updateWarningDashboard();
     ctx.updateLandingPageReports();
+  }
+
+  function getFilteredTripMetaForServices(tripMeta, activeServiceIds) {
+    const ids = activeServiceIds instanceof Set ? activeServiceIds : new Set(activeServiceIds || []);
+    if (!ids.size || (ids.size === 1 && ids.has('all'))) return tripMeta;
+    return Object.fromEntries(Object.entries(tripMeta || {}).filter(([, meta]) => ids.has(meta.service_id)));
+  }
+
+  function buildRuntimeTripSelection(filteredTripMeta, tripStops) {
+    const totalTripCount = Object.keys(filteredTripMeta || {}).length;
+    const tripCap = totalTripCount <= 10000 ? Infinity : totalTripCount <= 30000 ? 12000 : 15000;
+    let cappedTripMeta = filteredTripMeta;
+    let cappedTripStops = tripStops;
+    if (tripCap < totalTripCount) {
+      const selectedKeys = [];
+      const selectedSet = new Set();
+      const representativeByRoute = new Set();
+      for (const [key, meta] of Object.entries(filteredTripMeta)) {
+        const routeId = String(meta?.route_id || '').trim();
+        if (!routeId || representativeByRoute.has(routeId)) continue;
+        representativeByRoute.add(routeId);
+        selectedSet.add(key);
+        selectedKeys.push(key);
+        if (selectedKeys.length >= tripCap) break;
+      }
+      if (selectedKeys.length < tripCap) {
+        for (const key of Object.keys(filteredTripMeta)) {
+          if (selectedSet.has(key)) continue;
+          selectedSet.add(key);
+          selectedKeys.push(key);
+          if (selectedKeys.length >= tripCap) break;
+        }
+      }
+      const keySet = new Set(selectedKeys);
+      cappedTripMeta = Object.fromEntries(selectedKeys.map((key) => [key, filteredTripMeta[key]]));
+      cappedTripStops = Object.fromEntries(Object.entries(tripStops || {}).filter(([key]) => keySet.has(key)));
+    }
+    return { totalTripCount, tripCap, cappedTripMeta, cappedTripStops };
+  }
+
+  function buildTariffIndexes(filteredTripMeta, tripStops, routeMap) {
+    const tariffIndex = {};
+    const stopTariffIndex = {};
+    for (const [tripId, meta] of Object.entries(filteredTripMeta || {})) {
+      const routeId = String(meta?.route_id || '').trim();
+      const route = routeMap?.[routeId];
+      if (!route) continue;
+      const stops = tripStops?.[tripId] || [];
+      const times = stops.map(([, sec]) => sec).filter((s) => Number.isFinite(s));
+      if (!times.length) continue;
+      tariffIndex[tripId] = {
+        rid: routeId,
+        s: route.short || '',
+        t: route.type || '',
+        sid: meta.service_id || '',
+        dir: meta.direction_id,
+        h: meta.head || '',
+        ts: times,
+      };
+      stops.forEach(([stopSequence, departureSecs, stopId, arrivalSecs, pickupType, dropOffType]) => {
+        if (!stopId || !Number.isFinite(departureSecs)) return;
+        if (!stopTariffIndex[stopId]) stopTariffIndex[stopId] = [];
+        stopTariffIndex[stopId].push({
+          trip_id: tripId,
+          rid: routeId,
+          s: route.short || '',
+          t: route.type || '',
+          sid: meta.service_id || '',
+          dir: meta.direction_id,
+          seq: stopSequence,
+          dep: departureSecs,
+          arr: Number.isFinite(arrivalSecs) ? arrivalSecs : departureSecs,
+          h: meta.head || '',
+          pickup_type: Number.isFinite(pickupType) ? pickupType : 0,
+          drop_off_type: Number.isFinite(dropOffType) ? dropOffType : 0,
+        });
+      });
+    }
+    Object.values(stopTariffIndex).forEach((entries) => entries.sort((left, right) => left.dep - right.dep));
+    return { tariffIndex, stopTariffIndex };
+  }
+
+  async function buildRuntimeDataForActiveServices(preparedSource, activeServiceIds, setProgress) {
+    const filteredTripMeta = getFilteredTripMetaForServices(preparedSource.tripMeta, activeServiceIds);
+    const { totalTripCount, tripCap, cappedTripMeta, cappedTripStops } = buildRuntimeTripSelection(filteredTripMeta, preparedSource.tripStops);
+    const { tariffIndex, stopTariffIndex } = buildTariffIndexes(filteredTripMeta, preparedSource.tripStops, preparedSource.routeMap);
+
+    const runtimeData = await window.GtfsUtils.buildGtfsRuntimeDataAsync(
+      preparedSource.routeMap,
+      preparedSource.shapePts,
+      preparedSource.stopsMap,
+      cappedTripMeta,
+      cappedTripStops,
+      setProgress,
+    );
+    runtimeData.capped = tripCap < totalTripCount;
+    runtimeData.totalTrips = totalTripCount;
+    runtimeData.tripCap = tripCap;
+    runtimeData.tariffIndex = tariffIndex;
+    runtimeData.stopTariffIndex = stopTariffIndex;
+
+    // Tüm seferlerin service_id başına sayısı — takvim yoğunluk haritası için (filtresiz)
+    const tripCountBySid = {};
+    for (const meta of Object.values(preparedSource.tripMeta || {})) {
+      const sid = meta?.service_id || '';
+      if (sid) tripCountBySid[sid] = (tripCountBySid[sid] || 0) + 1;
+    }
+    runtimeData.tripCountBySid = tripCountBySid;
+
+    const routeIdsWithShape = new Set();
+    const routeIdsWithTrips = new Set();
+    for (const [, meta] of Object.entries(cappedTripMeta)) {
+      const routeId = String(meta?.route_id || '').trim();
+      if (!routeId) continue;
+      routeIdsWithTrips.add(routeId);
+      if (meta.shape_id && preparedSource.shapePts[meta.shape_id]?.length >= 2) routeIdsWithShape.add(routeId);
+    }
+    runtimeData.missingShapeRouteCount = [...routeIdsWithTrips].filter((rid) => !routeIdsWithShape.has(rid)).length;
+    runtimeData.calendarRows = preparedSource.calendarRows || [];
+    runtimeData.calendarDateRows = preparedSource.calendarDateRows || [];
+
+    return { runtimeData, filteredTripMeta, totalTripCount, tripCap };
+  }
+
+  async function rebuildRuntimeForActiveServices(options = {}) {
+    const ctx = getCtx();
+    if (!ctx) return false;
+    const preparedSource = options.source || ctx.getPreparedGtfsSource?.();
+    if (!preparedSource?.routeMap || !preparedSource?.shapePts || !preparedSource?.stopsMap || !preparedSource?.tripMeta || !preparedSource?.tripStops) {
+      return false;
+    }
+    const activeServiceIds = options.activeServiceIds instanceof Set
+      ? options.activeServiceIds
+      : new Set(options.activeServiceIds || ctx.getActiveServiceIds?.() || []);
+    const setProgress = typeof options.setProgress === 'function' ? options.setProgress : null;
+    const { runtimeData, filteredTripMeta, totalTripCount, tripCap } = await buildRuntimeDataForActiveServices(preparedSource, activeServiceIds, setProgress);
+    if (!runtimeData?.nTRIPS?.length) return false;
+
+    ctx.setRouteCatalog?.(preparedSource.allRouteCatalog || []);
+    ctx.setRouteRuntimeSource?.({
+      routeMap: preparedSource.routeMap,
+      shapePts: preparedSource.shapePts,
+      stopsMap: preparedSource.stopsMap,
+      tripMeta: filteredTripMeta,
+      tripStops: preparedSource.tripStops,
+      activeServiceIds: new Set(activeServiceIds || []),
+    });
+    applyGtfsRuntimeData(runtimeData);
+
+    if (options.landingUpload && isLandingVisible()) {
+      updateLandingLoadingState(100, localizedUploadLabel('loadingReadyShort', 'VERİ HAZIR'), {
+        routeCount: new Set(runtimeData.nTRIPS.map((trip) => trip.s)).size,
+        tripCount: runtimeData.nTRIPS.length,
+        stopCount: runtimeData.nSTOPS.length,
+      });
+    }
+    if (runtimeData.capped && options.showCapWarning !== false) {
+      ctx.showToast?.(
+        `⚠️ ${totalTripCount.toLocaleString()} sefer var — yalnızca ilk ${tripCap.toLocaleString()} tanesi yüklendi. Performans sınırlı olabilir.`,
+        'warning',
+        8000
+      );
+    }
+    return true;
+  }
+
+  async function loadRouteRuntimeSubset(routeId) {
+    const ctx = getCtx();
+    const rid = String(routeId || '').trim();
+    if (!ctx || !rid) return false;
+    if (ctx.isRuntimeRouteLoaded?.(rid)) return true;
+    if (ctx.isRuntimeRouteLoading?.(rid)) return false;
+    const source = ctx.getRouteRuntimeSource?.();
+    if (!source?.routeMap || !source?.shapePts || !source?.stopsMap || !source?.tripMeta || !source?.tripStops) {
+      return false;
+    }
+
+    ctx.setRuntimeRouteLoading?.(rid, true);
+    const requestSeq = ctx.beginRuntimeRouteRequest?.(rid);
+    try {
+      ctx.showToast?.(translate('routeScopedLoading', 'Seçilen hattın runtime verisi yükleniyor...'), 'info');
+      const runtimeData = await window.GtfsUtils.buildGtfsRuntimeDataAsync(
+        source.routeMap,
+        source.shapePts,
+        source.stopsMap,
+        source.tripMeta,
+        source.tripStops,
+        null,
+        {
+          routeIds: [rid],
+          tripCap: Infinity,
+          includeStops: true,
+          includeHourlyStats: false,
+          maxDepsPerStop: 160,
+          maxStops: Infinity,
+        }
+      );
+      if (!runtimeData?.nTRIPS?.length && !runtimeData?.nSHAPES?.length) return false;
+      if (requestSeq && !ctx.isRuntimeRouteRequestCurrent?.(rid, requestSeq)) {
+        return false;
+      }
+
+      ctx.mergeRuntimeCollections?.(runtimeData);
+      patchTripsAbsoluteTime(ctx.getTrips(), ctx.getStopDeps());
+      normalizeTripStopOffsets(ctx.getTrips());
+      attachStopSequencesFromDeps(ctx.getTrips(), ctx.getStopDeps());
+      ctx.getTrips().forEach((trip, index) => {
+        if (trip._delay == null) trip._delay = Math.random() > 0.8 ? Math.floor(Math.random() * 600) : 0;
+        trip._idx = index;
+        trip.id = index;
+      });
+      ctx.setStopNames?.(Object.entries(ctx.AppState.stopInfo).map(([sid, info]) => [
+        ctx.displayText(info[2] || '').toLowerCase(),
+        sid,
+        info[0],
+        info[1],
+        ctx.displayText(info[2] || ''),
+      ]));
+      ctx.resetRuntimeCaches?.();
+      ctx.buildRouteList?.();
+      ctx.buildStopList?.();
+      ctx.refreshLayersNow?.();
+      ctx.showToast?.(translate('routeScopedLoaded', 'Seçilen hattın runtime verisi yüklendi.'), 'info');
+      return true;
+    } catch (error) {
+      console.error('[GTFS Route Runtime] hata:', error, rid);
+      ctx.showToast?.(translate('routeScopedLoadFailed', 'Seçilen hattın runtime verisi yüklenemedi.'), 'error');
+      return false;
+    } finally {
+      ctx.setRuntimeRouteLoading?.(rid, false);
+    }
   }
 
   async function loadGtfsIntoSim(files, zipFileName, forceServiceId, forceServiceIds) {
@@ -672,6 +899,28 @@ window.DataManager = (function () {
       if (loaderText && !landingUpload) loaderText.textContent = 'Veri Haritası Oluşturuluyor...';
       await new Promise((resolve) => setTimeout(resolve, 50));
       const routeMap = ctx.buildRouteMap(tables.routeRows);
+      const agencyById = Object.fromEntries(
+        (tables.agencyRows || []).map((row) => [
+          String(row.agency_id || '').trim(),
+          String(row.agency_name || '').trim(),
+        ])
+      );
+      const allRouteCatalog = tables.routeRows.map((row) => {
+        const routeId = String(row.route_id || '').trim();
+        const route = routeMap[routeId];
+        if (!route) return null;
+        const agencyId = String(row.agency_id || '').trim();
+        return {
+          k: routeId,
+          rid: routeId,
+          aid: agencyId,
+          an: agencyById[agencyId] || '',
+          s: route.short,
+          c: route.color,
+          t: route.type,
+          ln: route.longName || '',
+        };
+      }).filter(Boolean);
       setProgress(14);
       const shapePts = ctx.buildShapePoints(tables.shapeRows);
       setProgress(18);
@@ -706,6 +955,7 @@ window.DataManager = (function () {
       if (autoResult.serviceId !== 'all') ctx.showToast(translate('gtfsCalendarAutoSelected', 'GTFS takvimi bugüne uygun olarak otomatik seçildi.'), 'info');
         }
         selectedServiceId = autoResult.serviceId;
+        ctx.setActiveServiceDate?.(autoResult.selectedDate || '');
         ctx.setActiveServiceId(autoResult.serviceId);
         ctx.setActiveServiceIds(autoResult.serviceIds || new Set([autoResult.serviceId]));
       }
@@ -717,10 +967,20 @@ window.DataManager = (function () {
       }
 
       const activeServiceIds = ctx.getActiveServiceIds();
-      const filteredTripMeta = activeServiceIds.size > 0 && !(activeServiceIds.size === 1 && [...activeServiceIds][0] === 'all')
-        ? Object.fromEntries(Object.entries(tripMeta).filter(([, meta]) => activeServiceIds.has(meta.service_id)))
-        : tripMeta;
+      const preparedSource = {
+        routeMap,
+        shapePts,
+        stopsMap,
+        tripMeta,
+        tripStops,
+        allRouteCatalog,
+        calendarRows: tables.calendarRows || [],
+        calendarDateRows: tables.calendarDateRows || [],
+        zipFileName,
+      };
+      ctx.setPreparedGtfsSource?.(preparedSource);
 
+      const filteredTripMeta = getFilteredTripMetaForServices(tripMeta, activeServiceIds);
       const totalTripCount = Object.keys(filteredTripMeta).length;
       if (isLandingVisible()) {
     updateLandingLoadingState(29, localizedUploadLabel('loadingTripsPreparingShort', 'SEFERLER HAZIRLANIYOR'), {
@@ -729,49 +989,19 @@ window.DataManager = (function () {
           stopCount: tables.stopRows.length,
         });
       }
-      const tripCap = totalTripCount <= 30000 ? Infinity : totalTripCount <= 100000 ? 25000 : 30000;
-      let cappedTripMeta = filteredTripMeta;
-      let cappedTripStops = tripStops;
-      if (tripCap < totalTripCount) {
-        const keys = Object.keys(filteredTripMeta).slice(0, tripCap);
-        const keySet = new Set(keys);
-        cappedTripMeta = Object.fromEntries(keys.map((key) => [key, filteredTripMeta[key]]));
-        cappedTripStops = Object.fromEntries(Object.entries(tripStops).filter(([key]) => keySet.has(key)));
-        const locale = window.I18n?.getLanguage?.() === 'en' ? 'en-US' : 'tr-TR';
-        console.warn(
-          `[GTFS] Büyük besleme: ${totalTripCount.toLocaleString(locale)} sefer bulundu, ${tripCap.toLocaleString(locale)} tanesi yüklendi (cap).`
-        );
-        ctx.showToast(
-          `⚠️ ${totalTripCount.toLocaleString()} sefer var — yalnızca ilk ${tripCap.toLocaleString()} tanesi yüklendi. Performans sınırlı olabilir.`,
-          'warning',
-          8000
-        );
-      }
-
       if (loaderText && !landingUpload) loaderText.textContent = '3D Rotalar ve Seferler İşleniyor...';
-      const runtimeData = await window.GtfsUtils.buildGtfsRuntimeDataAsync(
-        routeMap,
-        shapePts,
-        stopsMap,
-        cappedTripMeta,
-        cappedTripStops,
-        (pct) => setProgress(30 + Math.round(pct * 0.7)),
-      );
-      if (!runtimeData.nTRIPS.length) {
+      const rebuilt = await rebuildRuntimeForActiveServices({
+        source: preparedSource,
+        activeServiceIds,
+        setProgress: (pct) => setProgress(30 + Math.round(pct * 0.7)),
+        landingUpload,
+      });
+      if (!rebuilt) {
         ctx.pushGtfsError('GTFS_NO_TRIPS', 'Yüklenebilir sefer bulunamadı', zipFileName);
         if (overlay && !landingUpload) overlay.classList.add('hidden');
         return false;
       }
-
       ctx.resetViewToggles();
-      applyGtfsRuntimeData(runtimeData);
-      if (isLandingVisible()) {
-    updateLandingLoadingState(100, localizedUploadLabel('loadingReadyShort', 'VERİ HAZIR'), {
-          routeCount: new Set(runtimeData.nTRIPS.map((trip) => trip.s)).size,
-          tripCount: runtimeData.nTRIPS.length,
-          stopCount: runtimeData.nSTOPS.length,
-        });
-      }
       if (overlay && !landingUpload) {
         if (loaderText) loaderText.textContent = 'Tamamlandı!';
         setTimeout(() => overlay.classList.add('hidden'), 500);
@@ -846,7 +1076,10 @@ window.DataManager = (function () {
     setTimeout(() => {
       if (!silentImport) renderGtfsConfirmRow();
       if (shouldCloseModal) closeGTFSModal();
-      if (openMap) ctx.toggleUI(true);
+      if (openMap) {
+        ctx.setActiveWorkspace?.('analiz');
+        ctx.toggleUI(true);
+      }
     }, 900);
   }
 
@@ -908,6 +1141,8 @@ window.DataManager = (function () {
     buildUploadedCityMeta,
     patchTripsAbsoluteTime,
     applyGtfsRuntimeData,
+    rebuildRuntimeForActiveServices,
+    loadRouteRuntimeSubset,
     loadGtfsIntoSim,
     openGTFSModal,
     closeGTFSModal,

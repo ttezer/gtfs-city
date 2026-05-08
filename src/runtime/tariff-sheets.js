@@ -29,13 +29,16 @@ function getCalendarDateBounds() {
 // ---------------------------------------------------------------------------
 function syncTariffDateInputs() {
   const { minDate, maxDate } = getCalendarDateBounds();
-  const currentPickerValue = document.getElementById('service-date-picker')?.value || maxDate || new Date().toISOString().slice(0, 10);
+  const currentPickerValue = AppState.activeServiceDate
+    || document.getElementById('service-date-picker')?.value
+    || maxDate
+    || new Date().toISOString().slice(0, 10);
   ['route-tariff-date', 'stop-tariff-date'].forEach((id) => {
     const input = document.getElementById(id);
     if (!input) return;
     input.min = minDate || '';
     input.max = maxDate || '';
-    if (!input.value) input.value = currentPickerValue;
+    if (input.value !== currentPickerValue) input.value = currentPickerValue;
   });
 }
 
@@ -104,6 +107,7 @@ function resolveStopInputValue() {
 // ---------------------------------------------------------------------------
 function getActiveTariffDate(type) {
   return document.getElementById(type === 'route' ? 'route-tariff-date' : 'stop-tariff-date')?.value
+    || AppState.activeServiceDate
     || document.getElementById('service-date-picker')?.value
     || new Date().toISOString().slice(0, 10);
 }
@@ -119,40 +123,43 @@ function buildRouteTariffData(routeSelection, directionValue) {
     (routeId ? trip.rid === routeId : trip.s === routeShort)
     && (directionValue === 'all' || String(trip.dir) === String(directionValue))
   );
-  const directionGroups = new Map();
+  const directionGroups = new Map(); // key: "dir|headsign"
   routeTrips.forEach((trip) => {
-    const label = inferTripDirectionLabel(trip);
+    const headsign = trip.h || '';
+    const key = `${trip.dir ?? '?'}|${headsign}`;
     const startSec = trip.ts?.[0];
     if (!Number.isFinite(startSec)) return;
-    if (!directionGroups.has(label)) directionGroups.set(label, []);
-    directionGroups.get(label).push(secsToHHMM(startSec % 86400));
+    if (!directionGroups.has(key)) {
+      directionGroups.set(key, { dir: trip.dir, dirLabel: inferTripDirectionLabel(trip), headsign, times: [] });
+    }
+    directionGroups.get(key).times.push(secsToHHMM(startSec % 86400));
   });
-  directionGroups.forEach((times, label) => {
-    directionGroups.set(label, [...new Set(times)].sort());
+  directionGroups.forEach((group) => {
+    group.times = [...new Set(group.times)].sort();
   });
   return { routeTrips, directionGroups };
 }
 
 function buildStopTariffData(stopId) {
-  const deps = AppState.stopDeps?.[stopId] || [];
+  const deps = AppState.stopTariffIndex?.[stopId] || [];
   const grouped = new Map();
   const tripIds = new Set();
-  deps.forEach(([tripIdx, offset, routeShort]) => {
-    const trip = AppState.trips[tripIdx];
-    if (!trip) return;
-    const absSec = getAbsoluteDepartureSec(trip, offset);
-    if (!Number.isFinite(absSec)) return;
-    tripIds.add(`${tripIdx}|${absSec}`);
-    const key = `${routeShort || trip.s}|${inferTripDirectionLabel(trip)}`;
+  deps.forEach((entry) => {
+    if (!entry || !Number.isFinite(entry.dep) || entry.pickup_type === 1) return;
+    tripIds.add(entry.trip_id);
+    const direction = inferTripDirectionLabel({ dir: entry.dir, h: entry.h });
+    const key = `${entry.rid || entry.s}|${direction}`;
     if (!grouped.has(key)) {
       grouped.set(key, {
-        routeShort: routeShort || trip.s,
-        direction: inferTripDirectionLabel(trip),
-        longName: displayText(trip.ln || trip.h || ''),
+        routeId: entry.rid || '',
+        routeShort: entry.s || '',
+        routeType: entry.t || '',
+        direction,
+        longName: displayText(entry.h || ''),
         times: [],
       });
     }
-    grouped.get(key).times.push(secsToHHMM(absSec % 86400));
+    grouped.get(key).times.push(secsToHHMM(entry.dep % 86400));
   });
   grouped.forEach((entry) => {
     entry.times = [...new Set(entry.times)].sort();
@@ -175,7 +182,7 @@ function updateRouteTariffSummary() {
     return;
   }
   const { routeTrips, directionGroups } = buildRouteTariffData(routeSelection, document.getElementById('route-tariff-direction')?.value || 'all');
-  const times = Array.from(directionGroups.values()).flat();
+  const times = Array.from(directionGroups.values()).flatMap((g) => g.times);
   const routeMeta = (AppState.routeCatalog || []).find((route) => route.rid === routeSelection.rid) || null;
   summary.innerHTML = `
     <strong>${routeSelection.short}</strong>${routeMeta?.an ? `<br>${displayText(routeMeta.an)}` : ''}<br>
@@ -293,16 +300,23 @@ function buildRouteTariffSheet() {
   const routeCatalogEntry = (AppState.routeCatalog || []).find((route) => route.rid === routeSelection?.rid || route.s === routeShort) || null;
   const routeMeta = getRouteMeta(routeShort, routeCatalogEntry?.t, routeCatalogEntry?.c, routeCatalogEntry?.ln || routeCatalogEntry?.an || '');
   const { routeTrips, directionGroups } = buildRouteTariffData(routeSelection, directionValue);
-  const directionOrder = { 'Gidiş': 0, Outbound: 0, 'Dönüş': 1, Inbound: 1 };
-  const directionRows = [...directionGroups.entries()]
-    .sort((left, right) => (directionOrder[left[0]] ?? 99) - (directionOrder[right[0]] ?? 99) || left[0].localeCompare(right[0], 'tr'))
-    .map(([label, times]) => `
+  const directionRows = [...directionGroups.values()]
+    .sort((a, b) => (a.dir ?? 99) - (b.dir ?? 99) || (a.headsign || '').localeCompare(b.headsign || '', 'tr'))
+    .map((group) => {
+      const dirCode = group.dir === 0 ? 'G' : group.dir === 1 ? 'D' : '?';
+      const dirName = tariffText(
+        group.dir === 0 ? 'Gidiş' : group.dir === 1 ? 'Dönüş' : group.dirLabel,
+        group.dir === 0 ? 'Outbound' : group.dir === 1 ? 'Inbound' : group.dirLabel
+      );
+      return `
       <tr>
-        <td>${label}</td>
-        <td>${times.length}</td>
-        <td><div class="tariff-times">${times.map((time) => `<span class="tariff-chip">${time}</span>`).join('')}</div></td>
+        <td><span class="tariff-dir-badge">${dirCode}</span> ${dirName}</td>
+        <td>${displayText(group.headsign) || '—'}</td>
+        <td>${group.times.length}</td>
+        <td><div class="tariff-times">${group.times.map((time) => `<span class="tariff-chip">${time}</span>`).join('')}</div></td>
       </tr>
-    `).join('');
+    `;
+    }).join('');
   return `
     <article class="tariff-sheet ${style}">
       <div class="tariff-brand">
@@ -318,8 +332,8 @@ function buildRouteTariffSheet() {
         <div class="tariff-meta-card"><div class="tariff-meta-label">${tariffText('Sefer', 'Trips')}</div><div class="tariff-meta-value">${routeTrips.length}</div></div>
       </div>
       <table class="tariff-table">
-        <thead><tr><th>${tariffText('Yön', 'Direction')}</th><th>${tariffText('Sefer', 'Trips')}</th><th>${tariffText('Saatler', 'Times')}</th></tr></thead>
-        <tbody>${directionRows || `<tr><td colspan="3">${tariffText('Bu seçim için saat bulunamadı.', 'No times found for this selection.')}</td></tr>`}</tbody>
+        <thead><tr><th>${tariffText('Yön', 'Direction')}</th><th>${tariffText('Varyant', 'Variant')}</th><th>${tariffText('Sefer', 'Trips')}</th><th>${tariffText('Saatler', 'Times')}</th></tr></thead>
+        <tbody>${directionRows || `<tr><td colspan="4">${tariffText('Bu seçim için saat bulunamadı.', 'No times found for this selection.')}</td></tr>`}</tbody>
       </table>
       ${renderTariffFooter()}
     </article>
@@ -338,7 +352,7 @@ function buildStopTariffSheet() {
   const { rows, tripCount } = buildStopTariffData(stopId);
   const tableRows = rows.map((row) => `
     <tr>
-      <td>${row.routeShort}</td>
+      <td><span class="route-code-badge">${row.routeShort}</span></td>
       <td>${row.direction}</td>
       <td>${displayText(row.longName || '—')}</td>
       <td><div class="tariff-times">${row.times.map((time) => `<span class="tariff-chip">${time}</span>`).join('')}</div></td>
@@ -415,11 +429,17 @@ function initializeTariffUi() {
   document.getElementById('route-tariff-toggle-btn')?.addEventListener('click', () => {
     syncTariffDateInputs();
     buildRouteTariffOptions();
+    const routeInput = document.getElementById('route-tariff-input');
+    if (routeInput) routeInput.value = '';
+    updateRouteTariffSummary();
     openTariffModal('route');
   });
   document.getElementById('stop-tariff-toggle-btn')?.addEventListener('click', () => {
     syncTariffDateInputs();
     buildStopTariffOptions();
+    const stopInput = document.getElementById('stop-tariff-input');
+    if (stopInput) stopInput.value = '';
+    updateStopTariffSummary();
     openTariffModal('stop');
   });
   document.getElementById('route-tariff-close')?.addEventListener('click', () => closeTariffModal('route'));
@@ -444,5 +464,10 @@ function initializeTariffUi() {
   });
   window.addEventListener('afterprint', () => {
     closeTariffOutput();
+  });
+  window.addEventListener('app-service-date-change', () => {
+    syncTariffDateInputs();
+    updateRouteTariffSummary();
+    updateStopTariffSummary();
   });
 }

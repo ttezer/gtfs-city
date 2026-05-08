@@ -20,9 +20,19 @@ const {
 const AppState = {
   trips: typeof TRIPS !== 'undefined' ? TRIPS : [],
   shapes: typeof SHAPES !== 'undefined' ? SHAPES : [],
+  routeCatalog: [],
+  preparedGtfsSource: null,
+  routeRuntimeSource: null,
+  loadedRuntimeRouteIds: new Set(),
+  loadingRuntimeRouteIds: new Set(),
+  routeRuntimeRequestSeq: 0,
+  lastRequestedRuntimeRouteId: null,
+  activeWorkspace: 'harita',
+  activeServiceDate: '',
   stops: typeof STOPS !== 'undefined' ? STOPS : [],
   stopInfo: typeof STOP_INFO !== 'undefined' ? STOP_INFO : {},
   stopDeps: typeof STOP_DEPS !== 'undefined' ? STOP_DEPS : {},
+  stopTariffIndex: {},
   hourlyCounts: typeof HOURLY_COUNTS !== 'undefined' ? HOURLY_COUNTS : new Array(24).fill(0),
   hourlyHeat: typeof HOURLY_HEAT !== 'undefined' ? HOURLY_HEAT : {},
   adj: typeof ADJ !== 'undefined' ? ADJ : {},
@@ -277,8 +287,14 @@ async function createConnectivityWorkerInstance() {
 
 async function startConnectivityWorker() {
   if (AppState.stopConnectivityScores?.meta?.validation_summary) return;
-  if (!Object.keys(AppState.stopInfo || {}).length || !Object.keys(AppState.stopDeps || {}).length) return;
+  if (!Object.keys(AppState.stopInfo || {}).length || !Object.keys(AppState.stopDeps || {}).length) {
+    console.warn('[Connectivity] stopInfo veya stopDeps boş, bağlantı kareleri hesaplanamıyor');
+    return;
+  }
 
+  if (!Object.keys(AppState.adj || {}).length) {
+    buildAdjacencyList();
+  }
   if (connectivityWorker) {
     connectivityWorker.terminate();
     connectivityWorker = null;
@@ -294,6 +310,7 @@ async function startConnectivityWorker() {
 
   worker.onmessage = (event) => {
     const msg = event.data || {};
+    console.log('[ConnectivityWorker] mesaj alındı:', msg.type);
     if (msg.type === 'PROGRESS') {
       window.dispatchEvent(new CustomEvent('stop-connectivity-progress', { detail: msg.detail }));
       return;
@@ -323,6 +340,10 @@ async function startConnectivityWorker() {
     ensureConnectivityViewportScores();
   };
 
+  console.log('[ConnectivityWorker] postMessage gönderiliyor', {
+    tripsCount: AppState.trips?.length,
+    adjCount: Object.keys(AppState.adj || {}).length,
+  });
   worker.postMessage({
     type: 'START',
     trips: AppState.trips,
@@ -388,7 +409,7 @@ let stopCoverageStrokeColorHex = '#58a6ff';
 let stopCoverageStrokeWidthPx = 2;
 let stopCoverageMode = 'fill-stroke';
 let showHeatmap = false, heatmapHour = 8, heatmapFollowSim = false;
-let showTrail = false;
+let showTrail = true;
 let currentMapStyle = 'auto'; // 'auto', 'satellite', 'dark', 'light'
 let typeFilter = 'all';
 let connectivityGridPerfOpenAt = 0;
@@ -397,7 +418,8 @@ const CONNECTIVITY_VIEWPORT_STOP_LIMIT = 250;
 let connectivityWorker = null;
 let activeRoutes = new Set();
 let focusedRoute = null;
-let selectedRouteDirection = null;
+let focusedRouteId = null;
+let selectedPatternKey = null; // { dir: 0|1|null, h: string } | null
 let followTripIdx = null, selectedTripIdx = null;
 let selectedEntity = null, panelPauseOwner = null;
 let isReplay = false, replayLoop = false;
@@ -653,6 +675,25 @@ function computeAverageHeadwaySeconds(deps) {
     ? window.SimUtils.computeAverageHeadwaySeconds(normalizedDeps, HEADWAY_CFG)
     : null;
 }
+function computeStopHeadwaySeconds(stopId) {
+  const entries = AppState.stopTariffIndex?.[stopId];
+  if (!entries?.length) return null;
+  const minGap = HEADWAY_CFG?.minGapSeconds ?? 60;
+  const maxGap = HEADWAY_CFG?.maxGapSeconds ?? 7200;
+  const offsets = [...new Set(
+    entries
+      .filter((e) => Number.isFinite(e.dep) && e.pickup_type !== 1)
+      .map((e) => Math.round(e.dep))
+  )].sort((a, b) => a - b);
+  if (offsets.length < 2) return null;
+  const gaps = [];
+  for (let i = 1; i < offsets.length; i++) {
+    const gap = offsets[i] - offsets[i - 1];
+    if (gap >= minGap && gap <= maxGap) gaps.push(gap);
+  }
+  if (!gaps.length) return null;
+  return gaps.reduce((sum, g) => sum + g, 0) / gaps.length;
+}
 function findNearestStopName(pathPoint) {
   return window.UiUtils
     ? window.UiUtils.findNearestStopName(pathPoint, AppState.stopInfo, haversineM, displayText)
@@ -753,19 +794,22 @@ function setPlaybackState(patch = {}) {
 }
 function getFocusedStopsData() {
   if (!focusedRoute) return null;
-  if (_focusedStopIdsCache?.route === focusedRoute && _focusedStopIdsCache?.direction === selectedRouteDirection) return _focusedStopIdsCache.data;
+  const _patCacheStr = selectedPatternKey ? `${selectedPatternKey.dir ?? '?'}:${selectedPatternKey.h || ''}` : null;
+  if (_focusedStopIdsCache?.route === focusedRoute && _focusedStopIdsCache?.routeId === focusedRouteId && _focusedStopIdsCache?.patternKey === _patCacheStr) return _focusedStopIdsCache.data;
   const data = [];
-  for (const [sid, deps] of Object.entries(AppState.stopDeps)) {
-    if (deps?.some(dep => {
-      const trip = AppState.trips[dep[0]];
-      return trip?.s === focusedRoute
-        && (selectedRouteDirection === null || trip?.dir === selectedRouteDirection);
-    })) {
-      const info = AppState.stopInfo[sid];
-      if (info) data.push({ sid, pos: [info[0], info[1]], name: displayText(info[2]), code: displayText(info[3] || sid) });
-    }
+  const tariff = AppState.stopTariffIndex || {};
+  for (const [sid, info] of Object.entries(AppState.stopInfo)) {
+    const entries = tariff[sid];
+    if (!entries?.length) continue;
+    const matches = entries.some(e => {
+      const routeMatch = focusedRouteId ? e.rid === focusedRouteId : e.s === focusedRoute;
+      // eslint-disable-next-line eqeqeq
+      return routeMatch && (selectedPatternKey === null || (e.dir == selectedPatternKey.dir && (!selectedPatternKey.h || e.h === selectedPatternKey.h)));
+    });
+    if (!matches) continue;
+    data.push({ sid, pos: [info[0], info[1]], name: displayText(info[2]), code: displayText(info[3] || sid) });
   }
-  _focusedStopIdsCache = { route: focusedRoute, direction: selectedRouteDirection, data };
+  _focusedStopIdsCache = { route: focusedRoute, routeId: focusedRouteId, patternKey: _patCacheStr, data };
   return data;
 }
 function getFilteredStopsData() {
@@ -773,27 +817,29 @@ function getFilteredStopsData() {
     return getFocusedStopsData()?.map((entry) => [entry.pos[0], entry.pos[1], entry.name || entry.sid, entry.sid, entry.name || entry.sid]) || [];
   }
   if (typeFilter === 'all' && activeRoutes.size === 0) return AppState.stops;
+  const tariff = AppState.stopTariffIndex || {};
   const activeRoutesKey = activeRoutes.size ? [...activeRoutes].sort().join('|') : '';
-  const cacheKey = `${typeFilter}|${activeRoutesKey}|${AppState.trips.length}|${Object.keys(AppState.stopDeps || {}).length}`;
+  const cacheKey = `${typeFilter}|${activeRoutesKey}|${Object.keys(tariff).length}`;
   if (_filteredStopsCache?.key === cacheKey) return _filteredStopsCache.data;
   const data = [];
-  for (const [sid, deps] of Object.entries(AppState.stopDeps || {})) {
-    const hasVisibleTrip = (deps || []).some((dep) => {
-      const trip = AppState.trips[dep[0]];
-      if (!trip || activeRoutes.has(trip.s)) return false;
-      if (typeFilter !== 'all' && String(Number.parseInt(String(trip.t ?? '').trim(), 10)) !== typeFilter) return false;
+  for (const [sid, info] of Object.entries(AppState.stopInfo)) {
+    const entries = tariff[sid];
+    if (!entries?.length) continue;
+    const visible = entries.some((e) => {
+      if (typeFilter !== 'all' && String(Number.parseInt(String(e.t ?? '').trim(), 10)) !== typeFilter) return false;
+      if (activeRoutes.size > 0 && !activeRoutes.has(e.s)) return false;
       return true;
     });
-    if (!hasVisibleTrip) continue;
-    const info = AppState.stopInfo[sid];
-    if (info) data.push([info[0], info[1], displayText(info[2] || sid), sid, displayText(info[2] || sid)]);
+    if (!visible) continue;
+    data.push([info[0], info[1], displayText(info[2] || sid), sid, displayText(info[2] || sid)]);
   }
   _filteredStopsCache = { key: cacheKey, data };
   return data;
 }
 function getFilteredStopIdSet() {
   const stopData = getFilteredStopsData();
-  const cacheKey = `${typeFilter}|${focusedRoute || ''}|${selectedRouteDirection ?? 'all'}|${activeRoutes.size}|${stopData.length}`;
+  const patStr = selectedPatternKey ? `${selectedPatternKey.dir ?? '?'}:${selectedPatternKey.h || ''}` : 'all';
+  const cacheKey = `${typeFilter}|${focusedRoute || ''}|${focusedRouteId || ''}|${patStr}|${activeRoutes.size}|${stopData.length}`;
   if (_filteredStopIdSetCache?.key === cacheKey) return _filteredStopIdSetCache.data;
   const data = new Set(stopData.map((stop) => stop[3]));
   _filteredStopIdSetCache = { key: cacheKey, data };
@@ -894,16 +940,31 @@ function getHiddenRoutes() {
   return new Set(activeRoutes);
 }
 
-function isRouteHidden(routeShort) {
-  return activeRoutes.has(routeShort);
+function getRouteIdentityKey(routeLike) {
+  if (!routeLike || typeof routeLike !== 'object') return String(routeLike || '').trim();
+  if (routeLike.rid) return String(routeLike.rid).trim();
+  const short = String(routeLike.s || routeLike.short || '').trim();
+  const type = normalizeRouteType(routeLike.t ?? routeLike.type ?? '');
+  const agencyId = String(routeLike.aid || routeLike.agencyId || '').trim();
+  return `${agencyId || 'na'}::${type}::${short}`;
 }
 
-function hideRoute(routeShort) {
-  activeRoutes.add(routeShort);
+function isRouteHidden(routeLike) {
+  const key = getRouteIdentityKey(routeLike);
+  const short = typeof routeLike === 'object' ? String(routeLike.s || routeLike.short || '').trim() : key;
+  return activeRoutes.has(key) || (!!short && activeRoutes.has(short));
 }
 
-function showRoute(routeShort) {
-  activeRoutes.delete(routeShort);
+function hideRoute(routeLike) {
+  const key = getRouteIdentityKey(routeLike);
+  if (key) activeRoutes.add(key);
+}
+
+function showRoute(routeLike) {
+  const key = getRouteIdentityKey(routeLike);
+  const short = typeof routeLike === 'object' ? String(routeLike.s || routeLike.short || '').trim() : key;
+  if (key) activeRoutes.delete(key);
+  if (short) activeRoutes.delete(short);
 }
 
 function clearHiddenRoutes() {
@@ -914,16 +975,25 @@ function getFocusedRoute() {
   return focusedRoute;
 }
 
+function getFocusedRouteId() {
+  return focusedRouteId;
+}
+
 function setFocusedRouteState(value) {
   focusedRoute = value || null;
+  if (!value) focusedRouteId = null;
 }
 
-function getSelectedRouteDirectionState() {
-  return Number.isInteger(selectedRouteDirection) ? selectedRouteDirection : null;
+function setFocusedRouteIdState(value) {
+  focusedRouteId = value || null;
 }
 
-function setSelectedRouteDirectionState(value) {
-  selectedRouteDirection = Number.isInteger(value) ? value : null;
+function getSelectedPatternKeyState() {
+  return selectedPatternKey;
+}
+
+function setSelectedPatternKeyState(value) {
+  selectedPatternKey = (value && typeof value === 'object') ? value : null;
 }
 
 function getSelectedTripIdx() {
@@ -940,6 +1010,26 @@ function getSelectedEntity() {
 
 function setSelectedEntityState(entity) {
   selectedEntity = entity ? { ...entity } : null;
+  window.dispatchEvent(new CustomEvent('app-selection-change', {
+    detail: { selectedEntity: getSelectedEntity() }
+  }));
+}
+
+function normalizeWorkspaceState(value) {
+  const workspace = String(value || '').trim().toLowerCase();
+  if (workspace === 'bilgi' || workspace === 'analiz') return workspace;
+  return 'harita';
+}
+
+function getActiveWorkspaceState() {
+  return normalizeWorkspaceState(AppState.activeWorkspace);
+}
+
+function setActiveWorkspaceState(value) {
+  AppState.activeWorkspace = normalizeWorkspaceState(value);
+  window.dispatchEvent(new CustomEvent('app-workspace-change', {
+    detail: { activeWorkspace: getActiveWorkspaceState() }
+  }));
 }
 
 function getFollowTripIdxState() {
@@ -972,6 +1062,17 @@ function getActiveServiceIdState() {
 
 function setActiveServiceIdState(value) {
   activeServiceId = value || 'all';
+}
+
+function getActiveServiceDateState() {
+  return String(AppState.activeServiceDate || '').trim();
+}
+
+function setActiveServiceDateState(value) {
+  AppState.activeServiceDate = String(value || '').trim();
+  window.dispatchEvent(new CustomEvent('app-service-date-change', {
+    detail: { activeServiceDate: getActiveServiceDateState() }
+  }));
 }
 
 function getActiveServiceIdsState() {
@@ -1056,12 +1157,124 @@ function setRuntimeCollectionsState(runtimeData) {
   AppState.stops = runtimeData?.nSTOPS || [];
   AppState.stopInfo = runtimeData?.nSTOP_INFO || {};
   AppState.stopDeps = runtimeData?.nSTOP_DEPS || {};
+  AppState.stopTariffIndex = runtimeData?.stopTariffIndex || {};
   AppState.hourlyCounts = runtimeData?.nHOURLY_COUNTS || {};
   AppState.hourlyHeat = runtimeData?.nHOURLY_HEAT || {};
+  AppState.capped = runtimeData?.capped || false;
+  AppState.totalTrips = runtimeData?.totalTrips || 0;
+  AppState.tripCap = runtimeData?.tripCap || Infinity;
+  AppState.missingShapeRouteCount = runtimeData?.missingShapeRouteCount || 0;
+  if (Array.isArray(runtimeData?.calendarRows)) AppState.calendarRows = runtimeData.calendarRows;
+  if (Array.isArray(runtimeData?.calendarDateRows)) AppState.calendarDateRows = runtimeData.calendarDateRows;
+  AppState.tariffIndex = runtimeData?.tariffIndex || {};
+  if (runtimeData?.tripCountBySid) AppState.tripCountBySid = runtimeData.tripCountBySid;
+  AppState.loadedRuntimeRouteIds = new Set([
+    ...AppState.trips.map((trip) => String(trip?.rid || '').trim()).filter(Boolean),
+    ...AppState.shapes.map((shape) => String(shape?.rid || '').trim()).filter(Boolean),
+  ]);
+  window.dispatchEvent(new CustomEvent('app-runtime-data-change'));
+}
+
+function mergeRuntimeCollectionsState(runtimeData) {
+  const nextTrips = Array.isArray(runtimeData?.nTRIPS) ? runtimeData.nTRIPS : [];
+  const nextShapes = Array.isArray(runtimeData?.nSHAPES) ? runtimeData.nSHAPES : [];
+  const nextStops = Array.isArray(runtimeData?.nSTOPS) ? runtimeData.nSTOPS : [];
+  const tripKeys = new Set(AppState.trips.map((trip) => `${trip?.rid || ''}::${trip?.dir ?? 'x'}::${trip?.h || ''}::${Array.isArray(trip?.ts) ? trip.ts[0] : ''}`));
+  nextTrips.forEach((trip) => {
+    const key = `${trip?.rid || ''}::${trip?.dir ?? 'x'}::${trip?.h || ''}::${Array.isArray(trip?.ts) ? trip.ts[0] : ''}`;
+    if (!tripKeys.has(key)) {
+      tripKeys.add(key);
+      AppState.trips.push(trip);
+    }
+  });
+  const shapeKeys = new Set(AppState.shapes.map((shape) => `${shape?.rid || ''}::${shape?.dir ?? 'x'}::${shape?.h || ''}`));
+  nextShapes.forEach((shape) => {
+    const key = `${shape?.rid || ''}::${shape?.dir ?? 'x'}::${shape?.h || ''}`;
+    if (!shapeKeys.has(key)) {
+      shapeKeys.add(key);
+      AppState.shapes.push(shape);
+    }
+  });
+  const stopIds = new Set(AppState.stops.map((stop) => String(stop?.[3] || '').trim()).filter(Boolean));
+  nextStops.forEach((stop) => {
+    const sid = String(stop?.[3] || '').trim();
+    if (!sid || stopIds.has(sid)) return;
+    stopIds.add(sid);
+    AppState.stops.push(stop);
+  });
+  Object.assign(AppState.stopInfo, runtimeData?.nSTOP_INFO || {});
+  Object.entries(runtimeData?.nSTOP_DEPS || {}).forEach(([sid, deps]) => {
+    if (!Array.isArray(deps) || !deps.length) return;
+    if (!Array.isArray(AppState.stopDeps[sid])) AppState.stopDeps[sid] = [];
+    AppState.stopDeps[sid].push(...deps);
+  });
+  AppState.loadedRuntimeRouteIds = new Set([
+    ...AppState.loadedRuntimeRouteIds,
+    ...nextTrips.map((trip) => String(trip?.rid || '').trim()).filter(Boolean),
+    ...nextShapes.map((shape) => String(shape?.rid || '').trim()).filter(Boolean),
+  ]);
+  window.dispatchEvent(new CustomEvent('app-runtime-data-change'));
 }
 
 function setStopNamesState(value) {
   AppState.stopNames = Array.isArray(value) ? value : [];
+}
+
+function setRouteCatalogState(value) {
+  AppState.routeCatalog = Array.isArray(value) ? value : [];
+  window.dispatchEvent(new CustomEvent('app-runtime-data-change'));
+}
+
+function getRouteRuntimeSourceState() {
+  return AppState.routeRuntimeSource || null;
+}
+
+function setRouteRuntimeSourceState(value) {
+  AppState.routeRuntimeSource = value || null;
+}
+
+function getPreparedGtfsSourceState() {
+  return AppState.preparedGtfsSource || null;
+}
+
+function setPreparedGtfsSourceState(value) {
+  AppState.preparedGtfsSource = value || null;
+}
+
+function getLoadedRuntimeRouteIdsState() {
+  return AppState.loadedRuntimeRouteIds instanceof Set ? AppState.loadedRuntimeRouteIds : new Set();
+}
+
+function isRuntimeRouteLoadedState(routeId) {
+  const rid = String(routeId || '').trim();
+  return !!rid && getLoadedRuntimeRouteIdsState().has(rid);
+}
+
+function setRuntimeRouteLoadingState(routeId, loading) {
+  const rid = String(routeId || '').trim();
+  if (!rid) return;
+  if (!(AppState.loadingRuntimeRouteIds instanceof Set)) AppState.loadingRuntimeRouteIds = new Set();
+  if (loading) AppState.loadingRuntimeRouteIds.add(rid);
+  else AppState.loadingRuntimeRouteIds.delete(rid);
+}
+
+function isRuntimeRouteLoadingState(routeId) {
+  const rid = String(routeId || '').trim();
+  return !!rid && AppState.loadingRuntimeRouteIds instanceof Set && AppState.loadingRuntimeRouteIds.has(rid);
+}
+
+function beginRuntimeRouteRequestState(routeId) {
+  const rid = String(routeId || '').trim();
+  AppState.routeRuntimeRequestSeq = Number(AppState.routeRuntimeRequestSeq || 0) + 1;
+  AppState.lastRequestedRuntimeRouteId = rid || null;
+  return AppState.routeRuntimeRequestSeq;
+}
+
+function isRuntimeRouteRequestCurrentState(routeId, requestSeq) {
+  const rid = String(routeId || '').trim();
+  return !!rid
+    && rid === AppState.lastRequestedRuntimeRouteId
+    && Number(requestSeq) === Number(AppState.routeRuntimeRequestSeq || 0);
 }
 
 function getBaseRuntimeDataState() {
@@ -1287,15 +1500,19 @@ const DEPLOY = {
 };
 
 // ── MAPLIBRE ──────────────────────────────────────────────
+// powerPreference: 'high-performance' requests dedicated GPU on hybrid systems.
+// preserveDrawingBuffer omitted (default false) — saves 25-50% of framebuffer VRAM;
+// capture-controls uses Electron native capture or html2canvas, neither needs it.
 const mapgl = new maplibregl.Map({
   container: 'map', style: PHASE_CFG.night.style,
   center: activeCity?.center || [-0.5792, 44.8378], zoom: activeCity?.zoom || 11.6, pitch: activeCity?.pitch || 52, bearing: activeCity?.bearing || -10,
-  antialias: true, attributionControl: false, canvasContextAttributes: { preserveDrawingBuffer: true }
+  antialias: true, attributionControl: false, canvasContextAttributes: { powerPreference: 'high-performance' }
 });
 mapgl.addControl(new maplibregl.NavigationControl(), 'bottom-right');
 mapgl.addControl(new maplibregl.AttributionControl({ compact: true }), 'bottom-right');
 mapgl.on('load', () => {
   bindMapRecoveryHandlers();
+  logGpuInfo();
   startDeck();
   if (window.SimulationEngine?.start) window.SimulationEngine.start();
   else requestAnimationFrame(animate);
@@ -1338,7 +1555,7 @@ window.LegacyMapBridge = createLegacyBridge(() => ({
   typeFilter,
   activeRoutes: getHiddenRoutes(),
   focusedRoute: getFocusedRoute(),
-  selectedRouteDirection: getSelectedRouteDirectionState(),
+  selectedPatternKey: getSelectedPatternKeyState(),
   stopCoverageRadiusM,
   stopCoverageFillColor: hexToRgb(stopCoverageFillColorHex),
   stopCoverageFillOpacityPct,
@@ -1351,6 +1568,8 @@ window.LegacyMapBridge = createLegacyBridge(() => ({
   getVehiclePos,
   getRouteColorRgb,
   getRouteMeta,
+  getFocusedRouteId,
+  isRouteHidden,
   getFocusedStopsData,
   getFilteredStopsData,
   getFilteredStopIdSet,
@@ -1358,6 +1577,7 @@ window.LegacyMapBridge = createLegacyBridge(() => ({
   HEADWAY_CFG,
   WAITING_CFG,
   computeAverageHeadwaySeconds,
+  computeStopHeadwaySeconds,
   getActiveServiceLabel,
   getModelOrientation,
   updateActiveBadge,
@@ -1387,6 +1607,7 @@ window.LegacyMapBridge = createLegacyBridge(() => ({
   getDeckgl: () => deckgl,
   getTrips: () => AppState.trips,
   getShapes: () => AppState.shapes,
+  getRouteCatalog: () => AppState.routeCatalog,
   getStops: () => AppState.stops,
   getStopInfo: () => AppState.stopInfo,
   getStopDeps: () => AppState.stopDeps,
@@ -1395,7 +1616,7 @@ window.LegacyMapBridge = createLegacyBridge(() => ({
   getTypeFilter: getTypeFilterState,
   getActiveRoutes: getHiddenRoutes,
   getFocusedRoute,
-  getSelectedRouteDirection: getSelectedRouteDirectionState,
+  getSelectedPatternKey: getSelectedPatternKeyState,
   getFollowTripIdx: getFollowTripIdxState,
   getShowAnim: () => !!showAnim,
   getShowPaths: () => !!showPaths,
@@ -1414,6 +1635,7 @@ window.LegacyMapBridge = createLegacyBridge(() => ({
   getIsochronData: () => _isochronData,
   getIsochronOriginSid: () => _isochronOriginSid,
   getActiveServiceId: getActiveServiceIdState,
+  getActiveServiceDate: getActiveServiceDateState,
   getStopConnectivityScores: getStopConnectivityScoresState,
   getLastFollowPos: () => window._lastFollowPos,
   setLastFollowPos: (pos) => { window._lastFollowPos = pos; },
@@ -1429,7 +1651,7 @@ window.LegacyUIBridge = createLegacyBridge(() => ({
     AppState,
     simTime,
     focusedRoute: getFocusedRoute(),
-    selectedRouteDirection: getSelectedRouteDirectionState(),
+    selectedPatternKey: getSelectedPatternKeyState(),
     selectedTripIdx: getSelectedTripIdx(),
     selectedEntity: getSelectedEntity(),
     showIsochron,
@@ -1461,6 +1683,7 @@ window.LegacyUIBridge = createLegacyBridge(() => ({
     formatHeadwayLabel,
     colorToCss,
     computeAverageHeadwaySeconds,
+    computeStopHeadwaySeconds,
     getStopRouteSummaries,
     findTripIdx,
     setSelectedEntity,
@@ -1475,19 +1698,24 @@ window.LegacyUIBridge = createLegacyBridge(() => ({
     getSelectedEntity,
     getTrips: () => AppState.trips,
     getShapes: () => AppState.shapes,
+    getRouteCatalog: () => AppState.routeCatalog,
     getStops: () => AppState.stops,
     getStopInfo: () => AppState.stopInfo,
     getStopDeps: () => AppState.stopDeps,
+    getStopTariffIndex: () => AppState.stopTariffIndex,
     getStopNames: () => AppState.stopNames,
     getAppState: () => AppState,
+    setRouteCatalog: (value) => { setRouteCatalogState(value); },
     getActiveStopData: getActiveStopDataState,
     getFollowTripIdx: getFollowTripIdxState,
     getMap: getMapState,
     getTypeFilter: getTypeFilterState,
     setFocusedRoute: (value) => { setFocusedRouteState(value); },
     getFocusedRoute,
-    getSelectedRouteDirection: getSelectedRouteDirectionState,
-    setSelectedRouteDirection: (value) => { setSelectedRouteDirectionState(value); },
+    setFocusedRouteId: (value) => { setFocusedRouteIdState(value); },
+    getFocusedRouteId,
+    getSelectedPatternKey: getSelectedPatternKeyState,
+    setSelectedPatternKey: (value) => { setSelectedPatternKeyState(value); },
     setFocusedStopIdsCache: (value) => { _focusedStopIdsCache = value; },
     setRouteHighlightPath: (value) => { routeHighlightPath = value; },
     invalidateMapCaches: () => { _cachedVisTrips = null; _cachedVisShapes = null; _filteredStopsCache = null; _filteredStopIdSetCache = null; },
@@ -1501,6 +1729,7 @@ window.LegacyUIBridge = createLegacyBridge(() => ({
     getModelOrientation,
     updateLandingPageReports,
     triggerIsochron,
+    loadRouteRuntimeSubset: (routeId) => callManager('DataManager', 'loadRouteRuntimeSubset', [routeId]),
     setCinematic: (value) => { isCinematic = value; },
     getIsCinematic: isCinematicState,
     setCinematicIdx: (value) => { cinematicIdx = value; },
@@ -1577,8 +1806,12 @@ window.LegacyServiceBridge = createLegacyBridge(() => ({
     setCalendarCache: (value) => { _calendarCache = resetCalendarCache(value); },
     getActiveServiceOptions: getActiveServiceOptionsState,
     getActiveServiceId: getActiveServiceIdState,
+    getActiveServiceDate: getActiveServiceDateState,
+    getPreparedGtfsSource: getPreparedGtfsSourceState,
+    rebuildRuntimeForActiveServices: (options) => callManager('DataManager', 'rebuildRuntimeForActiveServices', [options]),
     setActiveServiceOptions: (value) => { setActiveServiceOptionsState(value); },
     setActiveServiceId: (value) => { setActiveServiceIdState(value); },
+    setActiveServiceDate: (value) => { setActiveServiceDateState(value); },
     setActiveServiceIds: (value) => { setActiveServiceIdsState(value); },
   }));
 
@@ -1588,6 +1821,7 @@ window.LegacyCityBridge = createLegacyBridge(() => ({
     getBuiltinGtfsPayload,
     loadGtfsIntoSim,
     applyGtfsRuntimeData,
+    loadRouteRuntimeSubset: (routeId) => callManager('DataManager', 'loadRouteRuntimeSubset', [routeId]),
     captureRuntimeDataSnapshot,
     buildServiceOptions,
     autoSelectAndAdaptService,
@@ -1596,6 +1830,7 @@ window.LegacyCityBridge = createLegacyBridge(() => ({
     showToast,
     getActiveCity: getActiveCityState,
     getActiveServiceId: getActiveServiceIdState,
+    getActiveServiceDate: getActiveServiceDateState,
     getActiveServiceIds: getActiveServiceIdsState,
     getMap: getMapState,
     getTrips: () => AppState.trips,
@@ -1606,8 +1841,12 @@ window.LegacyCityBridge = createLegacyBridge(() => ({
     getHourlyCounts: () => AppState.hourlyCounts,
     getHourlyHeat: () => AppState.hourlyHeat,
     getBaseRuntimeData: getBaseRuntimeDataState,
-    getCalendarRows: () => AppState.calendarRows || [],
-    getCalendarDateRows: () => AppState.calendarDateRows || [],
+    getCalendarRows: () => AppState.calendarRows?.length ? AppState.calendarRows : (_calendarCache.rows || []),
+    getCalendarDateRows: () => AppState.calendarDateRows?.length ? AppState.calendarDateRows : (_calendarCache.dateRows || []),
+    getCapped: () => AppState.capped || false,
+    getTotalTrips: () => AppState.totalTrips || 0,
+    getTripCap: () => AppState.tripCap || Infinity,
+    getMissingShapeRouteCount: () => AppState.missingShapeRouteCount || 0,
     getCities: getCitiesState,
     findCityById: findCityState,
     getUploadedCityPayload: getUploadedCityPayloadState,
@@ -1619,6 +1858,7 @@ window.LegacyCityBridge = createLegacyBridge(() => ({
     deleteUploadedCityPayload: deleteUploadedCityPayloadState,
     setActiveCity: (value) => { setActiveCityState(value); },
     setActiveServiceId: (value) => { setActiveServiceIdState(value); },
+    setActiveServiceDate: (value) => { setActiveServiceDateState(value); },
     setActiveServiceIds: (value) => { setActiveServiceIdsState(value); },
     setActiveServiceOptions: (value) => { setActiveServiceOptionsState(value); },
     setCalendarCache: (value) => { _calendarCache = resetCalendarCache(value); },
@@ -1629,10 +1869,19 @@ window.LegacyCityBridge = createLegacyBridge(() => ({
       }
       AppState.trips = [];
       AppState.shapes = [];
+      AppState.routeCatalog = [];
+      AppState.preparedGtfsSource = null;
+      AppState.routeRuntimeSource = null;
+      AppState.loadedRuntimeRouteIds = new Set();
+      AppState.loadingRuntimeRouteIds = new Set();
+      AppState.routeRuntimeRequestSeq = 0;
+      AppState.lastRequestedRuntimeRouteId = null;
       AppState.stops = [];
       AppState.stopInfo = {};
       AppState.stopDeps = {};
+      AppState.stopTariffIndex = {};
       AppState.stopConnectivityScores = null;
+      AppState.activeServiceDate = '';
       _cachedVisTrips = null;
       _cachedVisShapes = null;
       clearTripLookupCache();
@@ -1641,6 +1890,7 @@ window.LegacyCityBridge = createLegacyBridge(() => ({
       if (deckgl) deckgl.setProps({ layers: buildLayers() });
       buildRouteList();
       buildStopList();
+      window.dispatchEvent(new CustomEvent('app-runtime-data-change'));
     },
   }));
 
@@ -1675,6 +1925,7 @@ window.LegacyDataBridge = createLegacyBridge(() => ({
     pushGtfsError,
     resetGtfsErrors,
     getActiveCity: getActiveCityState,
+    getActiveServiceDate: getActiveServiceDateState,
     getActiveServiceIds: getActiveServiceIdsState,
     getMap: getMapState,
     getCities: getCitiesState,
@@ -1693,9 +1944,22 @@ window.LegacyDataBridge = createLegacyBridge(() => ({
     clearHiddenCities: clearHiddenCitiesState,
     setRuntimeCollections: setRuntimeCollectionsState,
     setStopNames: setStopNamesState,
+    setRouteCatalog: setRouteCatalogState,
+    getRouteRuntimeSource: getRouteRuntimeSourceState,
+    setRouteRuntimeSource: setRouteRuntimeSourceState,
+    getPreparedGtfsSource: getPreparedGtfsSourceState,
+    setPreparedGtfsSource: setPreparedGtfsSourceState,
+    mergeRuntimeCollections: mergeRuntimeCollectionsState,
+    getLoadedRuntimeRouteIds: getLoadedRuntimeRouteIdsState,
+    isRuntimeRouteLoaded: isRuntimeRouteLoadedState,
+    setRuntimeRouteLoading: setRuntimeRouteLoadingState,
+    isRuntimeRouteLoading: isRuntimeRouteLoadingState,
+    beginRuntimeRouteRequest: beginRuntimeRouteRequestState,
+    isRuntimeRouteRequestCurrent: isRuntimeRouteRequestCurrentState,
     getBaseRuntimeData: getBaseRuntimeDataState,
     setBaseRuntimeData: setBaseRuntimeDataState,
     setActiveServiceId: (value) => { setActiveServiceIdState(value); },
+    setActiveServiceDate: (value) => { setActiveServiceDateState(value); },
     setActiveServiceIds: (value) => { setActiveServiceIdsState(value); },
     setActiveServiceOptions: (value) => { setActiveServiceOptionsState(value); },
     setActiveCity: (value) => { setActiveCityState(value); },
@@ -1719,7 +1983,7 @@ window.LegacyDataBridge = createLegacyBridge(() => ({
       setSelectedTripIdxState(null);
       setFollowTripIdxState(null);
       setFocusedRouteState(null);
-      setSelectedRouteDirectionState(null);
+      setSelectedPatternKeyState(null);
       clearHiddenRoutes();
       setSelectedEntityState(null);
       panelPauseOwner = null;
@@ -1761,6 +2025,26 @@ window.LegacyAppBridge = createLegacyBridge(() => ({
     updateDayNight,
     getTrips: () => AppState.trips,
     getStops: () => AppState.stops,
+    getRouteCatalog: () => AppState.routeCatalog,
+    getTariffIndex: () => AppState.tariffIndex,
+    getStopTariffIndex: () => AppState.stopTariffIndex,
+    getTripCountBySid: () => AppState.tripCountBySid || {},
+    getStopInfo: () => AppState.stopInfo,
+    getCalendarCache: () => _calendarCache,
+    getCalendarRows: () => AppState.calendarRows?.length ? AppState.calendarRows : (_calendarCache.rows || []),
+    getCalendarDateRows: () => AppState.calendarDateRows?.length ? AppState.calendarDateRows : (_calendarCache.dateRows || []),
+    getActiveServiceDate: getActiveServiceDateState,
+    getSelectedEntity,
+    setSelectedEntity: setSelectedEntityState,
+    getFocusedRouteId,
+    getFocusedRoute,
+    getActiveWorkspace: getActiveWorkspaceState,
+    getActiveServiceId: getActiveServiceIdState,
+    setActiveWorkspace: setActiveWorkspaceState,
+    getSelectedPatternKey: getSelectedPatternKeyState,
+    setSelectedPatternKey: (value) => { setSelectedPatternKeyState(value); },
+    setFocusedStopIdsCache: (value) => { _focusedStopIdsCache = value; },
+    invalidateMapCaches: () => { _cachedVisTrips = null; _cachedVisShapes = null; _filteredStopsCache = null; _filteredStopIdSetCache = null; },
     setShowTrail: (value) => { showTrail = value; },
     setCurrentMapStyle: (value) => { currentMapStyle = value || 'auto'; },
   }));
@@ -1824,14 +2108,49 @@ window.LegacySimulationBridge = {
   },
 };
 
-function detachDeckOverlay() {
+function logGpuInfo() {
+  try {
+    const canvas = mapgl.getCanvas?.();
+    const gl = canvas?.getContext('webgl2') || canvas?.getContext('webgl');
+    if (!gl) return;
+    const dbg = gl.getExtension('WEBGL_debug_renderer_info');
+    if (dbg) {
+      const vendor = gl.getParameter(dbg.UNMASKED_VENDOR_WEBGL);
+      const renderer = gl.getParameter(dbg.UNMASKED_RENDERER_WEBGL);
+      console.info('[GPU]', vendor, '/', renderer);
+      window._gpuRenderer = renderer;
+    }
+    const maxTexSize = gl.getParameter(gl.MAX_TEXTURE_SIZE);
+    const maxVaryings = gl.getParameter(gl.MAX_VARYING_VECTORS);
+    console.info('[GPU] maxTextureSize:', maxTexSize, 'maxVaryings:', maxVaryings);
+  } catch (_) {}
+  scheduleMemoryPressureCheck();
+}
+
+let _memPressureTimer = null;
+function scheduleMemoryPressureCheck() {
+  if (_memPressureTimer) return;
+  _memPressureTimer = setInterval(() => {
+    const mem = performance?.memory;
+    if (!mem) return;
+    const ratio = mem.usedJSHeapSize / mem.jsHeapSizeLimit;
+    if (ratio > 0.82 && QUALITY.level > 0) {
+      console.warn('[GPU] JS heap pressure high (' + Math.round(ratio * 100) + '%), lowering quality');
+      QUALITY.level = Math.max(0, QUALITY.level - 1);
+    }
+  }, 15000);
+}
+
+function detachDeckOverlay(skipFinalize = false) {
   if (!deckgl) return;
   try {
     mapgl.removeControl(deckgl);
   } catch (_) {}
-  try {
-    deckgl.finalize?.();
-  } catch (_) {}
+  if (!skipFinalize) {
+    try {
+      deckgl.finalize?.();
+    } catch (_) {}
+  }
   deckgl = null;
 }
 
@@ -1849,12 +2168,30 @@ function clearMapRecoveryTimer() {
   }
 }
 
+function engageWebglSafeMode(source = 'unknown') {
+  try {
+    QUALITY.level = 0;
+    showTrail = false;
+    show3D = false;
+    showHeatmap = false;
+    ['tog-trail', 'tog-heatmap'].forEach((id) => {
+      const el = document.getElementById(id);
+      if (el) el.checked = false;
+    });
+    const heatmapControls = document.getElementById('heatmap-controls');
+    if (heatmapControls) heatmapControls.classList.add('hidden');
+    console.warn('[WebGLRecovery] safe mode aktif', source);
+  } catch (error) {
+    console.warn('[WebGLRecovery] safe mode uygulanamadi', source, error);
+  }
+}
+
 function recoverDeckContext(reason = 'restore') {
   clearDeckRecoveryTimer();
   if (reason === 'restore') deckContextRecovering = false;
   setTimeout(() => {
     try {
-      startDeck(true);
+      startDeck(true, true);
       refreshLayersNow();
       mapgl.resize();
       mapgl.triggerRepaint?.();
@@ -1873,7 +2210,7 @@ function recoverMapContext(reason = 'restore') {
       mapgl.triggerRepaint?.();
     } catch (_) {}
     try {
-      startDeck(true);
+      startDeck(true, true);
       refreshLayersNow();
     } catch (err) {
       console.warn('[WebGLRecovery] map recovery failed', reason, err);
@@ -1914,6 +2251,7 @@ function bindDeckRecoveryHandlers() {
   canvas.addEventListener('webglcontextlost', (event) => {
     event.preventDefault();
     deckContextRecovering = true;
+    engageWebglSafeMode('deck');
     scheduleDeckRecoveryFallback();
     showToast('WebGL bağlamı kayboldu. Katmanlar yeniden hazırlanıyor...', 'warn');
   });
@@ -1930,6 +2268,7 @@ function bindMapRecoveryHandlers() {
   canvas.addEventListener('webglcontextlost', (event) => {
     event.preventDefault();
     mapContextRecovering = true;
+    engageWebglSafeMode('map');
     scheduleMapRecoveryFallback();
     showToast('Harita WebGL bağlamı kayboldu. Geri yükleniyor...', 'warn');
   });
@@ -1939,12 +2278,12 @@ function bindMapRecoveryHandlers() {
   mapRecoveryBound = true;
 }
 
-function startDeck(forceRecreate = false) {
+function startDeck(forceRecreate = false, skipFinalize = false) {
   const canvas = document.getElementById('deck-canvas');
   if (canvas) canvas.style.display = 'none';
   if (forceRecreate) {
     deckRecoveryBound = false;
-    detachDeckOverlay();
+    detachDeckOverlay(skipFinalize);
   } else if (deckgl) {
     return deckgl;
   }
@@ -1995,11 +2334,63 @@ function inferTripDirectionLabel(trip) {
   return `${from} → ${to}`;
 }
 
+function getOrderedStopsForPattern(routeId, routeShort, patternDir, patternHead, filteredTrips) {
+  const stopInfoMap = AppState.stopInfo || {};
+
+  // Primary: trips with pre-built stop arrays (small feeds)
+  const tripWithStops = filteredTrips.find((t) => t.st && t.st.length > 1);
+  if (tripWithStops) {
+    return tripWithStops.st.map(({ sid }) => ({ sid, name: stopInfoMap[sid]?.[2] || sid }));
+  }
+
+  // Find best trip_id from stopTariffIndex (most timepoint stops for the route/pattern)
+  const tariff = AppState.stopTariffIndex || {};
+  const tripCounts = {};
+  for (const entries of Object.values(tariff)) {
+    for (const e of entries) {
+      const ridMatch = routeId ? e.rid === routeId : e.s === routeShort;
+      if (!ridMatch) continue;
+      if (patternDir != null && e.dir !== patternDir) continue;
+      if (patternHead && e.h !== patternHead) continue;
+      tripCounts[e.trip_id] = (tripCounts[e.trip_id] || 0) + 1;
+    }
+  }
+  let bestTripId = null, bestCount = 0;
+  for (const [tripId, count] of Object.entries(tripCounts)) {
+    if (count > bestCount) { bestCount = count; bestTripId = tripId; }
+  }
+  if (!bestTripId) return [];
+
+  // Full stop list: on-demand loaded source first, then parse-time source (always populated)
+  const rawTripStops =
+    AppState.routeRuntimeSource?.tripStops?.[bestTripId] ||
+    AppState.preparedGtfsSource?.tripStops?.[bestTripId];
+  if (rawTripStops?.length > 0) {
+    return rawTripStops
+      .map(([seq, , sid]) => ({ sid, name: stopInfoMap[sid]?.[2] || sid, seq }))
+      .sort((a, b) => a.seq - b.seq)
+      .map(({ sid, name }) => ({ sid, name }));
+  }
+
+  // Last resort: use only timepoint entries from stopTariffIndex for bestTripId
+  const fallback = [];
+  for (const [sid, entries] of Object.entries(tariff)) {
+    for (const e of entries) {
+      if (e.trip_id === bestTripId) { fallback.push({ sid, seq: e.seq }); break; }
+    }
+  }
+  fallback.sort((a, b) => a.seq - b.seq);
+  return fallback.map(({ sid }) => ({ sid, name: stopInfoMap[sid]?.[2] || sid }));
+}
+
 function buildRoutePanelStats(routeShort) {
-  const routeTrips = AppState.trips.filter((trip) => trip.s === routeShort);
-  const filteredTrips = selectedRouteDirection === null
+  const routeId = focusedRouteId;
+  const routeTrips = AppState.trips.filter((trip) =>
+    routeId ? trip.rid === routeId : trip.s === routeShort
+  );
+  const filteredTrips = selectedPatternKey === null
     ? routeTrips
-    : routeTrips.filter((trip) => trip?.dir === selectedRouteDirection);
+    : routeTrips.filter((trip) => trip?.dir === selectedPatternKey.dir && trip?.h === selectedPatternKey.h);
   const departures = filteredTrips
     .map((trip, idx) => [trip._idx ?? idx, trip.ts?.[0] ?? null, routeShort, trip])
     .filter(([, offset]) => Number.isFinite(offset));
@@ -2012,25 +2403,27 @@ function buildRoutePanelStats(routeShort) {
     }
   });
 
-  const directionMap = new Map();
-  routeTrips.forEach(trip => {
-    const label = inferTripDirectionLabel(trip);
-    directionMap.set(label, (directionMap.get(label) || 0) + 1);
-  });
-  const directionEntries = [...directionMap.entries()].sort((a, b) => b[1] - a[1]);
-  const directionOptionMap = new Map();
+  const patternMap = new Map();
   routeTrips.forEach((trip) => {
-    if (!Number.isInteger(trip?.dir)) return;
-    if (!directionOptionMap.has(trip.dir)) {
-      directionOptionMap.set(trip.dir, { value: trip.dir, label: inferTripDirectionLabel(trip), count: 0 });
+    const key = `${trip?.dir ?? '?'}|${trip?.h || ''}`;
+    if (!patternMap.has(key)) {
+      const dirPrefix = trip?.dir === 0 ? 'G' : trip?.dir === 1 ? 'D' : '?';
+      const head = displayText(trip?.h || '');
+      patternMap.set(key, { dir: trip?.dir ?? null, h: trip?.h || '', label: head ? `${dirPrefix} > ${head}` : dirPrefix, count: 0 });
     }
-    directionOptionMap.get(trip.dir).count += 1;
+    patternMap.get(key).count += 1;
   });
-  const directionOptions = [...directionOptionMap.values()].sort((a, b) => a.value - b.value);
+  const patternList = [...patternMap.values()].sort((a, b) => {
+    if (a.dir !== b.dir) return (a.dir ?? 99) - (b.dir ?? 99);
+    return b.count - a.count;
+  });
 
   // Hat uzunluğu hesaplama: en uzun güzergahı (shape) bul
   let maxM = 0;
-  const routeShapes = AppState.shapes.filter((shape) => shape.s === routeShort && (selectedRouteDirection === null || shape.dir === selectedRouteDirection));
+  const routeShapes = AppState.shapes.filter((shape) =>
+    (routeId ? shape.rid === routeId : shape.s === routeShort) &&
+    (selectedPatternKey === null || shape.dir === selectedPatternKey.dir)
+  );
   routeShapes.forEach(rs => {
     if (rs.p && rs.p.length >= 2) {
       const len = window.GtfsMathUtils ? window.GtfsMathUtils.pathLengthM(rs.p) : 0;
@@ -2038,21 +2431,24 @@ function buildRoutePanelStats(routeShort) {
     }
   });
 
+  const stopList = getOrderedStopsForPattern(
+    routeId,
+    routeShort,
+    selectedPatternKey?.dir ?? null,
+    selectedPatternKey?.h ?? null,
+    filteredTrips
+  );
+
   return {
-    directionLabel: filteredTrips.length
-      ? [...new Set(filteredTrips.map((trip) => inferTripDirectionLabel(trip)))].slice(0, 2).join(' / ')
-      : directionEntries.map(([label]) => label).slice(0, 2).join(' / ') || 'Yön bilgisi yok',
-    directionEntries,
-    directionOptions,
-    selectedDirection: selectedRouteDirection,
-    tripCountByDirection: directionEntries.length
-      ? directionEntries.map(([label, count]) => `${label}: ${count}`).join(' · ')
-      : 'Sefer bilgisi yok',
+    directionLabel: patternList.slice(0, 2).map((p) => p.label).join(' / ') || 'Yön bilgisi yok',
+    patternList,
+    selectedPatternKey,
     totalTrips: filteredTrips.length,
     firstTime: firstSec !== Infinity ? secsToHHMM(firstSec % 86400) : '—',
     lastTime: lastSec !== -Infinity ? secsToHHMM(lastSec % 86400) : '—',
     routeLengthKm: maxM > 0 ? (maxM / 1000).toFixed(2) : '—',
     averageHeadway: computeAverageHeadwaySeconds(departures),
+    stopList,
   };
 }
 
@@ -2329,6 +2725,10 @@ const togMap = {
     showStops = v;
     refreshLayersNow();
   },
+  'trail': v => {
+    showTrail = v;
+    refreshLayersNow();
+  },
   'connectivity-grid': v => {
     showConnectivityGrid = v;
     connectivityGridPerfOpenAt = v ? performance.now() : 0;
@@ -2338,7 +2738,11 @@ const togMap = {
       updateConnectivityLegend(null);
     }
     if (v) {
-      console.log('[ConnectivityPerf]', { phase: 'start' });
+      console.log('[ConnectivityPerf]', {
+        phase: 'start',
+        stopInfoCount: Object.keys(AppState.stopInfo || {}).length,
+        stopDepsCount: Object.keys(AppState.stopDeps || {}).length,
+      });
       if (AppState.stopConnectivityScores?.meta?.validation_summary) {
         console.log('[ConnectivityPerf]', {
           phase: 'cached',
@@ -2551,46 +2955,64 @@ document.getElementById('stop-panel-close')?.addEventListener('click', closeStop
 document.getElementById('route-panel-close')?.addEventListener('click', () => clearFocusedRouteSelection(true));
 
 function getStopRouteSummaries(sid, simMod) {
-  const deps = sid ? AppState.stopDeps[sid] : null;
-  if (!deps?.length) return [];
+  // stopTariffIndex (pre-cap, tüm hatlar) kullanılıyor — runtime cap'ten bağımsız
+  const tariffEntries = sid ? (AppState.stopTariffIndex?.[sid] || []) : [];
+  if (!tariffEntries.length) return [];
+
+  const daySec = ((simMod % 86400) + 86400) % 86400;
   const bucketSize = 30;
-  const timeBucket = Math.floor((((simMod % 86400) + 86400) % 86400) / bucketSize);
-  const cacheKey = `${sid}|${timeBucket}|${deps.length}`;
+  const timeBucket = Math.floor(daySec / bucketSize);
+  const cacheKey = `tariff|${sid}|${timeBucket}|${tariffEntries.length}`;
   const cached = _stopRouteSummariesCache.get(cacheKey);
   if (cached) return cached;
-  const byRoute = {};
-  for (const [ti, offset, routeShort] of deps) {
-    const trip = AppState.trips[ti]; if (!trip) continue;
-    const absOffset = getAbsoluteDepartureSec(trip, offset);
-    if (absOffset == null) continue;
-    const diff = ((absOffset - simMod + 86400) % 86400);
-    const key = routeShort || trip.s;
-    if (!byRoute[key]) byRoute[key] = { trip, short: key, longName: displayText(trip.ln || trip.h || ''), arrivals: [], deps: [] };
-    byRoute[key].arrivals.push({ diff, offset: absOffset });
-    byRoute[key].deps.push([ti, absOffset, routeShort]);
+
+  // Hat bazında grupla (route short)
+  const byShort = new Map();
+  for (const e of tariffEntries) {
+    const s = e.s || '';
+    if (!s || !Number.isFinite(e.dep)) continue;
+    if (!byShort.has(s)) byShort.set(s, { s, rid: e.rid, h: e.h || '', allDeps: [] });
+    byShort.get(s).allDeps.push(e.dep % 86400);
   }
-  const result = Object.values(byRoute).map(route => {
-    route.arrivals.sort((a, b) => a.diff - b.diff);
-    const uniqueArrivals = [];
-    route.arrivals.forEach(arr => {
-      if (!uniqueArrivals.length || Math.abs(arr.diff - uniqueArrivals[uniqueArrivals.length - 1].diff) > STOP_PANEL_CFG.uniqueArrivalThresholdSeconds) {
-        uniqueArrivals.push({
+
+  const result = [];
+  for (const { s, rid, h, allDeps } of byShort.values()) {
+    const sorted = [...new Set(allDeps)].sort((a, b) => a - b);
+    // simMod'dan sonraki en yakın iki kalkış (gece yarısı wrap dahil)
+    const upcoming = sorted.map((dep) => {
+      const diff = ((dep - daySec) + 86400) % 86400;
+      return { diff, offset: dep };
+    }).sort((a, b) => a.diff - b.diff);
+
+    const arrivals = [];
+    for (const arr of upcoming) {
+      if (arrivals.length >= 2) break;
+      if (!arrivals.length || arr.diff - arrivals[arrivals.length - 1].diff > STOP_PANEL_CFG.uniqueArrivalThresholdSeconds) {
+        arrivals.push({
           diff: arr.diff > STOP_PANEL_CFG.maxArrivalWindowSeconds ? null : arr.diff,
           offset: arr.offset,
         });
       }
+    }
+
+    // trip referansı — animasyonlu araç varsa bağla, yoksa boş bırak
+    const runtimeTrip = AppState.trips.find((t) => String(t?.rid || '') === String(rid) || String(t?.s || '') === s) || null;
+    result.push({
+      short: s,
+      longName: displayText(runtimeTrip?.ln || runtimeTrip?.h || h || ''),
+      trip: runtimeTrip || { s, rid, h, t: null, c: null },
+      arrivals,
+      deps: sorted.map((dep) => [null, dep, s]),
     });
-    route.arrivals = uniqueArrivals.slice(0, 2);
-    route.headway = computeAverageHeadwaySeconds(route.deps);
-    return route;
-  }).filter(route => route.arrivals.length).sort((a, b) => {
-    const aDiff = a.arrivals.find(arr => Number.isFinite(arr.diff))?.diff ?? Number.MAX_SAFE_INTEGER;
-    const bDiff = b.arrivals.find(arr => Number.isFinite(arr.diff))?.diff ?? Number.MAX_SAFE_INTEGER;
+  }
+
+  result.sort((a, b) => {
+    const aDiff = a.arrivals.find((arr) => Number.isFinite(arr.diff))?.diff ?? Number.MAX_SAFE_INTEGER;
+    const bDiff = b.arrivals.find((arr) => Number.isFinite(arr.diff))?.diff ?? Number.MAX_SAFE_INTEGER;
     return aDiff - bDiff;
   });
-  if (_stopRouteSummariesCache.size > 800) {
-    clearStopRouteSummariesCache();
-  }
+
+  if (_stopRouteSummariesCache.size > 800) clearStopRouteSummariesCache();
   _stopRouteSummariesCache.set(cacheKey, result);
   return result;
 }
@@ -2636,6 +3058,7 @@ build3DVehicleLayer = function (visTrips, time) {
 var activeCity = CITIES[0];
 var activeServiceId = 'all';
 var activeServiceIds = new Set();
+AppState.activeServiceDate = AppState.activeServiceDate || '';
 var _calendarCache = { rows: [], dateRows: [] };
 var activeServiceOptions = [];
 function isCityVisible(city) {
@@ -2686,6 +3109,10 @@ const {
   closeCaptureModal,
   getCaptureDefaultFileName,
 } = window.RuntimeCaptureControls;
+const {
+  configureRuntimeMetroMap,
+  bindMetroMapControls,
+} = window.RuntimeMetroMapControls;
 
 function updateLandingPageReports() {
   return callManager('AppManager', 'updateLandingPageReports');
@@ -2706,6 +3133,15 @@ window.DataManager?.init?.();
 window.AppManager?.init?.();
 configureRuntimeCapture({ getTypeFilter: getTypeFilterState, showToast });
 bindCaptureControls();
+configureRuntimeMetroMap({
+  getTrips: () => AppState.trips,
+  getStopInfo: () => AppState.stopInfo,
+  getRouteMeta,
+  colorToCss,
+  displayText,
+  showToast,
+});
+bindMetroMapControls();
 initializeTariffUi();
 window.CityManager?.init?.().catch((err) => {
   console.warn('[Init] Başlangıç yüklemesi başarısız:', err);

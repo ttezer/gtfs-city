@@ -137,13 +137,8 @@ window.ServiceManager = (function () {
       }
     }
 
-    if (candidates.length > 1) {
-      const minScore = Math.min(...candidates.map((c) => c.score));
-      for (const c of candidates) {
-        if (c.score === minScore) ids.add(c.serviceId);
-      }
-    } else if (candidates.length === 1) {
-      ids.add(candidates[0].serviceId);
+    for (const candidate of candidates) {
+      ids.add(candidate.serviceId);
     }
 
     return ids;
@@ -160,14 +155,66 @@ window.ServiceManager = (function () {
     return `${value.slice(0, 4)}-${value.slice(4, 6)}-${value.slice(6, 8)}`;
   }
 
+  function getCalendarBounds(calendarRows, calendarDateRows) {
+    let min = 99999999;
+    let max = 0;
+    for (const row of (calendarRows || [])) {
+      const start = parseInt(row.start_date || '0', 10);
+      const end = parseInt(row.end_date || '0', 10);
+      if (start && start < min) min = start;
+      if (end && end > max) max = end;
+    }
+    for (const row of (calendarDateRows || [])) {
+      const date = parseInt(row.date || '0', 10);
+      if (date && date < min) min = date;
+      if (date && date > max) max = date;
+    }
+    if (!max || min === 99999999) return { minDate: '', maxDate: '' };
+    const minStr = String(min);
+    const maxStr = String(max);
+    return {
+      minDate: `${minStr.slice(0, 4)}-${minStr.slice(4, 6)}-${minStr.slice(6, 8)}`,
+      maxDate: `${maxStr.slice(0, 4)}-${maxStr.slice(4, 6)}-${maxStr.slice(6, 8)}`,
+    };
+  }
+
+  function addDaysIso(dateStr, dayOffset) {
+    if (window.GtfsUtils?.addDaysIso) return window.GtfsUtils.addDaysIso(dateStr, dayOffset);
+    const date = new Date(`${dateStr}T00:00:00`);
+    date.setDate(date.getDate() + dayOffset);
+    return date.toISOString().slice(0, 10);
+  }
+
+  function findNearestActiveServiceDate(today, calendarRows, calendarDateRows) {
+    const { minDate, maxDate } = getCalendarBounds(calendarRows, calendarDateRows);
+    if (!minDate || !maxDate) return '';
+    const picker = window.GtfsUtils?.findNearestDateWithData;
+    if (picker) {
+      return picker(today, minDate, maxDate, (candidate) => getServiceIdsForDate(candidate, calendarRows, calendarDateRows).size > 0);
+    }
+    const maxStepsFuture = Math.max(0, Math.round((new Date(`${maxDate}T00:00:00`) - new Date(`${today}T00:00:00`)) / 86400000));
+    for (let step = 1; step <= maxStepsFuture; step += 1) {
+      const candidate = addDaysIso(today, step);
+      if (getServiceIdsForDate(candidate, calendarRows, calendarDateRows).size) return candidate;
+    }
+    const maxStepsPast = Math.max(0, Math.round((new Date(`${today}T00:00:00`) - new Date(`${minDate}T00:00:00`)) / 86400000));
+    for (let step = 1; step <= maxStepsPast; step += 1) {
+      const candidate = addDaysIso(today, -step);
+      if (getServiceIdsForDate(candidate, calendarRows, calendarDateRows).size) return candidate;
+    }
+    return '';
+  }
+
   function autoSelectAndAdaptService(calendarRows, calendarDateRows) {
     const today = new Date().toISOString().slice(0, 10);
+    let selectedDate = today;
     let ids = getServiceIdsForDate(today, calendarRows, calendarDateRows);
     const adapted = ids.size === 0;
 
     if (adapted) {
-      const latest = getLatestDateInCalendar(calendarRows);
-      ids = getServiceIdsForDate(latest, calendarRows, calendarDateRows);
+      const nearest = findNearestActiveServiceDate(today, calendarRows, calendarDateRows);
+      selectedDate = nearest || getLatestDateInCalendar(calendarRows);
+      ids = getServiceIdsForDate(selectedDate, calendarRows, calendarDateRows);
       if (!ids.size) {
         const dayNames = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
         const dayName = dayNames[new Date().getDay()];
@@ -180,7 +227,7 @@ window.ServiceManager = (function () {
 
     const firstId = [...ids][0] || 'all';
     const reason = adapted ? translate('serviceAdaptedReason', 'Bugün için servis bulunamadı, takvim geçmiş veriye uyarlandı.') : '';
-    return { serviceId: firstId, adapted, serviceIds: ids, reason };
+    return { serviceId: firstId, adapted, serviceIds: ids, reason, selectedDate };
   }
 
   function buildServiceOptions(calendarRows, calendarDateRows) {
@@ -252,7 +299,9 @@ window.ServiceManager = (function () {
 
     picker.min = minDate !== '9999-99-99' ? minDate : '';
     picker.max = maxDate !== '0000-00-00' ? maxDate : '';
-    if (!picker.value) picker.value = maxDate !== '0000-00-00' ? maxDate : new Date().toISOString().slice(0, 10);
+    const activeServiceDate = ctx?.getActiveServiceDate?.() || '';
+    const fallbackDate = maxDate !== '0000-00-00' ? maxDate : new Date().toISOString().slice(0, 10);
+    picker.value = activeServiceDate || picker.value || fallbackDate;
 
     const selectedDate = picker.value || new Date().toISOString().slice(0, 10);
     const summary = summarizeServiceStatuses(calendarRows, selectedDate, currentIds);
@@ -266,7 +315,7 @@ window.ServiceManager = (function () {
     if (badges) {
       const allSelected = !currentIds || currentIds.size === 0 || (currentIds.size === 1 && currentIds.has('all'));
       const badgeEntries = [
-        `<button type="button" class="service-badge ${allSelected ? 'active' : 'passive'} service-badge-button" data-service-action="all" onclick="window.ServiceManager?.applyAllServices?.()">${translate('serviceAll', 'All')}</button>`,
+        `<button type="button" class="service-badge ${allSelected ? 'active' : 'passive'} service-badge-button" data-service-action="all" onclick="window.ServiceManager?.applyAllServices?.()">${translate('serviceAllForDay', 'Seçili gün')}</button>`,
       ];
       badgeEntries.push(...summary.entries.slice(0, 10).map((entry) => {
         const label = {
@@ -289,9 +338,9 @@ window.ServiceManager = (function () {
 
   function getActiveServiceLabel() {
     const ctx = getCtx();
-    if (!ctx) return translate('serviceAll', 'All');
+    if (!ctx) return translate('serviceAllForDay', 'Seçili gün');
     const activeServiceId = ctx.getActiveServiceId();
-    if (activeServiceId === 'all') return translate('serviceAll', 'All');
+    if (activeServiceId === 'all') return translate('serviceAllForDay', 'Seçili gün');
     const match = ctx.getActiveServiceOptions().find((option) => option.id === activeServiceId);
     return ctx.displayText(match?.label || activeServiceId || translate('serviceAll', 'All'));
   }
@@ -309,9 +358,16 @@ window.ServiceManager = (function () {
       return;
     }
 
+    ctx.setActiveServiceDate?.(dateStr);
     ctx.setActiveServiceIds(ids);
     ctx.setActiveServiceId([...ids][0] || 'all');
     renderServiceDatePicker(cache.rows, cache.dateRows, ids);
+
+    const preparedSource = ctx.getPreparedGtfsSource?.();
+    if (preparedSource) {
+      await ctx.rebuildRuntimeForActiveServices?.({ source: preparedSource, activeServiceIds: ids, showCapWarning: false });
+      return;
+    }
 
     const activeCity = ctx.getActiveCity();
     if (activeCity?.source === 'upload') {
@@ -327,10 +383,18 @@ window.ServiceManager = (function () {
     const ctx = getCtx();
     if (!ctx || !serviceId) return;
     const ids = new Set([serviceId]);
+    const pickerDate = document.getElementById('service-date-picker')?.value || ctx.getActiveServiceDate?.() || '';
+    if (pickerDate) ctx.setActiveServiceDate?.(pickerDate);
     ctx.setActiveServiceId(serviceId);
     ctx.setActiveServiceIds(ids);
     const cache = ctx.getCalendarCache();
     renderServiceDatePicker(cache.rows || [], cache.dateRows || [], ids);
+
+    const preparedSource = ctx.getPreparedGtfsSource?.();
+    if (preparedSource) {
+      await ctx.rebuildRuntimeForActiveServices?.({ source: preparedSource, activeServiceIds: ids, showCapWarning: false });
+      return;
+    }
 
     const activeCity = ctx.getActiveCity();
     if (activeCity?.source === 'upload') {
@@ -345,18 +409,31 @@ window.ServiceManager = (function () {
   async function applyAllServices() {
     const ctx = getCtx();
     if (!ctx) return;
-    ctx.setActiveServiceId('all');
-    ctx.setActiveServiceIds(new Set(['all']));
+    const pickerDate = document.getElementById('service-date-picker')?.value || ctx.getActiveServiceDate?.() || '';
+    if (pickerDate) ctx.setActiveServiceDate?.(pickerDate);
     const cache = ctx.getCalendarCache();
-    renderServiceDatePicker(cache.rows || [], cache.dateRows || [], ctx.getActiveServiceIds());
+    const ids = getServiceIdsForDate(pickerDate, cache.rows || [], cache.dateRows || []);
+    if (!ids.size) {
+      ctx.showToast('Bu tarihte sefer bulunamadı', 'warning');
+      return;
+    }
+    ctx.setActiveServiceId('all');
+    ctx.setActiveServiceIds(ids);
+    renderServiceDatePicker(cache.rows || [], cache.dateRows || [], ids);
+
+    const preparedSource = ctx.getPreparedGtfsSource?.();
+    if (preparedSource) {
+      await ctx.rebuildRuntimeForActiveServices?.({ source: preparedSource, activeServiceIds: ids, showCapWarning: false });
+      return;
+    }
 
     const activeCity = ctx.getActiveCity();
     if (activeCity?.source === 'upload') {
       const payload = ctx.getUploadedCityPayload(activeCity.id);
-      if (payload) await ctx.loadGtfsIntoSim(payload.files, payload.fileName, 'all', new Set(['all']));
+      if (payload) await ctx.loadGtfsIntoSim(payload.files, payload.fileName, 'all', ids);
     } else if (activeCity?.source === 'builtin') {
       const payload = await ctx.getBuiltinGtfsPayload(activeCity).catch(() => null);
-      if (payload) await ctx.loadGtfsIntoSim(payload.files, payload.fileName, 'all', new Set(['all']));
+      if (payload) await ctx.loadGtfsIntoSim(payload.files, payload.fileName, 'all', ids);
     }
   }
 

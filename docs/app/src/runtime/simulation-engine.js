@@ -282,6 +282,7 @@ window.SimulationEngine = (function () {
       time,
       typeFilter: ctx.typeFilter,
       activeRoutes: ctx.activeRoutes,
+      isRouteHidden: ctx.isRouteHidden,
       bunchingThreshold: ctx.bunchingThreshold,
       headwayCfg: ctx.HEADWAY_CFG,
       getVehiclePos: ctx.getVehiclePos,
@@ -341,7 +342,11 @@ window.SimulationEngine = (function () {
       if (activeStopData) ctx.renderStopPanel(activeStopData);
     }
 
-    if (ctx.deckgl) ctx.deckgl.setProps({ layers: ctx.buildLayers() });
+    const qualityLevel = ctx.QUALITY?.level ?? 1;
+    const deckSkip = qualityLevel === 0 ? 3 : 0;
+    if (ctx.deckgl && (deckSkip === 0 || animFrame % (deckSkip + 1) === 0)) {
+      ctx.deckgl.setProps({ layers: ctx.buildLayers() });
+    }
     requestAnimationFrame(animate);
   }
 

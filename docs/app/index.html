@@ -4,12 +4,21 @@
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>GTFS City</title>
+<!-- Google tag (gtag.js) -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-PRJPC1JRDH"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+
+  gtag('config', 'G-PRJPC1JRDH');
+</script>
 <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@4.1.2/dist/maplibre-gl.css"/>
 <script src="https://unpkg.com/maplibre-gl@4.1.2/dist/maplibre-gl.js"></script>
 <script src="https://unpkg.com/deck.gl@9.0.3/dist.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
-<link rel="stylesheet" href="style.css?v=20260402b">
+<link rel="stylesheet" href="style.css?v=20260508g">
 <link rel="icon" type="image/x-icon" href="./favicon.ico?v=20260402b">
 
 </head>
@@ -44,9 +53,15 @@
       </div>
     </div>
 
+    <div id="lp-import-summary" class="lp-import-summary hidden"></div>
+
     <div class="lp-actions">
       <button class="lp-btn primary" id="lp-btn-upload">📂 GTFS ZIP YÜKLE</button>
-      <button class="lp-btn outline hidden" id="lp-btn-start" disabled>🗺️ HARİTAYI AÇ</button>
+      <button class="lp-btn outline hidden" id="lp-btn-start" disabled>🗓️ TAKVİMİ AÇ</button>
+      <div id="lp-map-open-wrap" class="lp-map-open-wrap hidden">
+        <button class="lp-btn outline" id="lp-btn-open-map" disabled>🗺️ HARİTAYI AÇ</button>
+        <div id="lp-map-open-note" class="lp-map-open-note">Çalışma günü: —</div>
+      </div>
     </div>
     <div class="lp-link-row hidden" id="lp-link-row">
       <input type="url" id="lp-gtfs-url" class="lp-url-input" placeholder="https://.../gtfs.zip">
@@ -58,78 +73,7 @@
         <div class="lp-examples-title" id="lp-examples-title">Örnek veriyle dene</div>
         <div class="lp-examples-subtitle" id="lp-examples-subtitle">Konya, Gaziantep, İzmir ESHOT, Bordeaux ve Houston açık veri GTFS kaynaklarıyla hızlı başlangıç yap.</div>
       </div>
-      <div class="lp-examples-grid" id="lp-examples-grid">
-        <article class="lp-example-card">
-          <div class="lp-example-top">
-            <div class="lp-example-place">
-              <img class="lp-example-flag" src="./assets/flags/tr.svg" alt="Türkiye bayrağı">
-              <span class="lp-example-city">Konya</span>
-            </div>
-            <span class="lp-example-badge">GTFS</span>
-          </div>
-          <div class="lp-example-org">Konya Büyükşehir Belediyesi</div>
-          <div class="lp-example-actions">
-            <button class="lp-btn outline lp-example-load" data-url="https://acikveri.konya.bel.tr/dataset/c2e034e6-e015-49c6-8eec-6e2f7de9c105/resource/ec944ecd-1c1f-4687-a7f6-fcf2dc5bb5db/download/gtfs_11_2025.zip" data-name="Konya GTFS.zip">Örneği Yükle</button>
-            <a class="lp-example-source" href="https://acikveri.konya.bel.tr/tr/dataset/toplu-tasima-gtfs-verileri/resource/ec944ecd-1c1f-4687-a7f6-fcf2dc5bb5db" target="_blank" rel="noreferrer">Kaynağa Git</a>
-          </div>
-        </article>
-        <article class="lp-example-card">
-          <div class="lp-example-top">
-            <div class="lp-example-place">
-              <img class="lp-example-flag" src="./assets/flags/tr.svg" alt="Türkiye bayrağı">
-              <span class="lp-example-city">İzmir ESHOT</span>
-            </div>
-            <span class="lp-example-badge">GTFS</span>
-          </div>
-          <div class="lp-example-org">İzmir Büyükşehir Belediyesi</div>
-          <div class="lp-example-actions">
-            <button class="lp-btn outline lp-example-load" data-url="https://www.eshot.gov.tr/gtfs/bus-eshot-gtfs.zip" data-name="Izmir ESHOT GTFS.zip">Örneği Yükle</button>
-            <a class="lp-example-source" href="https://acikveri.bizizmir.com/tr/dataset/toplu-ulasim-gtfs-verileri" target="_blank" rel="noreferrer">Kaynağa Git</a>
-          </div>
-        </article>
-        <article class="lp-example-card">
-          <div class="lp-example-top">
-            <div class="lp-example-place">
-              <img class="lp-example-flag" src="./assets/flags/tr.svg" alt="Türkiye bayrağı">
-              <span class="lp-example-city">Gaziantep</span>
-            </div>
-            <span class="lp-example-badge">GTFS</span>
-          </div>
-          <div class="lp-example-org">Gaziantep Büyükşehir Belediyesi</div>
-          <div class="lp-example-actions">
-            <button class="lp-btn outline lp-example-load" data-url="https://acikveri.gaziantep.bel.tr/dataset/12d26c98-edc5-4be3-8988-c753764b84f4/resource/b3254aa0-359e-4b7c-87a3-d5d56ad27353/download/attached_gtfs.zip" data-name="Gaziantep GTFS.zip">Örneği Yükle</button>
-            <a class="lp-example-source" href="https://acikveri.gaziantep.bel.tr/el/dataset/toplu-ulasim-gtfs-verileri" target="_blank" rel="noreferrer">Kaynağa Git</a>
-          </div>
-        </article>
-        <article class="lp-example-card">
-          <div class="lp-example-top">
-            <div class="lp-example-place">
-              <img class="lp-example-flag" src="./assets/flags/fr.svg" alt="Fransa bayrağı">
-              <span class="lp-example-city">Bordeaux</span>
-            </div>
-            <span class="lp-example-badge">GTFS</span>
-          </div>
-          <div class="lp-example-org">Bordeaux Métropole</div>
-          <div class="lp-example-actions">
-            <button class="lp-btn outline lp-example-load" data-url="https://bdx.mecatran.com/utw/ws/gtfsfeed/static/bordeaux?apiKey=opendata-bordeaux-metropole-flux-gtfs-rt" data-name="Bordeaux GTFS.zip">Örneği Yükle</button>
-            <a class="lp-example-source" href="https://transport.data.gouv.fr/resources/83024?locale=en" target="_blank" rel="noreferrer">Kaynağa Git</a>
-          </div>
-        </article>
-        <article class="lp-example-card">
-          <div class="lp-example-top">
-            <div class="lp-example-place">
-              <img class="lp-example-flag" src="./assets/flags/us.svg" alt="ABD bayrağı">
-              <span class="lp-example-city">Houston</span>
-            </div>
-            <span class="lp-example-badge">GTFS</span>
-          </div>
-          <div class="lp-example-org">METRO Houston</div>
-          <div class="lp-example-actions">
-            <button class="lp-btn outline lp-example-load" data-url="https://metro.resourcespace.com/pages/download.php?ref=4835&ext=zip" data-name="Houston GTFS.zip">Örneği Yükle</button>
-            <a class="lp-example-source" href="https://www.transit.land/feeds/f-9vk-metropolitantransitauthorityofharriscounty" target="_blank" rel="noreferrer">Kaynağa Git</a>
-          </div>
-        </article>
-      </div>
+      <div class="lp-examples-grid" id="lp-examples-grid"></div>
     </div>
   </div>
 </div>
@@ -151,6 +95,7 @@
 <button id="capture-toggle-btn" class="hidden" title="Ekran Görüntüsü Al">📸</button>
 <button id="route-tariff-toggle-btn" class="hidden" title="Hat Tarifesi">🚌</button>
 <button id="stop-tariff-toggle-btn" class="hidden" title="Durak Tarifesi">📍</button>
+<button id="metro-map-toggle-btn" class="hidden" title="Metro Diyagramı">🚇</button>
 <div id="legend" style="display:none;"></div>
 <div id="capture-credit" class="hidden">© GTFS City tarafından üretilmiştir • https://ttezer.github.io/gtfs-city/app/</div>
 
@@ -172,6 +117,14 @@
     <!-- Platform Badge (İş-15) -->
     <div id="platform-badge" class="platform-badge"></div>
   </div>
+
+  <div class="workspace-switch-row">
+    <button id="workspace-map-btn" class="workspace-btn active" data-workspace="harita" type="button">Harita</button>
+    <button id="workspace-info-btn" class="workspace-btn" data-workspace="bilgi" type="button">Bilgi</button>
+    <button id="workspace-analysis-btn" class="workspace-btn" data-workspace="analiz" type="button" disabled>Çalışma Takvimi <span class="ws-btn-beta">Beta</span></button>
+    <button id="workspace-settings-btn" class="workspace-btn" data-workspace="ayarlar" type="button">⚙</button>
+  </div>
+  <div id="active-service-date-badge" class="active-service-date-badge">Çalışma günü: —</div>
 
   <!-- CLOCK + TIME CONTROLS -->
   <div id="time-block">
@@ -367,6 +320,113 @@
 <!-- ══ END SIDEBAR ════════════════════════════════════════ -->
 
 <!-- ARAÇ DETAY PANELİ (Bölüm 2) -->
+<section id="info-workspace-shell" class="hidden">
+  <div class="info-workspace-layout">
+    <div class="info-workspace-main">
+      <div class="info-workspace-card">
+        <div class="info-workspace-card-head">
+          <h3 id="info-workspace-title">GTFS Bilgi Yüzeyi</h3>
+          <span class="info-workspace-badge">Seçili gün</span>
+        </div>
+        <div id="info-workspace-summary">Henüz veri yüklenmedi.</div>
+      </div>
+      <div class="info-workspace-card info-service-browser">
+        <div class="info-workspace-card-head">
+          <h3>Seçili Gün Özeti</h3>
+        </div>
+        <div id="info-service-summary">Henüz servis özeti yok.</div>
+      </div>
+      <div class="info-workspace-card info-route-browser">
+        <div class="info-workspace-card-head">
+          <h3>Hatlar</h3>
+        </div>
+        <input id="info-route-filter" type="text" placeholder="Hat ara…">
+        <div id="info-route-list"></div>
+      </div>
+      <div class="info-workspace-card info-stop-browser">
+        <div class="info-workspace-card-head">
+          <h3>Duraklar</h3>
+        </div>
+        <input id="info-stop-filter" type="text" placeholder="Durak ara…">
+        <div id="info-stop-list"></div>
+      </div>
+    </div>
+    <aside class="info-inspector-shell">
+      <div class="info-workspace-card">
+        <div class="info-workspace-card-head">
+          <h3 class="info-inspector-title">Inspector</h3>
+          <span class="info-inspector-subtitle">Seçim bekleniyor</span>
+        </div>
+        <div class="info-inspector-meta"></div>
+        <div class="info-inspector-empty">Harita veya bu sayfadaki listeler üzerinden bir seçim yapıldığında ayrıntılar burada görünecek.</div>
+      </div>
+    </aside>
+  </div>
+</section>
+
+<!-- ══ ANALİZ WORKSPACE ════════════════════════════════════ -->
+<div id="analiz-workspace-shell">
+  <div class="analiz-workspace-layout">
+    <div class="info-workspace-card-head analiz-cal-head">
+      <h3 id="info-calendar-title">Takvim</h3>
+      <div class="info-cal-nav" id="info-cal-nav"></div>
+    </div>
+    <div id="info-calendar-body">Henüz takvim verisi yok.</div>
+  </div>
+</div>
+
+<!-- ══ AYARLAR WORKSPACE ═══════════════════════════════════ -->
+<div id="settings-workspace-shell">
+  <div class="settings-section">
+    <div class="settings-section-title">Harita</div>
+    <div class="settings-row">
+      <div class="settings-label-wrap">
+        <span class="settings-label">Tema</span>
+        <span class="settings-hint">Harita arka plan rengi</span>
+      </div>
+      <select class="settings-select" id="settings-map-theme">
+        <option value="dark">Koyu</option>
+        <option value="light">Açık</option>
+        <option value="satellite">Uydu</option>
+      </select>
+    </div>
+  </div>
+  <div class="settings-section">
+    <div class="settings-section-title">Zaman ve Tarih</div>
+    <div class="settings-row">
+      <div class="settings-label-wrap">
+        <span class="settings-label">Saat formatı</span>
+      </div>
+      <select class="settings-select" id="settings-time-format">
+        <option value="24">24 saat</option>
+        <option value="12">12 saat (AM/PM)</option>
+      </select>
+    </div>
+    <div class="settings-row">
+      <div class="settings-label-wrap">
+        <span class="settings-label">Hafta başlangıcı</span>
+      </div>
+      <select class="settings-select" id="settings-week-start">
+        <option value="1">Pazartesi</option>
+        <option value="0">Pazar</option>
+        <option value="6">Cumartesi</option>
+      </select>
+    </div>
+  </div>
+  <div class="settings-section">
+    <div class="settings-section-title">Uygulama</div>
+    <div class="settings-row">
+      <div class="settings-label-wrap">
+        <span class="settings-label">Dil</span>
+      </div>
+      <select class="settings-select" id="settings-language">
+        <option value="tr">Türkçe</option>
+        <option value="en">English</option>
+      </select>
+    </div>
+  </div>
+</div>
+
 <div id="vehicle-panel" class="drawer hidden">
   <div id="vp-header" class="drawer-header">
     <span id="vp-icon">🚌</span>
@@ -675,6 +735,45 @@
   </div>
 </div>
 
+<div id="metro-map-modal" class="hidden">
+  <div class="metro-map-modal-box">
+    <div class="tariff-modal-header">
+      <span>🚇 Metro Diyagramı</span>
+      <button id="metro-map-close" type="button">✕</button>
+    </div>
+    <div class="tariff-modal-body">
+      <label class="capture-field">
+        <span>Hat ara</span>
+        <input type="text" id="metro-map-route-filter" placeholder="Hat kodu veya uzun ad">
+      </label>
+      <div class="metro-map-toolbar">
+        <button type="button" class="cbtn" id="metro-map-select-all">Tümünü Seç</button>
+        <button type="button" class="cbtn" id="metro-map-clear">Temizle</button>
+        <span id="metro-map-selection-count">Hat seçilmedi</span>
+      </div>
+      <div id="metro-map-route-list" class="metro-map-route-list"></div>
+      <div class="tariff-summary">Yalnızca baş/son ve transfer durakları etiketlenir. Çizim, seçilen hatların gerçek koordinatlarından türetilmiş sadeleştirilmiş metro diyagramıdır.</div>
+    </div>
+    <div class="tariff-modal-actions">
+      <button type="button" class="cbtn" id="metro-map-cancel">Vazgeç</button>
+      <button type="button" class="cbtn accent" id="metro-map-generate">Diyagram Üret</button>
+    </div>
+  </div>
+</div>
+
+<div id="metro-map-output-modal" class="hidden">
+  <div id="metro-map-output-box">
+    <div id="metro-map-output-header">
+      <span>Metro Diyagramı Önizleme</span>
+      <div class="tariff-output-actions">
+        <button type="button" class="cbtn accent" id="metro-map-download">PNG Kaydet</button>
+        <button type="button" class="cbtn" id="metro-map-output-close">Kapat</button>
+      </div>
+    </div>
+    <div id="metro-map-output-content"></div>
+  </div>
+</div>
+
 <!-- HAT PANELİ -->
 <div id="route-panel" class="drawer hidden">
   <div id="route-panel-header" class="drawer-header">
@@ -706,38 +805,38 @@
 <!-- İZOKRON PANELİ -->
 <div id="isochron-panel" style="display:none;position:fixed;bottom:24px;right:16px;z-index:300;background:rgba(22,27,34,0.95);border:1px solid rgba(48,54,61,0.8);border-radius:10px;padding:12px 16px;min-width:200px;max-height:90vh;overflow-y:auto;backdrop-filter:blur(8px);">
   <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
-    <span style="font-size:12px;font-weight:700;color:#e6edf3;letter-spacing:1px;">İZOKRON ANALİZ</span>
+    <span id="isochron-title" style="font-size:12px;font-weight:700;color:#e6edf3;letter-spacing:1px;">İZOKRON ANALİZ</span>
     <button id="isochron-close" style="background:none;border:none;color:#7d8590;cursor:pointer;font-size:14px;padding:0;">✕</button>
   </div>
   <div id="isochron-hint" style="font-size:11px;color:#7d8590;margin-bottom:10px;">Haritada bir noktaya tıklayın</div>
   <div id="isochron-origin-label" style="font-size:11px;color:#58a6ff;margin-bottom:10px;display:none;"></div>
   <div style="display:flex;flex-direction:column;gap:5px;">
-    <div style="display:flex;align-items:center;gap:8px;"><span style="width:12px;height:12px;border-radius:50%;background:#3fb950;display:inline-block;"></span><span style="font-size:11px;color:#e6edf3;">0 – 15 dakika</span></div>
-    <div style="display:flex;align-items:center;gap:8px;"><span style="width:12px;height:12px;border-radius:50%;background:#d29922;display:inline-block;"></span><span style="font-size:11px;color:#e6edf3;">15 – 30 dakika</span></div>
-    <div style="display:flex;align-items:center;gap:8px;"><span style="width:12px;height:12px;border-radius:50%;background:#e07b39;display:inline-block;"></span><span style="font-size:11px;color:#e6edf3;">30 – 45 dakika</span></div>
-    <div style="display:flex;align-items:center;gap:8px;"><span style="width:12px;height:12px;border-radius:50%;background:#f85149;display:inline-block;"></span><span style="font-size:11px;color:#e6edf3;">45 – 60 dakika</span></div>
+    <div style="display:flex;align-items:center;gap:8px;"><span style="width:12px;height:12px;border-radius:50%;background:#3fb950;display:inline-block;"></span><span id="isochron-legend-15" style="font-size:11px;color:#e6edf3;">0 – 15 dakika</span></div>
+    <div style="display:flex;align-items:center;gap:8px;"><span style="width:12px;height:12px;border-radius:50%;background:#d29922;display:inline-block;"></span><span id="isochron-legend-30" style="font-size:11px;color:#e6edf3;">15 – 30 dakika</span></div>
+    <div style="display:flex;align-items:center;gap:8px;"><span style="width:12px;height:12px;border-radius:50%;background:#e07b39;display:inline-block;"></span><span id="isochron-legend-45" style="font-size:11px;color:#e6edf3;">30 – 45 dakika</span></div>
+    <div style="display:flex;align-items:center;gap:8px;"><span style="width:12px;height:12px;border-radius:50%;background:#f85149;display:inline-block;"></span><span id="isochron-legend-60" style="font-size:11px;color:#e6edf3;">45 – 60 dakika</span></div>
   </div>
   <div id="isochron-stats" style="margin-top:10px;font-size:10px;color:#7d8590;border-top:1px solid rgba(48,54,61,0.6);padding-top:8px;display:none;"></div>
 </div>
 <script src="src/utils/gtfs-math-utils.js?v=20260402b"></script>
 <script src="src/runtime/bridge-utils.js?v=20260405a"></script>
 <script src="src/runtime/simulation-engine.js?v=20260402b"></script>
-<script src="src/managers/map-manager.js?v=20260402b"></script>
-<script src="src/managers/ui-manager.js?v=20260402b"></script>
+<script src="src/managers/map-manager.js?v=20260508i"></script>
+<script src="src/managers/ui-manager.js?v=20260508f"></script>
 <script src="src/managers/planner-manager.js?v=20260402b"></script>
 <script src="src/utils/stop-connectivity-utils.js?v=20260403a"></script>
 <script src="src/managers/service-manager.js?v=20260402b"></script>
 <script src="src/managers/city-manager.js?v=20260402b"></script>
-<script src="src/managers/data-manager.js?v=20260402b"></script>
-<script src="src/managers/app-manager.js?v=20260402b"></script>
+<script src="src/managers/data-manager.js?v=20260503c"></script>
+<script src="src/managers/app-manager.js?v=20260503c"></script>
 <script src="src/core/config.js?v=20260402b"></script>
 <script src="src/utils/sim-utils.js?v=20260402b"></script>
 <script src="src/utils/analytics-utils.js?v=20260402b"></script>
-<script src="src/utils/gtfs-utils.js?v=20260402b"></script>
+<script src="src/utils/gtfs-utils.js?v=20260508j"></script>
 <script src="src/utils/gtfs-validator.js?v=20260402b"></script>
 <script src="src/utils/render-utils.js?v=20260402b"></script>
 <script src="src/utils/ui-utils.js?v=20260402b"></script>
-<script src="src/core/bootstrap-manager.js?v=20260402b"></script>
+<script src="src/core/bootstrap-manager.js?v=20260503c"></script>
 <script>
 window.BootstrapManager?.start?.();
 </script>

@@ -21,6 +21,9 @@ GTFS verisinin kendisi ve ondan dogrudan uretilen temel runtime veri.
 - `AppState.hourlyCounts`
 - `AppState.hourlyHeat`
 - `AppState.baseRuntimeData`
+- `AppState.routeRuntimeSource`
+- `AppState.loadedRuntimeRouteIds`
+- `AppState.loadingRuntimeRouteIds`
 - `AppState.stopConnectivityScores`
 
 ### 2. UI state
@@ -106,6 +109,9 @@ Analitik hesaplar, gecici cache'ler ve yeniden hesaplanabilir ara durumlar.
 | `AppState.stops` | Dataset | `data-manager` | `city-manager`, `app-manager`, `map-manager`, `ui-manager` | `data-manager`, `city bridge clearRuntimeData` | `STOPS` ile ayni veri iki yerden tasiniyor |
 | `AppState.stopInfo` | Dataset | `data-manager` | `map-manager`, `ui-manager`, `planner-manager`, `city-manager` | `data-manager`, `city bridge clearRuntimeData` | `STOP_INFO` globali ile paralel yasiyor |
 | `AppState.stopDeps` | Dataset | `data-manager` | `map-manager`, `ui-manager`, `simulation-engine`, `planner-manager` | `data-manager`, `city bridge clearRuntimeData` | `STOP_DEPS` globali ile paralel yasiyor |
+| `AppState.routeRuntimeSource` | Dataset / session | `data-manager` yukleme akisi | `ui-manager`, `data-manager` | `data-manager`, `clearRuntimeData` | Buyuk feed icin route-scoped subset yuklemenin kaynak paketi; buyuk ama tek sahipli olmali |
+| `AppState.loadedRuntimeRouteIds` | Dataset / selection yardimcisi | runtime merge akisi | `ui-manager`, `map-manager` | `setRuntimeCollections`, `mergeRuntimeCollections`, `clearRuntimeData` | Runtime'da hangi route'larin gercekten yasadigini ayri tasiyor |
+| `AppState.loadingRuntimeRouteIds` | Session / transient | route-scoped loading akisi | `ui-manager` | `data-manager`, `clearRuntimeData` | Asenkron route subset job'lari icin gecici set |
 | `AppState.stopConnectivityScores` | Dataset / analytics | `script.js` runtime + `StopConnectivityUtils` akisi | `map-manager`, stop panel, legend | connectivity event zinciri, cache okuma/yazma | Uretimi event tabanli, sahipligi daginik |
 | `simTime` | Simulation | `script.js` / `simulation-engine` | `map-manager`, `ui-manager`, `simulation-engine` | `simulation-engine`, slider eventleri, replay resetleri | Merkezi state nesnesi yerine local runtime degiskeni |
 | `simPaused` | Simulation | `simulation-engine` | `simulation-engine`, UI kontrolleri | `simulation-engine`, playback butonlari | runtime local simulation state |
@@ -179,3 +185,75 @@ State fazinin bu turdaki resmi karari sunudur:
 `Gercek state kaynagi AppState + runtime local sahiplik eksenidir; yeni bir merkezi state katmani acilmadan bu iki eksen sertlestirilir.`
 
 Bu karar verilmeden bridge daraltma ve `script.js` parcala isi guvenli ilerlemez.
+
+## ADR-002 Sonrasi Workspace State Notu
+
+`Harita / Bilgi workspace` karari alindiktan sonra state fazina iki yeni zorunlu alan girdi:
+
+### 1. `activeWorkspace`
+
+- onerilen resmi sahip: `AppState`
+- beklenen degerler: `harita | bilgi | analiz`
+- amac: ust seviye kullanim yolunu UI toggle'larindan ayirmak
+
+Bu alan, `workspace` secimini UI detayindan ayri bir urun state'i olarak ele almak icin gerekir.
+
+### 2. `inspectorContext`
+
+`selectedEntity` secilen nesneyi tutar; `inspectorContext` ise bu secimin hangi workspace baglaminda nasil render edilecegini tanimlar.
+
+Ilk onerilen model:
+
+- `entityType`
+- `entityId`
+- `workspace`
+- `viewMode`
+
+Bu alan ayri tanimlanmazsa su sorunlar buyur:
+
+- Bilgi workspace'inde yapilan secim Harita'ya gecince stale kalabilir
+- ayni secim iki farkli panel mantiginda tekrar yorumlanir
+- `selectedEntity` ile gorunum baglami birbirine karisir
+
+### Kisa Kural
+
+- `selectedEntity` global secim state'idir
+- `focusedRouteId` harita focus state'idir
+- `activeWorkspace` ust seviye yuzey secimidir
+- `inspectorContext` secimin hangi workspace sunumuyla gosterilecegini belirler
+
+Bu dort alan birbirine karistirilirsa Faz 3 sonrasi workspace gecislerinde sessiz secim bug'lari olusur.
+
+## Faz 7 Sonrasi Buyuk Feed State Notu
+
+Buyuk feed mimarisi ile birlikte dataset state'e uc yeni alan fiilen girdi:
+
+- `routeRuntimeSource`
+- `loadedRuntimeRouteIds`
+- `loadingRuntimeRouteIds`
+
+Bu alanlar gecici degil; route-scoped loading davranisinin cekirdegi.
+
+### Kisa anlamlari
+
+- `routeRuntimeSource`
+  - servis filtreli ama pre-cap tam trip/shape/stop kaynagi
+  - route subset worker job'u bunun uzerinden kurulur
+
+- `loadedRuntimeRouteIds`
+  - ana runtime veya merge edilmis subset icinde gercekten yasayan route kimlikleri
+  - UI tarafinda "katalogda var ama runtime'da yok" ayrimini yapar
+
+- `loadingRuntimeRouteIds`
+  - o anda subset yuklenen route'lari izler
+  - ayni route icin tekrar tekrar job acilmasini engeller
+
+### Yeni risk
+
+`AppState.trips/shapes/stops/stopDeps` artik sadece tam yukleme ile degil, merge ile de buyuyor.
+
+Bu nedenle:
+
+- `runtime collections` tek seferlik set degil, kademeli genisleyebilir veri kabul edilmeli
+- cache anahtarlari sadece `trips.length` gibi kaba olculere dayanirsa sessiz stale-state bug'lari uretebilir
+- Faz 7 sonrasi state sahipliginde asil yeni baski `kademeli runtime buyumesi`dir

@@ -3,6 +3,8 @@ const assert = require('node:assert/strict');
 
 const {
   hhmmToSec,
+  addDaysIso,
+  findNearestDateWithData,
   simplifyPathPoints,
   buildRouteMap,
   buildTripStopsMap,
@@ -12,6 +14,23 @@ const {
 test('hhmmToSec parses GTFS time strings', () => {
   assert.equal(hhmmToSec('06:45:30'), 24330);
   assert.equal(hhmmToSec(''), null);
+});
+
+test('addDaysIso shifts ISO dates by day count', () => {
+  assert.equal(addDaysIso('2026-05-01', 1), '2026-05-02');
+  assert.equal(addDaysIso('2026-05-01', -1), '2026-04-30');
+});
+
+test('findNearestDateWithData prefers nearest future date before past date', () => {
+  const marked = new Set(['2026-05-03', '2026-04-30']);
+  const picked = findNearestDateWithData('2026-05-01', '2026-04-01', '2026-05-31', (candidate) => marked.has(candidate));
+  assert.equal(picked, '2026-05-03');
+});
+
+test('findNearestDateWithData falls back to nearest past date when no future date exists', () => {
+  const marked = new Set(['2026-04-29']);
+  const picked = findNearestDateWithData('2026-05-01', '2026-04-01', '2026-05-31', (candidate) => marked.has(candidate));
+  assert.equal(picked, '2026-04-29');
 });
 
 test('simplifyPathPoints preserves endpoints under limit', () => {
@@ -46,8 +65,8 @@ test('buildTripStopsMap sorts stop_times by sequence', () => {
   ]);
 
   assert.deepEqual(tripStops.t1, [
-    [1, 21600, 's1'],
-    [2, 22200, 's2'],
+    [1, 21600, 's1', 21600, 0, 0],
+    [2, 22200, 's2', 22200, 0, 0],
   ]);
 });
 
