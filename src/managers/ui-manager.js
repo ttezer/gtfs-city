@@ -770,17 +770,18 @@ window.UIManager = (function () {
       clearFocusedRouteSelection(true);
       return;
     }
-    if (trip) {
+    const panelSource = trip || shape;
+    if (panelSource) {
       const routeMeta = {
         ...ctx.getRouteMeta(
           shortName,
-          trip.t,
-          trip.c,
-          routeRef?.ln || trip.ln || trip.h || routeRef?.an || trip.an || ''
+          panelSource.t,
+          panelSource.c,
+          routeRef?.ln || panelSource.ln || panelSource.h || routeRef?.an || ''
         ),
         rid: typeof routeRef === 'object' ? (routeRef.rid || null) : null
       };
-      openRoutePanel(routeMeta, ctx.TYPE_META[trip.t] || {});
+      openRoutePanel(routeMeta, ctx.TYPE_META[panelSource.t] || {});
     }
     buildStopList(document.getElementById('stop-list-filter')?.value || '');
     ctx.refreshLayersNow();
