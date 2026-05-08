@@ -778,6 +778,7 @@ window.DataManager = (function () {
     if (ctx.isRuntimeRouteLoading?.(rid)) return false;
     const source = ctx.getRouteRuntimeSource?.();
     if (!source?.routeMap || !source?.shapePts || !source?.stopsMap || !source?.tripMeta || !source?.tripStops) {
+      console.warn('[loadRouteRuntimeSubset] source eksik:', { routeMap: !!source?.routeMap, shapePts: !!source?.shapePts, stopsMap: !!source?.stopsMap, tripMeta: !!source?.tripMeta, tripStops: !!source?.tripStops });
       return false;
     }
 
@@ -801,7 +802,10 @@ window.DataManager = (function () {
           maxStops: Infinity,
         }
       );
-      if (!runtimeData?.nTRIPS?.length && !runtimeData?.nSHAPES?.length) return false;
+      if (!runtimeData?.nTRIPS?.length && !runtimeData?.nSHAPES?.length) {
+        console.warn('[loadRouteRuntimeSubset] nTRIPS ve nSHAPES boş — rid:', rid, 'tripMeta kayıt sayısı:', Object.keys(source.tripMeta || {}).length);
+        return false;
+      }
       if (requestSeq && !ctx.isRuntimeRouteRequestCurrent?.(rid, requestSeq)) {
         return false;
       }

@@ -258,7 +258,7 @@
           { value: patterns.length.toLocaleString(getLocale()), label: 'Varyant' },
         ]),
         buildInspectorBlock('Servis aralığı', `${formatSecsToHHMM(firstDep(routeTariffs))} / ${formatSecsToHHMM(lastDep(routeTariffs))}`),
-        runtimeTripsForRoute === 0 && routeTariffs.length > 0 && !isFamilySelection && route?.rid
+        runtimeTripsForRoute === 0 && routeTariffs.length > 0 && route?.rid
           ? `<div class="insp-load-anim-wrap"><button type="button" class="insp-load-anim-btn" data-info-action="load-animation" data-rid="${escapeHtml(route.rid)}"><span class="insp-load-anim-label">Animasyonu Yükle</span><span class="insp-load-anim-pct">0%</span></button></div>`
           : '',
         isFamilySelection ? buildRouteIdentitySummaryHtml(familyRoutes, familyTariffCounts, familyRuntimeCounts) : '',
@@ -318,12 +318,26 @@
         });
       }
       bodyEl.querySelectorAll('[data-route-member-id]').forEach((row) => {
-        row.addEventListener('click', () => {
+        row.addEventListener('click', (e) => {
+          if (e.target.closest('[data-load-rid]')) return;
           const routeId = row.getAttribute('data-route-member-id') || '';
           const routeMember = familyRoutes.find((entry) => String(entry?.rid || '').trim() === routeId) || null;
           if (!routeMember) return;
           ctx?.setSelectedEntity?.({ type: 'route', routeId, routeShort: routeMember.s || selectedEntity.routeShort || '' });
           renderInfoInspector();
+        });
+      });
+      bodyEl.querySelectorAll('[data-load-rid]').forEach((btn) => {
+        btn.addEventListener('click', async (e) => {
+          e.stopPropagation();
+          const rid = btn.getAttribute('data-load-rid') || '';
+          if (!rid) return;
+          btn.disabled = true;
+          btn.textContent = '...';
+          const ok = await ctx?.loadRouteRuntimeSubset?.(rid);
+          btn.textContent = ok ? '✓' : '✗';
+          if (ok) setTimeout(() => renderInfoInspector(), 600);
+          else btn.title = 'Yükleme başarısız — bu tarihte sefer yok olabilir';
         });
       });
       bodyEl.querySelectorAll('[data-pattern-dir]').forEach((row) => {
@@ -1543,11 +1557,17 @@
       const rid = String(route?.rid || '').trim();
       const typeLabel = localizedRouteTypeLabel(route?.t) || String(route?.t ?? '—');
       const displayName = route?.ln || route?.an || rid || '—';
+      const tariffCount = tariffCounts.get(rid) || 0;
+      const runtimeCount = runtimeCounts.get(rid) || 0;
+      const loadBtn = runtimeCount === 0 && tariffCount > 0 && rid
+        ? `<button type="button" class="insp-load-row-btn" data-load-rid="${escapeHtml(rid)}" title="Animasyonu yükle">Yükle</button>`
+        : '';
       return `
         <div class="insp-pattern-row" data-route-member-id="${escapeHtml(rid)}" title="Bu kaydı aç">
           <span class="route-code-badge">${escapeHtml(route?.s || rid || '—')}</span>
           <span class="insp-pattern-head">${escapeHtml(displayName)}</span>
-          <span class="insp-pattern-count">${escapeHtml(typeLabel)} · ${(tariffCounts.get(rid) || 0).toLocaleString(getLocale())}/${(runtimeCounts.get(rid) || 0).toLocaleString(getLocale())}</span>
+          <span class="insp-pattern-count">${escapeHtml(typeLabel)} · ${tariffCount.toLocaleString(getLocale())}/${runtimeCount.toLocaleString(getLocale())}</span>
+          ${loadBtn}
         </div>`;
     }).join('');
     return `<div class="info-inspector-block">
