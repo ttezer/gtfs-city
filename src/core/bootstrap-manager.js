@@ -4,7 +4,7 @@ window.BootstrapManager = (function () {
   function loadScript(src, cb) {
     const script = document.createElement('script');
     const basePath = window.APP_BASE_PATH || '';
-    script.src = `${basePath}${src}?v=20260508e`;
+    script.src = `${basePath}${src}?v=20260508f`;
     script.onload = cb;
     script.onerror = function () {
       console.error('[DataLoad] Yüklenemedi:', src);
