@@ -2047,6 +2047,7 @@ window.LegacyAppBridge = createLegacyBridge(() => ({
     invalidateMapCaches: () => { _cachedVisTrips = null; _cachedVisShapes = null; _filteredStopsCache = null; _filteredStopIdSetCache = null; },
     setShowTrail: (value) => { showTrail = value; },
     setCurrentMapStyle: (value) => { currentMapStyle = value || 'auto'; },
+    loadRouteRuntimeSubset: (routeId) => callManager('DataManager', 'loadRouteRuntimeSubset', [routeId]),
   }));
 
 const legacySimulationContext = {
