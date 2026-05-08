@@ -258,6 +258,9 @@
           { value: patterns.length.toLocaleString(getLocale()), label: 'Varyant' },
         ]),
         buildInspectorBlock('Servis aralığı', `${formatSecsToHHMM(firstDep(routeTariffs))} / ${formatSecsToHHMM(lastDep(routeTariffs))}`),
+        runtimeTripsForRoute === 0 && routeTariffs.length > 0 && !isFamilySelection && route?.rid
+          ? `<div class="insp-load-anim-wrap"><button type="button" class="insp-load-anim-btn" data-info-action="load-animation" data-rid="${escapeHtml(route.rid)}"><span class="insp-load-anim-label">Animasyonu Yükle</span><span class="insp-load-anim-pct">0%</span></button></div>`
+          : '',
         isFamilySelection ? buildRouteIdentitySummaryHtml(familyRoutes, familyTariffCounts, familyRuntimeCounts) : '',
         buildPatternSummaryHtml(patterns, ctx?.getSelectedPatternKey?.() ?? null, inspectorState.dirFilter ?? null),
         stopsTrayHtml,
@@ -290,6 +293,30 @@
         window.UIManager?.focusRoute(route || selectedEntity.routeShort);
         renderInfoInspector();
       });
+      const loadAnimBtn = bodyEl.querySelector('[data-info-action="load-animation"]');
+      if (loadAnimBtn) {
+        loadAnimBtn.addEventListener('click', async () => {
+          const rid = loadAnimBtn.getAttribute('data-rid') || '';
+          if (!rid) return;
+          loadAnimBtn.disabled = true;
+          loadAnimBtn.classList.add('loading');
+          const pctEl = loadAnimBtn.querySelector('.insp-load-anim-pct');
+          const labelEl = loadAnimBtn.querySelector('.insp-load-anim-label');
+          let fakeProgress = 0;
+          const ticker = setInterval(() => {
+            fakeProgress = Math.min(fakeProgress + Math.random() * 12, 88);
+            if (pctEl) pctEl.textContent = `${Math.round(fakeProgress)}%`;
+            loadAnimBtn.style.setProperty('--fill-pct', `${fakeProgress}%`);
+          }, 200);
+          const ok = await ctx?.loadRouteRuntimeSubset?.(rid);
+          clearInterval(ticker);
+          loadAnimBtn.style.setProperty('--fill-pct', '100%');
+          if (pctEl) pctEl.textContent = '100%';
+          if (labelEl) labelEl.textContent = ok ? 'Yüklendi' : 'Yükleme başarısız';
+          await new Promise((r) => setTimeout(r, 600));
+          renderInfoInspector();
+        });
+      }
       bodyEl.querySelectorAll('[data-route-member-id]').forEach((row) => {
         row.addEventListener('click', () => {
           const routeId = row.getAttribute('data-route-member-id') || '';
