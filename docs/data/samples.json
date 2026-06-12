@@ -96,6 +96,31 @@
       }
     },
     {
+      "id": "new-york-mta-bus",
+      "city": "New York MTA Bus",
+      "countryCode": "US",
+      "agency": "MTA Bus Company",
+      "loadStrategy": "bundled",
+      "note": "Web demo için repoya alınmış güncel örnek paket.",
+      "remoteUrl": "https://rrgtfsfeeds.s3.amazonaws.com/gtfs_busco.zip",
+      "sourcePage": "https://www.mta.info/developers",
+      "localPath": "docs/data/new-york-mta-bus-gtfs.zip",
+      "fileName": "New York MTA Bus GTFS.zip",
+      "remoteMeta": {
+        "finalUrl": "https://rrgtfsfeeds.s3.amazonaws.com/gtfs_busco.zip",
+        "etag": "\"bd1fbde2ef4e3e010b8b363bec51fd4f\"",
+        "lastModified": "Fri, 17 Apr 2026 13:54:34 GMT",
+        "contentLength": 8090707,
+        "checkedAt": "2026-05-11T19:17:38.000Z"
+      },
+      "localMeta": {
+        "exists": true,
+        "size": 8090707,
+        "mtime": "2026-05-11T19:17:38.000Z",
+        "sha256": "ab8b62a9453e6b0dbf31398fc859bea8dcc7a2d861bba6c7331b7e1747f53eb9"
+      }
+    },
+    {
       "id": "houston",
       "city": "Houston",
       "countryCode": "US",
