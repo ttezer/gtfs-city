@@ -20,30 +20,33 @@ const {
 const AppState = {
   trips: typeof TRIPS !== 'undefined' ? TRIPS : [],
   shapes: typeof SHAPES !== 'undefined' ? SHAPES : [],
+  routeCatalog: [],
+  preparedGtfsSource: null,
+  routeRuntimeSource: null,
+  loadedRuntimeRouteIds: new Set(),
+  resolvedRuntimeRouteIds: new Set(),
+  loadingRuntimeRouteIds: new Set(),
+  routeRuntimeRequestSeq: 0,
+  lastRequestedRuntimeRouteId: null,
+  activeWorkspace: 'harita',
+  activeServiceDate: '',
   stops: typeof STOPS !== 'undefined' ? STOPS : [],
   stopInfo: typeof STOP_INFO !== 'undefined' ? STOP_INFO : {},
   stopDeps: typeof STOP_DEPS !== 'undefined' ? STOP_DEPS : {},
+  stopTariffIndex: {},
   hourlyCounts: typeof HOURLY_COUNTS !== 'undefined' ? HOURLY_COUNTS : new Array(24).fill(0),
   hourlyHeat: typeof HOURLY_HEAT !== 'undefined' ? HOURLY_HEAT : {},
   adj: typeof ADJ !== 'undefined' ? ADJ : {},
   calendarRows: typeof CALENDAR !== 'undefined' ? CALENDAR : [],
   calendarDateRows: typeof CALENDAR_DATES !== 'undefined' ? CALENDAR_DATES : [],
-  densityData: [],
-  maxDensity: 1,
   stopNames: [],
   gtfsValidationReport: null,
   baseRuntimeData: null,
   stopConnectivityScores: null,
 };
 
-var TRIPS = AppState.trips;
-var SHAPES = AppState.shapes;
-var STOPS = AppState.stops;
-var STOP_INFO = AppState.stopInfo;
-var STOP_DEPS = AppState.stopDeps;
 var HOURLY_COUNTS = AppState.hourlyCounts;
 var HOURLY_HEAT = AppState.hourlyHeat;
-var ADJ = AppState.adj;
 
 // ── ADAPTİF KALİTE SİSTEMİ ──────────────────────────────
 const QUALITY = {
@@ -70,6 +73,38 @@ const QUALITY = {
 // ── EKSİK FONKSİYONLAR ─────────────────────────────────────
 let build3DVehicleLayer, updateVehiclePanel, showStopArrivals;
 let _activeStopData = null; // Açık durak paneli için
+let _highlightedStopPos = null;
+let _stopBlinkVisible = false;
+let _stopBlinkStep = 0;
+let _stopBlinkTimer = null;
+const _BLINK_COLORS = [
+  [255, 220, 50, 230],
+  [255, 140, 0, 230],
+  [255, 60, 60, 230],
+  [200, 80, 255, 230],
+];
+
+function triggerStopBlink(pos) {
+  if (_stopBlinkTimer) clearInterval(_stopBlinkTimer);
+  _highlightedStopPos = pos;
+  _stopBlinkVisible = true;
+  _stopBlinkStep = 0;
+  let count = 0;
+  refreshLayersNow();
+  _stopBlinkTimer = setInterval(() => {
+    _stopBlinkVisible = !_stopBlinkVisible;
+    if (_stopBlinkVisible) _stopBlinkStep = (_stopBlinkStep + 1) % _BLINK_COLORS.length;
+    refreshLayersNow();
+    count++;
+    if (count >= 10) {
+      clearInterval(_stopBlinkTimer);
+      _stopBlinkTimer = null;
+      _highlightedStopPos = null;
+      _stopBlinkVisible = false;
+      refreshLayersNow();
+    }
+  }, 280);
+}
 
 function captureRuntimeDataSnapshot(existing) {
   if (existing) return existing;
@@ -150,7 +185,7 @@ function getViewportPriorityStopIds() {
   const east = typeof bounds?.getEast === 'function' ? bounds.getEast() : bounds?._ne?.lng;
   const north = typeof bounds?.getNorth === 'function' ? bounds.getNorth() : bounds?._ne?.lat;
   if (![west, south, east, north].every(Number.isFinite)) return [];
-  return Object.entries(STOP_INFO || {})
+  return Object.entries(AppState.stopInfo || {})
     .filter(([, stop]) => Array.isArray(stop) && stop[0] >= west && stop[0] <= east && stop[1] >= south && stop[1] <= north)
     .map(([stopId]) => stopId);
 }
@@ -160,7 +195,7 @@ function getConnectivityViewportStopIds(limit = CONNECTIVITY_VIEWPORT_STOP_LIMIT
   const result = [];
   for (const stopId of getViewportPriorityStopIds()) {
     if (filteredStopIds?.size && !filteredStopIds.has(stopId)) continue;
-    if (!(STOP_DEPS?.[stopId] || []).length) continue;
+    if (!(AppState.stopDeps?.[stopId] || []).length) continue;
     result.push(stopId);
     if (result.length >= limit) break;
   }
@@ -200,10 +235,12 @@ function ensureConnectivityViewportScores() {
   }
   const ctx = {
     AppState,
-    TRIPS,
-    STOP_INFO,
-    STOP_DEPS,
     activeCityId: activeCity?.id || null,
+    getTrips: () => AppState.trips,
+    getStopInfo: () => AppState.stopInfo,
+    getStopDeps: () => AppState.stopDeps,
+    getStopConnectivityScores: getStopConnectivityScoresState,
+    setStopConnectivityScores: setStopConnectivityScoresState,
   };
   stopIds.forEach((stopId) => {
     window.StopConnectivityUtils?.ensureStopConnectivityRecord?.(stopId, ctx);
@@ -217,10 +254,10 @@ async function tryLoadStopConnectivityCache() {
   try {
     const fileName = window.StopConnectivityUtils.buildSnapshotFileName({
       AppState,
-      TRIPS,
-      STOP_INFO,
-      STOP_DEPS,
       activeCityId: activeCity?.id || null,
+      getTrips: () => AppState.trips,
+      getStopInfo: () => AppState.stopInfo,
+      getStopDeps: () => AppState.stopDeps,
     });
     const result = await window.electronAPI.readConnectivityCache(fileName);
     if (!result?.success || !result.text) return false;
@@ -241,10 +278,10 @@ async function persistStopConnectivityCache(snapshot) {
   try {
     const fileName = window.StopConnectivityUtils.buildSnapshotFileName({
       AppState,
-      TRIPS,
-      STOP_INFO,
-      STOP_DEPS,
       activeCityId: activeCity?.id || null,
+      getTrips: () => AppState.trips,
+      getStopInfo: () => AppState.stopInfo,
+      getStopDeps: () => AppState.stopDeps,
     });
     const result = await window.electronAPI.writeConnectivityCache(fileName, snapshot);
     if (result?.success) {
@@ -262,79 +299,96 @@ async function scheduleStopConnectivityWarmup() {
   const loaded = await tryLoadStopConnectivityCache();
   if (loaded) refreshLayersNow();
 }
+
+async function createConnectivityWorkerInstance() {
+  if (typeof Worker === 'undefined') return null;
+  if (location.protocol !== 'file:') {
+    try { return new Worker('src/runtime/connectivity-worker.js'); } catch (_) {}
+  }
+  try {
+    const sources = await Promise.all([
+      fetch('src/utils/stop-connectivity-utils.js').then((r) => r.text()),
+      fetch('src/runtime/connectivity-worker.js').then((r) => r.text()),
+    ]);
+    const blob = new Blob(sources, { type: 'application/javascript' });
+    return new Worker(URL.createObjectURL(blob));
+  } catch (err) {
+    console.warn('[ConnectivityWorker] oluşturulamadı, fallback moduna geçiliyor:', err);
+    return null;
+  }
+}
+
+async function startConnectivityWorker() {
+  if (AppState.stopConnectivityScores?.meta?.validation_summary) return;
+  if (!Object.keys(AppState.stopInfo || {}).length || !Object.keys(AppState.stopDeps || {}).length) {
+    console.warn('[Connectivity] stopInfo veya stopDeps boş, bağlantı kareleri hesaplanamıyor');
+    return;
+  }
+
+  if (!Object.keys(AppState.adj || {}).length) {
+    buildAdjacencyList();
+  }
+  if (connectivityWorker) {
+    connectivityWorker.terminate();
+    connectivityWorker = null;
+  }
+
+  const worker = await createConnectivityWorkerInstance();
+  if (!worker) {
+    ensureConnectivityViewportScores();
+    return;
+  }
+
+  connectivityWorker = worker;
+
+  worker.onmessage = (event) => {
+    const msg = event.data || {};
+    console.log('[ConnectivityWorker] mesaj alındı:', msg.type);
+    if (msg.type === 'PROGRESS') {
+      window.dispatchEvent(new CustomEvent('stop-connectivity-progress', { detail: msg.detail }));
+      return;
+    }
+    if (msg.type === 'DONE') {
+      AppState.stopConnectivityScores = msg.snapshot || AppState.stopConnectivityScores;
+      window.dispatchEvent(new CustomEvent('stop-connectivity-progress', {
+        detail: { index: 1, total: 1, done: true },
+      }));
+      refreshLayersNow();
+      persistStopConnectivityCache(msg.snapshot);
+      connectivityWorker = null;
+      worker.terminate();
+      return;
+    }
+    if (msg.type === 'ERROR') {
+      console.warn('[ConnectivityWorker]', msg.error);
+      connectivityWorker = null;
+      worker.terminate();
+      ensureConnectivityViewportScores();
+    }
+  };
+
+  worker.onerror = (err) => {
+    console.warn('[ConnectivityWorker] hata:', err);
+    connectivityWorker = null;
+    ensureConnectivityViewportScores();
+  };
+
+  console.log('[ConnectivityWorker] postMessage gönderiliyor', {
+    tripsCount: AppState.trips?.length,
+    adjCount: Object.keys(AppState.adj || {}).length,
+  });
+  worker.postMessage({
+    type: 'START',
+    trips: AppState.trips,
+    stopInfo: AppState.stopInfo,
+    stopDeps: AppState.stopDeps,
+    adj: AppState.adj,
+    feed_id: activeCity?.id || null,
+    options: {},
+  });
+}
 function buildAdjacencyList() {
-  AppState.adj = {};
-  // ADJ ataması fonksiyon sonunda yapılır (tüm bağlantılar eklendikten sonra)
-  const tripStops = {};
-
-  for (const [sid, deps] of Object.entries(AppState.stopDeps || {})) {
-    for (const [tripIdx, offsetSec, routeShort] of deps) {
-      if (!AppState.trips[tripIdx]) continue;
-      if (!tripStops[tripIdx]) tripStops[tripIdx] = [];
-      tripStops[tripIdx].push({ sid, offsetSec, routeShort: routeShort || AppState.trips[tripIdx].s });
-    }
-  }
-
-  const adjMap = {};
-  for (const [, stops] of Object.entries(tripStops)) {
-    stops.sort((a, b) => a.offsetSec - b.offsetSec);
-    for (let i = 0; i < stops.length - 1; i++) {
-      const from = stops[i].sid;
-      const to = stops[i + 1].sid;
-      const secs = Math.max(stops[i + 1].offsetSec - stops[i].offsetSec, 30);
-      const line = stops[i].routeShort;
-
-      if (!from || !to || from === to) continue;
-      if (!adjMap[from]) adjMap[from] = new Map();
-      const key = to + '|' + line;
-      const ex = adjMap[from].get(key);
-      if (ex) {
-        if (secs < ex[1]) ex[1] = secs;
-      } else {
-        adjMap[from].set(key, [to, secs, line]);
-      }
-    }
-  }
-  for (const k in adjMap) {
-    AppState.adj[k] = [...adjMap[k].values()];
-  }
-
-  // ── YÜRÜME BAĞLANTILARI ──────────────────────────────
-  // 400m içindeki farklı duraklar arası yürüme bağlantısı ekle
-  // 400m ≈ 5 dakika yürüme ≈ ~308 saniye (1.3 m/s)
-  const WALK_MAX_M = 400;
-  const WALK_SPEED = 1.3;
-  const GRID_SIZE = 0.004;
-  const stopEntries = Object.entries(AppState.stopInfo || {});
-  const grid = {};
-  for (const [sid, info] of stopEntries) {
-    const key = Math.floor(info[0] / GRID_SIZE) + ',' + Math.floor(info[1] / GRID_SIZE);
-    if (!grid[key]) grid[key] = [];
-    grid[key].push([sid, info]);
-  }
-  let walkCount = 0;
-  for (const [sidA, infoA] of stopEntries) {
-    const gx = Math.floor(infoA[0] / GRID_SIZE);
-    const gy = Math.floor(infoA[1] / GRID_SIZE);
-    for (let dx = -1; dx <= 1; dx++) {
-      for (let dy = -1; dy <= 1; dy++) {
-        const neighbors = grid[(gx + dx) + ',' + (gy + dy)] || [];
-        for (const [sidB, infoB] of neighbors) {
-          if (sidA === sidB) continue;
-          const distM = haversineM([infoA[0], infoA[1]], [infoB[0], infoB[1]]);
-          if (distM > WALK_MAX_M) continue;
-          const walkSecs = Math.round(distM / WALK_SPEED);
-          if (!AppState.adj[sidA]) AppState.adj[sidA] = [];
-          if (!AppState.adj[sidA].some(e => e[0] === sidB && e[2] === '🚶')) {
-            AppState.adj[sidA].push([sidB, walkSecs, '🚶']);
-            walkCount++;
-          }
-        }
-      }
-    }
-  }
-  console.log('[ADJ] Yürüme bağlantısı eklendi:', walkCount);
-  ADJ = AppState.adj;
+  AppState.adj = window.AdjacencyBuilder.build(AppState.trips, AppState.stopDeps, AppState.stopInfo);
   scheduleStopConnectivityWarmup();
 }
 
@@ -379,10 +433,8 @@ const SPEEDS = [1, 10, 30, 60, 120, 300, 600];
 // ── SİMÜLASYON STATE ─────────────────────────────────────
 let simTime = 6 * 3600, simPaused = false, lastTs = null;
 let speedIdx = 3, simSpeed = 60;
-let showAnim = true, showPaths = true, showDensity = true, showStops = true, showStopCoverage = false;
+let showAnim = true, showPaths = true, showStops = true, showStopCoverage = false;
 let showConnectivityGrid = false;
-let connectivityGridCameraRestore = null;
-let connectivityGridStyleRestore = null;
 let stopCoverageRadiusM = 300;
 let stopCoverageFillColorHex = '#58a6ff';
 let stopCoverageFillOpacityPct = 14;
@@ -390,15 +442,17 @@ let stopCoverageStrokeColorHex = '#58a6ff';
 let stopCoverageStrokeWidthPx = 2;
 let stopCoverageMode = 'fill-stroke';
 let showHeatmap = false, heatmapHour = 8, heatmapFollowSim = false;
-let showTrail = false;
+let showTrail = true;
 let currentMapStyle = 'auto'; // 'auto', 'satellite', 'dark', 'light'
 let typeFilter = 'all';
 let connectivityGridPerfOpenAt = 0;
 let connectivityGridSelectedCell = null;
 const CONNECTIVITY_VIEWPORT_STOP_LIMIT = 250;
+let connectivityWorker = null;
 let activeRoutes = new Set();
 let focusedRoute = null;
-let selectedRouteDirection = null;
+let focusedRouteId = null;
+let selectedPatternKey = null; // { dir: 0|1|null, h: string } | null
 let followTripIdx = null, selectedTripIdx = null;
 let selectedEntity = null, panelPauseOwner = null;
 let isReplay = false, replayLoop = false;
@@ -415,13 +469,12 @@ let _tripLookupCache = null;
 let _stopRouteSummariesCache = new Map();
 
 // ── FAZ 2 STATE ───────────────────────────────────────────
-let showHeadway = false, showBunching = false, showWaiting = false;
+let showHeadway = false, showBunching = false;
 let showIsochron = false;
 let _isochronData = null, _isochronOriginSid = null;
 let bunchingThreshold = 200;
 let bunchingEvents = [];
-let _stopAvgHeadways = null, _worstStops = null, _focusedStopIdsCache = null, _filteredStopsCache = null, _filteredStopIdSetCache = null;
-let _waitingTimeBucket = null, _waitingComputedForSec = null;
+let _focusedStopIdsCache = null, _filteredStopsCache = null, _filteredStopIdSetCache = null;
 
 // ── FAZ 3 STATE ───────────────────────────────────────────
 let show3D = false;
@@ -457,71 +510,10 @@ let gtfsErrorLog = [];
 
 // ── FAZ 2: SİNEMATİK ─────────────────────────────────────
 let isCinematic = false, cinematicIdx = 0, cinematicTimer = null;
-function getCinematicWaypoints() {
-  const stopData = getFilteredStopsData?.() || STOPS || [];
-  if (!Array.isArray(stopData) || stopData.length === 0) {
-    const center = mapgl ? [mapgl.getCenter().lng, mapgl.getCenter().lat] : [28.9784, 41.0082];
-    return [{
-      center,
-      zoom: mapgl?.getZoom?.() || 11.5,
-      pitch: 52,
-      bearing: 0,
-      duration: 3800,
-      label: t('cinematicOverview', 'Genel Bakış'),
-    }];
-  }
-
-  let minLon = Infinity, maxLon = -Infinity, minLat = Infinity, maxLat = -Infinity;
-  for (const stop of stopData) {
-    const lon = Number(stop?.[0]);
-    const lat = Number(stop?.[1]);
-    if (!Number.isFinite(lon) || !Number.isFinite(lat)) continue;
-    if (lon < minLon) minLon = lon;
-    if (lon > maxLon) maxLon = lon;
-    if (lat < minLat) minLat = lat;
-    if (lat > maxLat) maxLat = lat;
-  }
-  if (!Number.isFinite(minLon) || !Number.isFinite(maxLon) || !Number.isFinite(minLat) || !Number.isFinite(maxLat)) {
-    const center = mapgl ? [mapgl.getCenter().lng, mapgl.getCenter().lat] : [28.9784, 41.0082];
-    return [{
-      center,
-      zoom: mapgl?.getZoom?.() || 11.5,
-      pitch: 52,
-      bearing: 0,
-      duration: 3800,
-      label: t('cinematicOverview', 'Genel Bakış'),
-    }];
-  }
-
-  const centerLon = (minLon + maxLon) / 2;
-  const centerLat = (minLat + maxLat) / 2;
-  const spanLon = Math.max(0.003, maxLon - minLon);
-  const spanLat = Math.max(0.003, maxLat - minLat);
-  const span = Math.max(spanLon, spanLat);
-  let overviewZoom = 11.8;
-  if (span > 1.2) overviewZoom = 8.7;
-  else if (span > 0.8) overviewZoom = 9.5;
-  else if (span > 0.45) overviewZoom = 10.3;
-  else if (span > 0.2) overviewZoom = 11.1;
-  else if (span > 0.1) overviewZoom = 12.1;
-  else if (span < 0.04) overviewZoom = 13.2;
-
-  const points = [
-    { center: [centerLon, centerLat], zoom: overviewZoom, pitch: 52, bearing: -12, duration: 3800, label: t('cinematicOverview', 'Genel Bakış') },
-    { center: [minLon + spanLon * 0.2, centerLat], zoom: Math.min(overviewZoom + 1.2, 14.4), pitch: 60, bearing: 24, duration: 4000, label: t('cinematicWestCorridor', 'Batı Koridoru') },
-    { center: [maxLon - spanLon * 0.2, centerLat], zoom: Math.min(overviewZoom + 1.2, 14.4), pitch: 60, bearing: -28, duration: 4000, label: t('cinematicEastCorridor', 'Doğu Koridoru') },
-    { center: [centerLon, maxLat - spanLat * 0.2], zoom: Math.min(overviewZoom + 0.8, 14.2), pitch: 58, bearing: 36, duration: 4000, label: t('cinematicNorthLine', 'Kuzey Hattı') },
-    { center: [centerLon, minLat + spanLat * 0.2], zoom: Math.min(overviewZoom + 0.8, 14.2), pitch: 58, bearing: -36, duration: 3600, label: t('cinematicNetworkSummary', 'Ağ Özeti') },
-  ];
-
-  return points.filter((point, index, array) => {
-    const firstIdx = array.findIndex((candidate) =>
-      Math.abs(candidate.center[0] - point.center[0]) < 0.0001 &&
-      Math.abs(candidate.center[1] - point.center[1]) < 0.0001
-    );
-    return firstIdx === index;
-  });
-}
+const {
+  configureRuntimeCinematic,
+  getCinematicWaypoints,
+} = window.RuntimeCinematicControls;
 // ── YARDIMCILAR ───────────────────────────────────────────
 function haversineM([lon1, lat1], [lon2, lat2]) {
   return window.SimUtils
@@ -576,7 +568,7 @@ function buildPathDistanceCache(path) {
 function getTripStopCoords(trip) {
   if (!Array.isArray(trip?.st) || !trip.st.length) return [];
   return trip.st
-    .map(stop => stop?.sid && STOP_INFO?.[stop.sid] ? [STOP_INFO[stop.sid][0], STOP_INFO[stop.sid][1]] : null)
+    .map(stop => stop?.sid && AppState.stopInfo?.[stop.sid] ? [AppState.stopInfo[stop.sid][0], AppState.stopInfo[stop.sid][1]] : null)
     .filter(Boolean);
 }
 function sampleStopCoords(stopCoords) {
@@ -606,7 +598,7 @@ function getRouteShapeSnapData(trip) {
   const key = `${trip.s}|${trip.t || ''}`;
   let candidates = _routeShapeSnapCache.get(key);
   if (!candidates) {
-    candidates = SHAPES
+    candidates = AppState.shapes
       .filter(shape => shape?.s === trip.s && (!trip.t || shape.t === trip.t) && Array.isArray(shape.p) && shape.p.length >= 2)
       .map(shape => shape.p);
     _routeShapeSnapCache.set(key, candidates);
@@ -664,81 +656,11 @@ function getVehiclePos(trip, time) {
   const snapData = getRouteShapeSnapData(trip);
   return interpolateOnCachedPath(snapData, progress) || rawPos;
 }
-function getVehicleMarkerColor(d) {
-  const base = getRouteColorRgb(d.trip.s, d.trip.t, d.trip.c);
-  if (!window.RenderUtils) return base;
-  const col = window.RenderUtils.getVehicleColorRgb(base, d.trip._delay || 0);
-  return [...col, 235];
-}
 function buildVehicleHeadsLayer(heads) {
   return window.MapManager?.buildVehicleHeadsLayer?.(heads) || null;
 }
-window.VEHICLE_ICON_CACHE = {};
-window.STOP_ICON_CACHE = {};
-const VEHICLE_ICON_CACHE = window.VEHICLE_ICON_CACHE;
-const STOP_ICON_CACHE = window.STOP_ICON_CACHE;
-
-function buildVehicleIconSvg(type, color) {
-  const fill = `rgb(${color[0]},${color[1]},${color[2]})`;
-  const commonStart = '<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">';
-  const commonEnd = '</svg>';
-  if (type === '4') {
-    return `${commonStart}<path d="M10 42h44l-6 10H16z" fill="${fill}"/><path d="M18 24h28l6 18H12z" fill="${fill}" opacity="0.85"/><rect x="24" y="16" width="16" height="8" rx="2" fill="#ffffff"/>${commonEnd}`;
-  }
-  if (type === '5' || type === '6') {
-    return `${commonStart}<rect x="18" y="22" width="28" height="18" rx="5" fill="${fill}"/><rect x="8" y="16" width="48" height="3" rx="2" fill="#ffffff"/><line x1="22" y1="19" x2="22" y2="22" stroke="#ffffff" stroke-width="3"/><line x1="42" y1="19" x2="42" y2="22" stroke="#ffffff" stroke-width="3"/>${commonEnd}`;
-  }
-  if (type === '0' || type === '1' || type === '2') {
-    return `${commonStart}<rect x="14" y="12" width="36" height="34" rx="10" fill="${fill}"/><rect x="20" y="18" width="10" height="8" rx="2" fill="#ffffff"/><rect x="34" y="18" width="10" height="8" rx="2" fill="#ffffff"/><rect x="24" y="30" width="16" height="7" rx="2" fill="#ffffff"/><circle cx="24" cy="50" r="4" fill="${fill}"/><circle cx="40" cy="50" r="4" fill="${fill}"/>${commonEnd}`;
-  }
-  return `${commonStart}<rect x="10" y="16" width="44" height="24" rx="6" fill="${fill}"/><rect x="16" y="20" width="12" height="8" rx="2" fill="#ffffff"/><rect x="32" y="20" width="12" height="8" rx="2" fill="#ffffff"/><rect x="14" y="30" width="36" height="6" rx="2" fill="#ffffff"/><circle cx="20" cy="44" r="5" fill="${fill}"/><circle cx="44" cy="44" r="5" fill="${fill}"/>${commonEnd}`;
-}
-
-// FIX 1: Icon cache dolunca tek yerine 50 eleman siliniyor.
-// Önce: delete VEHICLE_ICON_CACHE[firstKey]  → cache hiç küçülmüyor, döngü oluşuyor
-// Sonra: .slice(0, 50).forEach(k => delete ...)  → toplu temizlik, cache gerçekten küçülüyor
-function getVehicleIconDefinition(type, color) {
-  if (!Array.isArray(color) || !color.length) color = [88, 166, 255];
-  const key = `${type}-${color.join('-')}`;
-  if (!VEHICLE_ICON_CACHE[key]) {
-    if (Object.keys(VEHICLE_ICON_CACHE).length > 200) {
-      Object.keys(VEHICLE_ICON_CACHE).slice(0, 50).forEach(k => delete VEHICLE_ICON_CACHE[k]);
-    }
-    const svg = buildVehicleIconSvg(type, color);
-    VEHICLE_ICON_CACHE[key] = {
-      url: `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`,
-      width: 64,
-      height: 64,
-      anchorY: 52
-    };
-  }
-  return VEHICLE_ICON_CACHE[key];
-}
-
 function buildVehicleIconLayer(heads) {
   return window.MapManager?.buildVehicleIconLayer?.(heads) || null;
-}
-
-function buildStopIconSvg(color) {
-  const fill = `rgb(${color[0]},${color[1]},${color[2]})`;
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64"><circle cx="32" cy="32" r="18" fill="${fill}" stroke="#f5fbff" stroke-width="6"/><circle cx="32" cy="32" r="6" fill="#f5fbff"/></svg>`;
-}
-
-// FIX 1 (devam): Stop icon cache için de aynı toplu silme uygulandı
-function getStopIconDefinition(color) {
-  const key = color.join('-');
-  if (!STOP_ICON_CACHE[key]) {
-    if (Object.keys(STOP_ICON_CACHE).length > 200) {
-      Object.keys(STOP_ICON_CACHE).slice(0, 50).forEach(k => delete STOP_ICON_CACHE[k]);
-    }
-    STOP_ICON_CACHE[key] = {
-      url: `data:image/svg+xml;charset=utf-8,${encodeURIComponent(buildStopIconSvg(color))}`,
-      width: 64,
-      height: 64,
-      anchorY: 32
-    };
-  }
-  return STOP_ICON_CACHE[key];
 }
 
 function repairMojibake(text) {
@@ -768,27 +690,46 @@ function colorToCss(rgb) {
 }
 function getRouteMeta(routeShort, routeType, fallbackColor, longName = '') {
   return window.RenderUtils
-    ? window.RenderUtils.getRouteMeta(routeShort, routeType, fallbackColor, longName, SHAPES, TRIPS)
+    ? window.RenderUtils.getRouteMeta(routeShort, routeType, fallbackColor, longName, AppState.shapes, AppState.trips)
     : { short: displayText(routeShort || 'Hat'), longName: displayText(longName || ''), type: String(routeType || '3'), color: [127, 140, 141] };
 }
 function getStopMetaByArray(stop) {
   return window.RenderUtils
-    ? window.RenderUtils.getStopMetaByArray(stop, STOP_INFO)
+    ? window.RenderUtils.getStopMetaByArray(stop, AppState.stopInfo)
     : { sid: null, name: 'Durak', code: '-', lon: stop?.[0], lat: stop?.[1] };
 }
 function computeAverageHeadwaySeconds(deps) {
   if (!deps || deps.length === 0) return null;
   const normalizedDeps = deps
-    .map(([tripIdx, offset, routeShort]) => [tripIdx, getAbsoluteDepartureSec(TRIPS[tripIdx], offset), routeShort])
+    .map(([tripIdx, offset, routeShort]) => [tripIdx, getAbsoluteDepartureSec(AppState.trips[tripIdx], offset), routeShort])
     .filter((dep) => Number.isFinite(dep[1]));
   if (!normalizedDeps.length) return null;
   return window.SimUtils
     ? window.SimUtils.computeAverageHeadwaySeconds(normalizedDeps, HEADWAY_CFG)
     : null;
 }
+function computeStopHeadwaySeconds(stopId) {
+  const entries = AppState.stopTariffIndex?.[stopId];
+  if (!entries?.length) return null;
+  const minGap = HEADWAY_CFG?.minGapSeconds ?? 60;
+  const maxGap = HEADWAY_CFG?.maxGapSeconds ?? 7200;
+  const offsets = [...new Set(
+    entries
+      .filter((e) => Number.isFinite(e.dep) && e.pickup_type !== 1)
+      .map((e) => Math.round(e.dep))
+  )].sort((a, b) => a - b);
+  if (offsets.length < 2) return null;
+  const gaps = [];
+  for (let i = 1; i < offsets.length; i++) {
+    const gap = offsets[i] - offsets[i - 1];
+    if (gap >= minGap && gap <= maxGap) gaps.push(gap);
+  }
+  if (!gaps.length) return null;
+  return gaps.reduce((sum, g) => sum + g, 0) / gaps.length;
+}
 function findNearestStopName(pathPoint) {
   return window.UiUtils
-    ? window.UiUtils.findNearestStopName(pathPoint, STOP_INFO, haversineM, displayText)
+    ? window.UiUtils.findNearestStopName(pathPoint, AppState.stopInfo, haversineM, displayText)
     : '';
 }
 function refreshLayersNow() {
@@ -812,113 +753,126 @@ function hexToRgb(hex, fallback = [88, 166, 255]) {
     Number.parseInt(value.slice(4, 6), 16),
   ];
 }
-function clampStopCoverageValue(value, min, max, fallback) {
-  const parsed = Number.parseFloat(value);
-  if (!Number.isFinite(parsed)) return fallback;
-  return Math.min(max, Math.max(min, parsed));
-}
-function updateStopCoverageControlValues() {
-  const radiusValue = document.getElementById('stop-coverage-radius-value');
-  const fillOpacityValue = document.getElementById('stop-coverage-fill-opacity-value');
-  const strokeWidthValue = document.getElementById('stop-coverage-stroke-width-value');
-  if (radiusValue) radiusValue.textContent = `${stopCoverageRadiusM} m`;
-  if (fillOpacityValue) fillOpacityValue.textContent = `%${stopCoverageFillOpacityPct}`;
-  if (strokeWidthValue) strokeWidthValue.textContent = `${stopCoverageStrokeWidthPx} px`;
-}
-function updateStopCoverageControlsVisibility() {
-  const panel = document.getElementById('stop-coverage-controls');
-  if (!panel) return;
-  panel.classList.toggle('hidden', !showStopCoverage);
+function updateStopScoreControlsVisibility() {}
+function getStopCoverageState() {
+  return {
+    showStopCoverage,
+    stopCoverageRadiusM,
+    stopCoverageFillColorHex,
+    stopCoverageFillOpacityPct,
+    stopCoverageStrokeColorHex,
+    stopCoverageStrokeWidthPx,
+    stopCoverageMode,
+  };
 }
 
-function updateStopScoreControlsVisibility() {}
-function initStopCoverageControls() {
-  const radius = document.getElementById('stop-coverage-radius');
-  const mode = document.getElementById('stop-coverage-mode');
-  const fillColor = document.getElementById('stop-coverage-fill-color');
-  const fillOpacity = document.getElementById('stop-coverage-fill-opacity');
-  const strokeColor = document.getElementById('stop-coverage-stroke-color');
-  const strokeWidth = document.getElementById('stop-coverage-stroke-width');
-  if (!radius || !mode || !fillColor || !fillOpacity || !strokeColor || !strokeWidth) return;
-  radius.value = String(stopCoverageRadiusM);
-  mode.value = stopCoverageMode;
-  fillColor.value = stopCoverageFillColorHex;
-  fillOpacity.value = String(stopCoverageFillOpacityPct);
-  strokeColor.value = stopCoverageStrokeColorHex;
-  strokeWidth.value = String(stopCoverageStrokeWidthPx);
-  updateStopCoverageControlValues();
-  updateStopCoverageControlsVisibility();
-  radius.addEventListener('input', () => {
-    stopCoverageRadiusM = clampStopCoverageValue(radius.value, 100, 1000, 300);
-    updateStopCoverageControlValues();
-    refreshLayersNow();
-  });
-  mode.addEventListener('change', () => {
-    stopCoverageMode = mode.value || 'fill-stroke';
-    refreshLayersNow();
-  });
-  fillColor.addEventListener('input', () => {
-    stopCoverageFillColorHex = fillColor.value || '#58a6ff';
-    refreshLayersNow();
-  });
-  fillOpacity.addEventListener('input', () => {
-    stopCoverageFillOpacityPct = clampStopCoverageValue(fillOpacity.value, 0, 100, 14);
-    updateStopCoverageControlValues();
-    refreshLayersNow();
-  });
-  strokeColor.addEventListener('input', () => {
-    stopCoverageStrokeColorHex = strokeColor.value || '#58a6ff';
-    refreshLayersNow();
-  });
-  strokeWidth.addEventListener('input', () => {
-    stopCoverageStrokeWidthPx = clampStopCoverageValue(strokeWidth.value, 1, 8, 2);
-    updateStopCoverageControlValues();
-    refreshLayersNow();
-  });
+function setStopCoverageState(patch = {}) {
+  if (Object.prototype.hasOwnProperty.call(patch, 'showStopCoverage')) showStopCoverage = !!patch.showStopCoverage;
+  if (Object.prototype.hasOwnProperty.call(patch, 'stopCoverageRadiusM')) stopCoverageRadiusM = patch.stopCoverageRadiusM;
+  if (Object.prototype.hasOwnProperty.call(patch, 'stopCoverageFillColorHex')) stopCoverageFillColorHex = patch.stopCoverageFillColorHex;
+  if (Object.prototype.hasOwnProperty.call(patch, 'stopCoverageFillOpacityPct')) stopCoverageFillOpacityPct = patch.stopCoverageFillOpacityPct;
+  if (Object.prototype.hasOwnProperty.call(patch, 'stopCoverageStrokeColorHex')) stopCoverageStrokeColorHex = patch.stopCoverageStrokeColorHex;
+  if (Object.prototype.hasOwnProperty.call(patch, 'stopCoverageStrokeWidthPx')) stopCoverageStrokeWidthPx = patch.stopCoverageStrokeWidthPx;
+  if (Object.prototype.hasOwnProperty.call(patch, 'stopCoverageMode')) stopCoverageMode = patch.stopCoverageMode;
+}
+
+function getHeatmapState() {
+  return {
+    showHeatmap,
+    heatmapHour,
+    heatmapFollowSim,
+  };
+}
+
+function setHeatmapState(patch = {}) {
+  if (Object.prototype.hasOwnProperty.call(patch, 'showHeatmap')) showHeatmap = !!patch.showHeatmap;
+  if (Object.prototype.hasOwnProperty.call(patch, 'heatmapHour')) heatmapHour = patch.heatmapHour;
+  if (Object.prototype.hasOwnProperty.call(patch, 'heatmapFollowSim')) heatmapFollowSim = !!patch.heatmapFollowSim;
+}
+
+function getBunchingState() {
+  return {
+    showBunching,
+    bunchingThreshold,
+  };
+}
+
+function setBunchingState(patch = {}) {
+  if (Object.prototype.hasOwnProperty.call(patch, 'showBunching')) showBunching = !!patch.showBunching;
+  if (Object.prototype.hasOwnProperty.call(patch, 'bunchingThreshold')) bunchingThreshold = patch.bunchingThreshold;
+}
+function getIsochronState() {
+  return {
+    showIsochron,
+  };
+}
+
+function setIsochronState(patch = {}) {
+  if (Object.prototype.hasOwnProperty.call(patch, 'showIsochron')) showIsochron = !!patch.showIsochron;
+}
+function getPlaybackState() {
+  return {
+    simTime,
+    speedIdx,
+    simSpeed,
+    replayLoop,
+  };
+}
+
+function setPlaybackState(patch = {}) {
+  if (Object.prototype.hasOwnProperty.call(patch, 'simTime')) simTime = patch.simTime;
+  if (Object.prototype.hasOwnProperty.call(patch, 'speedIdx')) speedIdx = patch.speedIdx;
+  if (Object.prototype.hasOwnProperty.call(patch, 'simSpeed')) simSpeed = patch.simSpeed;
+  if (Object.prototype.hasOwnProperty.call(patch, 'replayLoop')) replayLoop = !!patch.replayLoop;
 }
 function getFocusedStopsData() {
   if (!focusedRoute) return null;
-  if (_focusedStopIdsCache?.route === focusedRoute && _focusedStopIdsCache?.direction === selectedRouteDirection) return _focusedStopIdsCache.data;
+  const _patCacheStr = selectedPatternKey ? `${selectedPatternKey.dir ?? '?'}:${selectedPatternKey.h || ''}` : null;
+  if (_focusedStopIdsCache?.route === focusedRoute && _focusedStopIdsCache?.routeId === focusedRouteId && _focusedStopIdsCache?.patternKey === _patCacheStr) return _focusedStopIdsCache.data;
   const data = [];
-  for (const [sid, deps] of Object.entries(STOP_DEPS)) {
-    if (deps?.some(dep => {
-      const trip = TRIPS[dep[0]];
-      return trip?.s === focusedRoute
-        && (selectedRouteDirection === null || trip?.dir === selectedRouteDirection);
-    })) {
-      const info = STOP_INFO[sid];
-      if (info) data.push({ sid, pos: [info[0], info[1]], name: displayText(info[2]), code: displayText(info[3] || sid) });
-    }
+  const tariff = AppState.stopTariffIndex || {};
+  for (const [sid, info] of Object.entries(AppState.stopInfo)) {
+    const entries = tariff[sid];
+    if (!entries?.length) continue;
+    const matches = entries.some(e => {
+      const routeMatch = focusedRouteId ? e.rid === focusedRouteId : e.s === focusedRoute;
+      // eslint-disable-next-line eqeqeq
+      return routeMatch && (selectedPatternKey === null || (e.dir == selectedPatternKey.dir && (!selectedPatternKey.h || e.h === selectedPatternKey.h)));
+    });
+    if (!matches) continue;
+    data.push({ sid, pos: [info[0], info[1]], name: displayText(info[2]), code: displayText(info[3] || sid) });
   }
-  _focusedStopIdsCache = { route: focusedRoute, direction: selectedRouteDirection, data };
+  _focusedStopIdsCache = { route: focusedRoute, routeId: focusedRouteId, patternKey: _patCacheStr, data };
   return data;
 }
 function getFilteredStopsData() {
   if (focusedRoute) {
     return getFocusedStopsData()?.map((entry) => [entry.pos[0], entry.pos[1], entry.name || entry.sid, entry.sid, entry.name || entry.sid]) || [];
   }
-  if (typeFilter === 'all' && activeRoutes.size === 0) return STOPS;
+  if (typeFilter === 'all' && activeRoutes.size === 0) return AppState.stops;
+  const tariff = AppState.stopTariffIndex || {};
   const activeRoutesKey = activeRoutes.size ? [...activeRoutes].sort().join('|') : '';
-  const cacheKey = `${typeFilter}|${activeRoutesKey}|${TRIPS.length}|${Object.keys(STOP_DEPS || {}).length}`;
+  const cacheKey = `${typeFilter}|${activeRoutesKey}|${Object.keys(tariff).length}`;
   if (_filteredStopsCache?.key === cacheKey) return _filteredStopsCache.data;
   const data = [];
-  for (const [sid, deps] of Object.entries(STOP_DEPS || {})) {
-    const hasVisibleTrip = (deps || []).some((dep) => {
-      const trip = TRIPS[dep[0]];
-      if (!trip || activeRoutes.has(trip.s)) return false;
-      if (typeFilter !== 'all' && String(Number.parseInt(String(trip.t ?? '').trim(), 10)) !== typeFilter) return false;
+  for (const [sid, info] of Object.entries(AppState.stopInfo)) {
+    const entries = tariff[sid];
+    if (!entries?.length) continue;
+    const visible = entries.some((e) => {
+      if (typeFilter !== 'all' && String(Number.parseInt(String(e.t ?? '').trim(), 10)) !== typeFilter) return false;
+      if (activeRoutes.size > 0 && !activeRoutes.has(e.s)) return false;
       return true;
     });
-    if (!hasVisibleTrip) continue;
-    const info = STOP_INFO[sid];
-    if (info) data.push([info[0], info[1], displayText(info[2] || sid), sid, displayText(info[2] || sid)]);
+    if (!visible) continue;
+    data.push([info[0], info[1], displayText(info[2] || sid), sid, displayText(info[2] || sid)]);
   }
   _filteredStopsCache = { key: cacheKey, data };
   return data;
 }
 function getFilteredStopIdSet() {
   const stopData = getFilteredStopsData();
-  const cacheKey = `${typeFilter}|${focusedRoute || ''}|${selectedRouteDirection ?? 'all'}|${activeRoutes.size}|${stopData.length}`;
+  const patStr = selectedPatternKey ? `${selectedPatternKey.dir ?? '?'}:${selectedPatternKey.h || ''}` : 'all';
+  const cacheKey = `${typeFilter}|${focusedRoute || ''}|${focusedRouteId || ''}|${patStr}|${activeRoutes.size}|${stopData.length}`;
   if (_filteredStopIdSetCache?.key === cacheKey) return _filteredStopIdSetCache.data;
   const data = new Set(stopData.map((stop) => stop[3]));
   _filteredStopIdSetCache = { key: cacheKey, data };
@@ -944,7 +898,7 @@ function buildVehiclePanelState(trip, selectedIdx, time) {
       trip,
       selectedTripIdx: selectedIdx,
       simTime: time,
-      stopInfo: STOP_INFO,
+      stopInfo: AppState.stopInfo,
       typeMeta: TYPE_META,
       followTripIdx,
       getRouteMeta,
@@ -958,7 +912,7 @@ function buildVehiclePanelState(trip, selectedIdx, time) {
       secsToHHMM,
       haversineM,
       displayText,
-      trips: TRIPS,
+      trips: AppState.trips,
       getVehiclePos
     })
     : null;
@@ -1008,20 +962,403 @@ function drawSliderBands() {
   return window.SimulationEngine?.drawSliderBands?.();
 }
 
-function createLegacyBridge(contextFactory, extras = {}) {
-  return { ...extras, getContext: contextFactory };
+const {
+  createLegacyBridge,
+  normalizeArray,
+  normalizeSet,
+  resetCalendarCache,
+} = window.RuntimeBridgeUtils;
+
+function getHiddenRoutes() {
+  return new Set(activeRoutes);
 }
 
-function normalizeArray(value) {
-  return Array.isArray(value) ? value : [];
+function getRouteIdentityKey(routeLike) {
+  if (!routeLike || typeof routeLike !== 'object') return String(routeLike || '').trim();
+  if (routeLike.rid) return String(routeLike.rid).trim();
+  const short = String(routeLike.s || routeLike.short || '').trim();
+  const type = normalizeRouteType(routeLike.t ?? routeLike.type ?? '');
+  const agencyId = String(routeLike.aid || routeLike.agencyId || '').trim();
+  return `${agencyId || 'na'}::${type}::${short}`;
 }
 
-function normalizeSet(value) {
-  return value instanceof Set ? value : new Set(value || []);
+function isRouteHidden(routeLike) {
+  const key = getRouteIdentityKey(routeLike);
+  const short = typeof routeLike === 'object' ? String(routeLike.s || routeLike.short || '').trim() : key;
+  return activeRoutes.has(key) || (!!short && activeRoutes.has(short));
 }
 
-function resetCalendarCache(value) {
-  return value || { rows: [], dateRows: [] };
+function hideRoute(routeLike) {
+  const key = getRouteIdentityKey(routeLike);
+  if (key) activeRoutes.add(key);
+}
+
+function showRoute(routeLike) {
+  const key = getRouteIdentityKey(routeLike);
+  const short = typeof routeLike === 'object' ? String(routeLike.s || routeLike.short || '').trim() : key;
+  if (key) activeRoutes.delete(key);
+  if (short) activeRoutes.delete(short);
+}
+
+function clearHiddenRoutes() {
+  activeRoutes.clear();
+}
+
+function getFocusedRoute() {
+  return focusedRoute;
+}
+
+function getFocusedRouteId() {
+  return focusedRouteId;
+}
+
+function setFocusedRouteState(value) {
+  focusedRoute = value || null;
+  if (!value) focusedRouteId = null;
+}
+
+function setFocusedRouteIdState(value) {
+  focusedRouteId = value || null;
+}
+
+function getSelectedPatternKeyState() {
+  return selectedPatternKey;
+}
+
+function setSelectedPatternKeyState(value) {
+  selectedPatternKey = (value && typeof value === 'object') ? value : null;
+}
+
+function getSelectedTripIdx() {
+  return selectedTripIdx;
+}
+
+function setSelectedTripIdxState(value) {
+  selectedTripIdx = Number.isInteger(value) ? value : null;
+}
+
+function getSelectedEntity() {
+  return selectedEntity ? { ...selectedEntity } : null;
+}
+
+function setSelectedEntityState(entity) {
+  selectedEntity = entity ? { ...entity } : null;
+  window.dispatchEvent(new CustomEvent('app-selection-change', {
+    detail: { selectedEntity: getSelectedEntity() }
+  }));
+}
+
+function normalizeWorkspaceState(value) {
+  const workspace = String(value || '').trim().toLowerCase();
+  if (workspace === 'bilgi' || workspace === 'analiz') return workspace;
+  return 'harita';
+}
+
+function getActiveWorkspaceState() {
+  return normalizeWorkspaceState(AppState.activeWorkspace);
+}
+
+function setActiveWorkspaceState(value) {
+  AppState.activeWorkspace = normalizeWorkspaceState(value);
+  window.dispatchEvent(new CustomEvent('app-workspace-change', {
+    detail: { activeWorkspace: getActiveWorkspaceState() }
+  }));
+}
+
+function getFollowTripIdxState() {
+  return Number.isInteger(followTripIdx) ? followTripIdx : null;
+}
+
+function setFollowTripIdxState(value) {
+  followTripIdx = Number.isInteger(value) ? value : null;
+}
+
+function getActiveStopDataState() {
+  return Array.isArray(_activeStopData) ? [..._activeStopData] : (_activeStopData ? { ..._activeStopData } : null);
+}
+
+function setActiveStopDataState(value) {
+  _activeStopData = Array.isArray(value) ? [...value] : (value ? { ...value } : null);
+}
+
+function getActiveCityState() {
+  return activeCity ? { ...activeCity } : null;
+}
+
+function setActiveCityState(value) {
+  activeCity = value ? { ...value } : null;
+}
+
+function getActiveServiceIdState() {
+  return activeServiceId || 'all';
+}
+
+function setActiveServiceIdState(value) {
+  activeServiceId = value || 'all';
+}
+
+function getActiveServiceDateState() {
+  return String(AppState.activeServiceDate || '').trim();
+}
+
+function setActiveServiceDateState(value) {
+  AppState.activeServiceDate = String(value || '').trim();
+  window.dispatchEvent(new CustomEvent('app-service-date-change', {
+    detail: { activeServiceDate: getActiveServiceDateState() }
+  }));
+}
+
+function getActiveServiceIdsState() {
+  return new Set(activeServiceIds);
+}
+
+function setActiveServiceIdsState(value) {
+  activeServiceIds = normalizeSet(value);
+}
+
+function getActiveServiceOptionsState() {
+  return normalizeArray(activeServiceOptions).map((option) => ({ ...option }));
+}
+
+function setActiveServiceOptionsState(value) {
+  activeServiceOptions = normalizeArray(value).map((option) => ({ ...option }));
+}
+
+function getMapState() {
+  return mapgl;
+}
+
+function getCitiesState() {
+  return CITIES.slice();
+}
+
+function findCityState(cityId) {
+  return CITIES.find((city) => city?.id === cityId) || null;
+}
+
+function replaceCitiesState(value) {
+  const nextCities = Array.isArray(value) ? value : [];
+  CITIES.splice(0, CITIES.length, ...nextCities);
+}
+
+function addCityState(city) {
+  if (city) CITIES.push(city);
+}
+
+function removeCityStateById(cityId) {
+  const idx = CITIES.findIndex((city) => city?.id === cityId);
+  if (idx >= 0) CITIES.splice(idx, 1);
+}
+
+function getUploadedCityPayloadState(cityId) {
+  return uploadedGtfsCities.get(cityId);
+}
+
+function setUploadedCityPayloadState(cityId, payload) {
+  if (!cityId) return;
+  uploadedGtfsCities.set(cityId, payload);
+}
+
+function deleteUploadedCityPayloadState(cityId) {
+  if (!cityId) return;
+  uploadedGtfsCities.delete(cityId);
+}
+
+function clearUploadedCityPayloadsState() {
+  uploadedGtfsCities.clear();
+}
+
+function isHiddenCityState(cityId) {
+  return hiddenCities.has(cityId);
+}
+
+function hideCityState(cityId) {
+  if (cityId) hiddenCities.add(cityId);
+}
+
+function showCityState(cityId) {
+  if (cityId) hiddenCities.delete(cityId);
+}
+
+function clearHiddenCitiesState() {
+  hiddenCities.clear();
+}
+
+function setRuntimeCollectionsState(runtimeData) {
+  AppState.trips = runtimeData?.nTRIPS || [];
+  AppState.shapes = runtimeData?.nSHAPES || [];
+  AppState.stops = runtimeData?.nSTOPS || [];
+  AppState.stopInfo = runtimeData?.nSTOP_INFO || {};
+  AppState.stopDeps = runtimeData?.nSTOP_DEPS || {};
+  AppState.stopTariffIndex = runtimeData?.stopTariffIndex || {};
+  AppState.hourlyCounts = runtimeData?.nHOURLY_COUNTS || {};
+  AppState.hourlyHeat = runtimeData?.nHOURLY_HEAT || {};
+  AppState.capped = runtimeData?.capped || false;
+  AppState.totalTrips = runtimeData?.totalTrips || 0;
+  AppState.tripCap = runtimeData?.tripCap || Infinity;
+  AppState.missingShapeRouteCount = runtimeData?.missingShapeRouteCount || 0;
+  if (Array.isArray(runtimeData?.calendarRows)) AppState.calendarRows = runtimeData.calendarRows;
+  if (Array.isArray(runtimeData?.calendarDateRows)) AppState.calendarDateRows = runtimeData.calendarDateRows;
+  AppState.tariffIndex = runtimeData?.tariffIndex || {};
+  if (runtimeData?.tripCountBySid) AppState.tripCountBySid = runtimeData.tripCountBySid;
+  const presentRouteIds = new Set([
+    ...AppState.trips.map((trip) => String(trip?.rid || '').trim()).filter(Boolean),
+    ...AppState.shapes.map((shape) => String(shape?.rid || '').trim()).filter(Boolean),
+  ]);
+  AppState.loadedRuntimeRouteIds = presentRouteIds;
+  AppState.resolvedRuntimeRouteIds = runtimeData?.capped ? new Set() : new Set(presentRouteIds);
+  window.dispatchEvent(new CustomEvent('app-runtime-data-change'));
+}
+
+function mergeRuntimeCollectionsState(runtimeData) {
+  const nextTrips = Array.isArray(runtimeData?.nTRIPS) ? runtimeData.nTRIPS : [];
+  const nextShapes = Array.isArray(runtimeData?.nSHAPES) ? runtimeData.nSHAPES : [];
+  const nextStops = Array.isArray(runtimeData?.nSTOPS) ? runtimeData.nSTOPS : [];
+  const tripKeys = new Set(AppState.trips.map((trip) => `${trip?.rid || ''}::${trip?.dir ?? 'x'}::${trip?.h || ''}::${Array.isArray(trip?.ts) ? trip.ts[0] : ''}`));
+  nextTrips.forEach((trip) => {
+    const key = `${trip?.rid || ''}::${trip?.dir ?? 'x'}::${trip?.h || ''}::${Array.isArray(trip?.ts) ? trip.ts[0] : ''}`;
+    if (!tripKeys.has(key)) {
+      tripKeys.add(key);
+      AppState.trips.push(trip);
+    }
+  });
+  const shapeKeys = new Set(AppState.shapes.map((shape) => `${shape?.rid || ''}::${shape?.dir ?? 'x'}::${shape?.h || ''}`));
+  nextShapes.forEach((shape) => {
+    const key = `${shape?.rid || ''}::${shape?.dir ?? 'x'}::${shape?.h || ''}`;
+    if (!shapeKeys.has(key)) {
+      shapeKeys.add(key);
+      AppState.shapes.push(shape);
+    }
+  });
+  const stopIds = new Set(AppState.stops.map((stop) => String(stop?.[3] || '').trim()).filter(Boolean));
+  nextStops.forEach((stop) => {
+    const sid = String(stop?.[3] || '').trim();
+    if (!sid || stopIds.has(sid)) return;
+    stopIds.add(sid);
+    AppState.stops.push(stop);
+  });
+  Object.assign(AppState.stopInfo, runtimeData?.nSTOP_INFO || {});
+  Object.entries(runtimeData?.nSTOP_DEPS || {}).forEach(([sid, deps]) => {
+    if (!Array.isArray(deps) || !deps.length) return;
+    if (!Array.isArray(AppState.stopDeps[sid])) AppState.stopDeps[sid] = [];
+    AppState.stopDeps[sid].push(...deps);
+  });
+  AppState.loadedRuntimeRouteIds = new Set([
+    ...AppState.loadedRuntimeRouteIds,
+    ...nextTrips.map((trip) => String(trip?.rid || '').trim()).filter(Boolean),
+    ...nextShapes.map((shape) => String(shape?.rid || '').trim()).filter(Boolean),
+  ]);
+  window.dispatchEvent(new CustomEvent('app-runtime-data-change'));
+}
+
+function setStopNamesState(value) {
+  AppState.stopNames = Array.isArray(value) ? value : [];
+}
+
+function setRouteCatalogState(value) {
+  AppState.routeCatalog = Array.isArray(value) ? value : [];
+  window.dispatchEvent(new CustomEvent('app-runtime-data-change'));
+}
+
+function getRouteRuntimeSourceState() {
+  return AppState.routeRuntimeSource || null;
+}
+
+function setRouteRuntimeSourceState(value) {
+  AppState.routeRuntimeSource = value || null;
+}
+
+function getPreparedGtfsSourceState() {
+  return AppState.preparedGtfsSource || null;
+}
+
+function setPreparedGtfsSourceState(value) {
+  AppState.preparedGtfsSource = value || null;
+}
+
+function getLoadedRuntimeRouteIdsState() {
+  return AppState.loadedRuntimeRouteIds instanceof Set ? AppState.loadedRuntimeRouteIds : new Set();
+}
+
+function getResolvedRuntimeRouteIdsState() {
+  return AppState.resolvedRuntimeRouteIds instanceof Set ? AppState.resolvedRuntimeRouteIds : new Set();
+}
+
+function isRuntimeRouteLoadedState(routeId) {
+  const rid = String(routeId || '').trim();
+  return !!rid && getLoadedRuntimeRouteIdsState().has(rid);
+}
+
+function isRuntimeRouteResolvedState(routeId) {
+  const rid = String(routeId || '').trim();
+  return !!rid && getResolvedRuntimeRouteIdsState().has(rid);
+}
+
+function markRuntimeRouteResolvedState(routeId, resolved = true) {
+  const rid = String(routeId || '').trim();
+  if (!rid) return;
+  if (!(AppState.resolvedRuntimeRouteIds instanceof Set)) AppState.resolvedRuntimeRouteIds = new Set();
+  if (resolved) AppState.resolvedRuntimeRouteIds.add(rid);
+  else AppState.resolvedRuntimeRouteIds.delete(rid);
+}
+
+function setRuntimeRouteLoadingState(routeId, loading) {
+  const rid = String(routeId || '').trim();
+  if (!rid) return;
+  if (!(AppState.loadingRuntimeRouteIds instanceof Set)) AppState.loadingRuntimeRouteIds = new Set();
+  if (loading) AppState.loadingRuntimeRouteIds.add(rid);
+  else AppState.loadingRuntimeRouteIds.delete(rid);
+}
+
+function isRuntimeRouteLoadingState(routeId) {
+  const rid = String(routeId || '').trim();
+  return !!rid && AppState.loadingRuntimeRouteIds instanceof Set && AppState.loadingRuntimeRouteIds.has(rid);
+}
+
+function beginRuntimeRouteRequestState(routeId) {
+  const rid = String(routeId || '').trim();
+  AppState.routeRuntimeRequestSeq = Number(AppState.routeRuntimeRequestSeq || 0) + 1;
+  AppState.lastRequestedRuntimeRouteId = rid || null;
+  return AppState.routeRuntimeRequestSeq;
+}
+
+function isRuntimeRouteRequestCurrentState(routeId, requestSeq) {
+  const rid = String(routeId || '').trim();
+  return !!rid
+    && rid === AppState.lastRequestedRuntimeRouteId
+    && Number(requestSeq) === Number(AppState.routeRuntimeRequestSeq || 0);
+}
+
+function getBaseRuntimeDataState() {
+  return AppState.baseRuntimeData || null;
+}
+
+function setBaseRuntimeDataState(value) {
+  AppState.baseRuntimeData = value || null;
+}
+
+function getStopConnectivityScoresState() {
+  return AppState.stopConnectivityScores || null;
+}
+
+function setStopConnectivityScoresState(value) {
+  AppState.stopConnectivityScores = value || null;
+}
+
+function getTypeFilterState() {
+  return typeFilter;
+}
+
+function isCinematicState() {
+  return !!isCinematic;
+}
+
+function getCinematicIdxState() {
+  return cinematicIdx;
+}
+
+function getCinematicTimerState() {
+  return cinematicTimer;
 }
 
 function clearTripLookupCache() {
@@ -1067,7 +1404,7 @@ function getTripLookupSignatures(trip, explicitId) {
 function buildTripLookupCache() {
   if (_tripLookupCache) return _tripLookupCache;
   const cache = new Map();
-  TRIPS.forEach((trip, idx) => {
+  AppState.trips.forEach((trip, idx) => {
     getTripLookupSignatures(trip).forEach((key) => appendTripLookup(cache, key, idx));
   });
   _tripLookupCache = cache;
@@ -1084,762 +1421,126 @@ function callManager(managerName, methodName, args = [], fallbackValue) {
   return typeof fallbackValue === 'function' ? fallbackValue() : fallbackValue;
 }
 
-const I18N_MESSAGES = {
-  tr: {
-    languageLabel: 'Dil',
-    landingSubtitle: 'Transit veri analiz ve görselleştirme paneli',
-    landingRoutes: 'Toplam Hat',
-    landingTrips: 'Bugünkü Seferler',
-    landingStops: 'Aktif Duraklar',
-    uploadGtfsZip: 'GTFS ZIP Yükle',
-    uploadAnother: 'Başka GTFS ZIP Yükle',
-    openMap: 'Haritayı Aç',
-    loadFromLink: 'Linkten Yükle',
-    landingExamplesTitle: 'Örnek veriyle dene',
-    landingExamplesSubtitle: 'Repo içi demo veri paketleriyle hızlı başlangıç yap veya dış kaynağı aç.',
-    landingExampleLoad: 'Örneği Yükle',
-    landingExampleExternal: 'Dış Kaynak',
-    landingExampleSource: 'Kaynağa Git',
-    sampleBadgeBundled: 'Repo Demo',
-    sampleBadgeExternal: 'Dış Kaynak',
-    sampleNoteBundled: 'Uygulama için repoya alınmış güncel örnek paket.',
-    sampleNoteExternalElectron: 'Bu kart dış kaynaktan yüklenir.',
-    sampleNoteExternalWeb: 'Bu kart yalnızca dış kaynak referansıdır; web demoda otomatik yükleme kapalı.',
-    linkNote: 'Yalnızca HTTPS GTFS ZIP linkleri kabul edilir. Dış bağlantının güvenliği kullanıcı sorumluluğundadır.',
-    linkNoteWeb: 'Web demosunda dış bağlantılar CORS nedeniyle engellenebilir. Hazır örnek veri kartlarını kullanın.',
-    homeTitle: 'Giriş sayfasına dön',
-    loading: 'Yükleniyor...',
-    routePanelSummary: 'Operasyon Özeti',
-    routePanelServiceCalendar: 'Çalışma Takvimi',
-    routePanelTripCount: 'Sefer Sayısı',
-    routePanelTripsToday: 'Bugün {count} sefer',
-    routePanelServiceHours: 'Çalışma Saatleri',
-    routePanelRouteLength: 'Güzergâh Uzunluğu',
-    routePanelAverageHeadway: 'Ort. Sefer Sıklığı',
-    routePanelDirectionDistribution: 'Yön Dağılımı',
-    routePanelDirectionFilter: 'Hat Yönü',
-    routePanelDirectionAll: 'Tüm Yönler',
-    routePanelNoTripInfo: 'Sefer bilgisi yok',
-    stopPanelSimulationTime: 'Simülasyon saati',
-    stopPanelHeaderLine: 'Hat',
-    stopPanelHeaderDirection: 'Varış Yönü',
-    stopPanelHeaderFirstVehicle: 'İlk Araç',
-    stopPanelHeaderNextVehicle: 'Sonraki Araç',
-    stopPanelNoServiceData: 'Bu durak için sefer verisi yok',
-    stopPanelNoServiceFound: 'Bu durağa sefer bulunamadı.',
-    stopPanelSummary: '{count} hat - Ortalama headway {headway}',
-    stopPanelNoDisplayRoutes: 'Bu durak için gösterilecek hat bulunamadı.',
-    stopPanelAverageWait: 'Ort. Bekleme',
-    stopPanelWaiting3d: 'Bekleme 3D',
-    stopPanelLayerOpen: 'Katman açık',
-    stopPanelLayerClosed: 'Katman kapalı',
-    stopPanelCode: 'Kod',
-    serviceNoCalendarData: 'Çalışma takvimi verisi yok - Tümü',
-    serviceNoCalendarShort: 'Takvim verisi yok',
-    serviceStatusSummary: '{date} - {active} aktif - {future} planlı - {expired} geçmiş',
-    serviceAll: 'Tümü',
-    serviceBadgeFuture: 'PLANLI',
-    serviceBadgeExpired: 'GEÇMİŞ',
-    serviceBadgeActive: 'AKTİF',
-    serviceBadgePassive: 'PASİF',
-    serviceMore: 'servis',
-    warningCriticalErrors: 'Kritik Hatalar',
-    warningDataWarnings: 'Veri Uyarıları',
-    warningErrorsPresent: 'Bazı veriler eksik veya hatalı görünüyor.',
-    warningInconsistencies: 'Veriler yüklendi ancak bazı tutarsızlıklar var.',
-    vehicleHeadway: 'Headway',
-    vehicleProgress: 'İlerleme',
-    vehicleNextStop: 'Sonraki Durak',
-    vehicleEta: 'Tahmini Varış',
-    vehicleFollow: 'Takip Et',
-    vehicleFocusRoute: 'Hattı Odakla',
-    followMode: 'Takip Modu',
-    followingRoute: 'takip',
-    plannerToggle: 'Nasıl Giderim',
-    plannerDatasetActive: '{city} · aktif veri seti',
-    plannerDatasetDefault: 'Aktif veri seti',
-    plannerFromPlaceholder: 'Nereden?',
-    plannerToPlaceholder: 'Nereye?',
-    plannerBuildRoute: 'Yol Tarifi Oluştur →',
-    plannerResultTitle: 'Rota Sonucu',
-    plannerIsochronOrigin: '📍 {name}',
-    plannerMessageErrorIcon: '⚠',
-    plannerMessageInfoIcon: 'ℹ',
-    plannerStopValidationTitle: 'Durak doğrulanamadı',
-    plannerStopValidationMessage: 'Lütfen aktif şehir verisinden başlangıç ve varış durağını yeniden seçin.',
-    plannerNoRouteTitle: 'Rota bulunamadı',
-    plannerNoRouteMessage: 'Seçilen duraklar arasında uygun bir toplu taşıma bağlantısı hesaplanamadı.',
-    plannerMissingSelectionTitle: 'Durak seçimi eksik',
-    plannerMissingSelectionMessage: 'Lütfen aktif şehirden başlangıç ve varış duraklarını seçin.',
-    routeWalk: 'Yürü',
-    routeBoardLine: '{line} hattına bin',
-    routeRideDetail: '{from} durağından bin · {to} durağında in',
-    routeWalkDetail: '{from} → {to}',
-    routeConnectionCount: '{count} bağlantı',
-    routeStopCount: '{count} durak',
-    routeTransfer: 'Aktarma',
-    routeTransferDetail: '{stop} durağında inip sonraki hatta geç',
-    routeSuggestedJourney: 'Önerilen yolculuk',
-    routeSummaryDetail: '{legs} etap · {lines} hat',
-    routeTotal: 'Toplam: {minutes} dakika',
-    plannerHeaderTitle: 'Nasıl Giderim',
-    heatmapFollowSimulation: 'Sim ile takip et',
-    bunchingAlertsTitle: 'Bunching Uyarıları',
-    bunchingThreshold: 'Eşik:',
-    worstWaitTitle: 'En Uzun Bekleme',
-    worstWaitSubtitle: 'İlk 10 Durak',
-    gtfsPreparing: 'Hazırlanıyor...',
-    gtfsExpectedFiles: 'Beklenen GTFS Dosyaları',
-    gtfsInfoNote: 'Simülasyon Python pipeline ile preprocess gerektirir. Bu araç validasyon + istatistik sağlar.',
-    cityLoading: '{city} yükleniyor...',
-    cityLoadingGeneric: 'Yükleniyor...',
-    warningTitle: 'Veri Uyarıları',
-    close: 'Kapat',
-    loadingZipOpening: 'ZIP açılıyor...',
-    loadingZipOpeningShort: 'ZIP AÇILIYOR',
-    loadingFilesReading: 'Dosyalar okunuyor...',
-    loadingFileReading: '{file} okunuyor...',
-    loadingFilesReadingShort: 'DOSYALAR OKUNUYOR',
-    loadingValidation: 'Validasyon yapılıyor...',
-    loadingValidationShort: 'VALIDASYON YAPILIYOR',
-    loadingDataImporting: 'Veri yükleniyor',
-    loadingDataImportingShort: 'VERİ YÜKLENİYOR',
-    loadingLinkCheckingShort: 'LİNK DOĞRULANIYOR',
-    loadingZipDownloadedShort: 'ZIP İNDİRİLDİ',
-    loadingTablesParsingShort: 'TABLOLAR AYRILIYOR',
-    loadingTripsPreparingShort: 'SEFERLER HAZIRLANIYOR',
-    loadingReadyShort: 'VERİ HAZIR',
-    gtfsSourceUnreadable: 'GTFS ZIP kaynağı okunamadı.',
-    gtfsJsZipMissing: 'JSZip kütüphanesi yüklenemedi.',
-    gtfsZipParseError: 'ZIP parse hatası: {message}',
-    gtfsEnterHttpsUrl: 'Önce HTTPS GTFS ZIP linki gir.',
-    gtfsOnlyHttpsAllowed: 'Yalnızca HTTPS GTFS ZIP linklerine izin verilir.',
-    gtfsElectronOnly: 'Linkten indirme yalnızca Electron sürümünde desteklenir.',
-    gtfsUrlDownloadFailed: 'GTFS ZIP linki indirilemedi.',
-    gtfsCalendarAutoSelected: 'GTFS takvimi bugüne uygun olarak otomatik seçildi.',
-    gtfsLargeDataWarning: '⚠️ Büyük veri: {total} seferden {loaded} tanesi yüklendi',
-    gtfsReplacingPrevious: 'Önceki yüklenen veri kaldırıldı. Yeni GTFS etkinleştiriliyor.',
-    gtfsImportError: 'GTFS import hatası oluştu',
-    gtfsConfirmImport: 'Sisteme Al',
-    cancel: 'İptal',
-    gtfsReportStatusError: '⚠️ Hatalar Tespit Edildi - Yine de Sisteme Alındı',
-    gtfsReportStatusWarn: '⚠️ Uyarılar Var - Sisteme Alındı',
-    gtfsReportStatusOk: '✅ Geçerli GTFS - Sisteme Alındı',
-    gtfsReportNotice: 'ℹ {errors} hata ve {warnings} uyarı tespit edildi. Simülasyon mevcut verilerle çalışmaya devam ediyor.',
-    gtfsReportFooter: '{errors} hata - {warnings} uyarı - {info} bilgi',
-    gtfsExportJson: '⬇ JSON Rapor',
-    loaderPreparingData: 'Veriler Hazırlanıyor...',
-    platformElectron: 'ELECTRON',
-    platformWeb: 'WEB TARAYICI',
-    routeLongNameMissing: 'Uzun ad yok',
-    landingUploadButton: '📂 GTFS ZIP Yükle',
-    landingStartButton: '🗺️ Haritayı Aç',
-    sidebarLayers: 'KATMANLAR',
-    sidebarRoutes: 'HATLAR',
-    sidebarStops: 'DURAKLAR',
-    sidebarCities: 'ŞEHİR',
-    sidebarRouteType: 'HAT TİPİ',
-    sidebarMapStyle: 'HARİTA GÖRÜNÜMÜ',
-    sidebarServiceCalendar: 'Çalışma Takvimi',
-    sidebarRouteSearch: 'Hat ara...',
-    sidebarStopSearch: 'Durak ara...',
-    togglePaths: 'Güzergâh Hatları',
-    toggleAnimation: 'Araç Animasyonu',
-    toggleDensity: 'Durak Yoğunluğu 3D',
-    toggleStops: 'Duraklar',
-    toggleConnectivityGrid: 'Bağlantı Kareleri (Beta)',
-    toggleStopCoverage: 'Durak 300 m',
-    toggleStopScoreBase: 'Temel Durak Skoru',
-    toggleStopScoreLive: 'Durak Anlık Servis Skoru',
-    stopCoverageRadius: 'Yarıçap',
-    stopCoverageMode: 'Görünüm',
-    stopCoverageModeFillStroke: 'Dolgu + Çizgi',
-    stopCoverageModeFill: 'Sadece Dolgu',
-    stopCoverageModeStroke: 'Sadece Çizgi',
-    stopCoverageFillColor: 'Dolgu rengi',
-    stopCoverageFillOpacity: 'Dolgu saydamlığı',
-    stopCoverageStrokeColor: 'Çizgi rengi',
-    stopCoverageStrokeWidth: 'Çizgi kalınlığı',
-    toggleHeadway: 'Headway Çizgileri',
-    toggleBunching: 'Bunching Alarmı',
-    toggleWaiting: 'Bekleme Süresi 3D',
-    toggleHeatmap: 'Yoğunluk Heatmap',
-    toggleTrail: 'Araç İzleri (Fade)',
-    toggleIsochron: 'İzokron Analiz 🗺️',
-    vehicleDetailLongName: 'Hat Uzun Adı',
-    vehicleDetailDirection: 'Yön',
-    vehicleDetailService: 'Çalışma Takvimi',
-    vehicleDetailDeparture: 'Kalkış',
-    vehicleDetailArrival: 'Varış',
-    vehicleDetailTripsSameDirection: 'Aynı Yönde Sefer',
-    vehicleFollowStop: 'Takibi Bırak',
-    routeTypeTram: 'Tramvay',
-    routeTypeMetro: 'Metro',
-    routeTypeTrain: 'Tren',
-    routeTypeBus: 'Otobüs',
-    routeTypeFerry: 'Feribot',
-    routeTypeCableCar: 'Teleferik',
-    routeTypeGondola: 'Gondol',
-    routeTypeFunicular: 'Füniküler',
-    routeTypeMinibus: 'Minibüs',
-    routeTypeSharedTaxi: 'Dolmuş',
-    peakMorning: 'SABAH PİK',
-    peakEvening: 'AKŞAM PİK',
-    activeBadge: '{active} aktif araç - {routes} hat - {trips} sefer',
-    mapStyleSatellite: 'UYDU',
-    mapStyleDark: 'KOYU',
-    mapStyleLight: 'AÇIK',
-    cityVisible: 'Görünür',
-    adaptedBadge: '⚠️ UYARLANDI',
-    serviceAdaptedReason: 'Bugün için servis bulunamadı, takvim geçmiş veriye uyarlandı.',
-    dayNightNight: '🌙 GECE',
-    dayNightDawn: '🌅 ŞAFAK',
-    dayNightDay: '☀️ GÜNDÜZ',
-    dayNightDusk: '🌆 AKŞAM',
-    dayNightSatellite: '🛰️ UYDU',
-    dayNightDark: '🌙 KOYU',
-    dayNightLight: '☀️ AÇIK',
-    cinematicStart: '🎬 Sinematik',
-    cinematicStop: '⏹ Durdur',
-    cinematicOverview: 'Genel Bakış',
-    cinematicWestCorridor: 'Batı Koridoru',
-    cinematicEastCorridor: 'Doğu Koridoru',
-    cinematicNorthLine: 'Kuzey Hattı',
-    cinematicNetworkSummary: 'Ağ Özeti',
-  },
-  en: {
-    languageLabel: 'Language',
-    landingSubtitle: 'Transit data analysis and visualization panel',
-    landingRoutes: 'Total Routes',
-    landingTrips: "Today's Trips",
-    landingStops: 'Active Stops',
-    uploadGtfsZip: 'Upload GTFS ZIP',
-    uploadAnother: 'Upload Another GTFS ZIP',
-    openMap: 'Open Map',
-    loadFromLink: 'Load From Link',
-    landingExamplesTitle: 'Try with sample data',
-    landingExamplesSubtitle: 'Start with bundled demo datasets or open the external source page.',
-    landingExampleLoad: 'Load Sample',
-    landingExampleExternal: 'External Source',
-    landingExampleSource: 'Open Source',
-    sampleBadgeBundled: 'Bundled Demo',
-    sampleBadgeExternal: 'External',
-    sampleNoteBundled: 'Current sample package bundled into the app.',
-    sampleNoteExternalElectron: 'This card loads from an external source.',
-    sampleNoteExternalWeb: 'This card is reference-only in the web demo; automatic loading is disabled.',
-    linkNote: 'Only HTTPS GTFS ZIP links are accepted. External link safety is the user responsibility.',
-    linkNoteWeb: 'External links may be blocked by CORS in the web demo. Use the built-in sample data cards.',
-    homeTitle: 'Return to landing page',
-    loading: 'Loading...',
-    routePanelSummary: 'Operations Summary',
-    routePanelServiceCalendar: 'Service Calendar',
-    routePanelTripCount: 'Trip Count',
-    routePanelTripsToday: '{count} trips today',
-    routePanelServiceHours: 'Service Hours',
-    routePanelRouteLength: 'Route Length',
-    routePanelAverageHeadway: 'Avg Headway',
-    routePanelDirectionDistribution: 'Direction Distribution',
-    routePanelDirectionFilter: 'Route Direction',
-    routePanelDirectionAll: 'All Directions',
-    routePanelNoTripInfo: 'No trip information',
-    stopPanelSimulationTime: 'Simulation time',
-    stopPanelHeaderLine: 'Line',
-    stopPanelHeaderDirection: 'Direction',
-    stopPanelHeaderFirstVehicle: 'First Vehicle',
-    stopPanelHeaderNextVehicle: 'Next Vehicle',
-    stopPanelNoServiceData: 'No trip data for this stop',
-    stopPanelNoServiceFound: 'No trips found for this stop.',
-    stopPanelSummary: '{count} routes - Average headway {headway}',
-    stopPanelNoDisplayRoutes: 'No routes available to display for this stop.',
-    stopPanelAverageWait: 'Avg Wait',
-    stopPanelWaiting3d: 'Waiting 3D',
-    stopPanelLayerOpen: 'Layer enabled',
-    stopPanelLayerClosed: 'Layer disabled',
-    stopPanelCode: 'Code',
-    serviceNoCalendarData: 'No service calendar data - All',
-    serviceNoCalendarShort: 'No calendar data',
-    serviceStatusSummary: '{date} - {active} active - {future} scheduled - {expired} expired',
-    serviceAll: 'All',
-    serviceBadgeFuture: 'SCHEDULED',
-    serviceBadgeExpired: 'EXPIRED',
-    serviceBadgeActive: 'ACTIVE',
-    serviceBadgePassive: 'PASSIVE',
-    serviceMore: 'services',
-    warningCriticalErrors: 'Critical Errors',
-    warningDataWarnings: 'Data Warnings',
-    warningErrorsPresent: 'Some data appears missing or invalid.',
-    warningInconsistencies: 'Data loaded, but some inconsistencies remain.',
-    vehicleHeadway: 'Headway',
-    vehicleProgress: 'Progress',
-    vehicleNextStop: 'Next Stop',
-    vehicleEta: 'Estimated Arrival',
-    vehicleFollow: 'Follow',
-    vehicleFocusRoute: 'Focus Route',
-    followMode: 'Follow Mode',
-    followingRoute: 'follow',
-    plannerToggle: 'How Do I Get There',
-    plannerDatasetActive: '{city} · active dataset',
-    plannerDatasetDefault: 'Active dataset',
-    plannerFromPlaceholder: 'From?',
-    plannerToPlaceholder: 'To?',
-    plannerBuildRoute: 'Build Route →',
-    plannerResultTitle: 'Route Result',
-    plannerIsochronOrigin: '📍 {name}',
-    plannerMessageErrorIcon: '⚠',
-    plannerMessageInfoIcon: 'ℹ',
-    plannerStopValidationTitle: 'Stop could not be validated',
-    plannerStopValidationMessage: 'Please reselect the origin and destination stops from the active city data.',
-    plannerNoRouteTitle: 'Route not found',
-    plannerNoRouteMessage: 'No suitable public transit connection could be calculated between the selected stops.',
-    plannerMissingSelectionTitle: 'Stop selection missing',
-    plannerMissingSelectionMessage: 'Please select origin and destination stops from the active city.',
-    routeWalk: 'Walk',
-    routeBoardLine: 'Board line {line}',
-    routeRideDetail: 'Board at {from} · Get off at {to}',
-    routeWalkDetail: '{from} → {to}',
-    routeConnectionCount: '{count} connections',
-    routeStopCount: '{count} stops',
-    routeTransfer: 'Transfer',
-    routeTransferDetail: 'Get off at {stop} and transfer to the next line',
-    routeSuggestedJourney: 'Suggested journey',
-    routeSummaryDetail: '{legs} legs · {lines} lines',
-    routeTotal: 'Total: {minutes} minutes',
-    plannerHeaderTitle: 'How Do I Get There',
-    heatmapFollowSimulation: 'Follow sim',
-    bunchingAlertsTitle: 'Bunching Alerts',
-    bunchingThreshold: 'Threshold:',
-    worstWaitTitle: 'Longest Wait',
-    worstWaitSubtitle: 'Top 10 Stops',
-    gtfsPreparing: 'Preparing...',
-    gtfsExpectedFiles: 'Expected GTFS Files',
-    gtfsInfoNote: 'Simulation requires Python pipeline preprocessing. This tool provides validation and statistics.',
-    cityLoading: 'Loading {city}...',
-    cityLoadingGeneric: 'Loading...',
-    warningTitle: 'Data Warnings',
-    close: 'Close',
-    loadingZipOpening: 'Opening ZIP...',
-    loadingZipOpeningShort: 'OPENING ZIP',
-    loadingFilesReading: 'Reading files...',
-    loadingFileReading: 'Reading {file}...',
-    loadingFilesReadingShort: 'READING FILES',
-    loadingValidation: 'Running validation...',
-    loadingValidationShort: 'RUNNING VALIDATION',
-    loadingDataImporting: 'Importing data',
-    loadingDataImportingShort: 'IMPORTING DATA',
-    loadingLinkCheckingShort: 'CHECKING LINK',
-    loadingZipDownloadedShort: 'ZIP DOWNLOADED',
-    loadingTablesParsingShort: 'PARSING TABLES',
-    loadingTripsPreparingShort: 'PREPARING TRIPS',
-    loadingReadyShort: 'DATA READY',
-    gtfsSourceUnreadable: 'GTFS ZIP source could not be read.',
-    gtfsJsZipMissing: 'JSZip library could not be loaded.',
-    gtfsZipParseError: 'ZIP parse error: {message}',
-    gtfsEnterHttpsUrl: 'Enter an HTTPS GTFS ZIP link first.',
-    gtfsOnlyHttpsAllowed: 'Only HTTPS GTFS ZIP links are allowed.',
-    gtfsElectronOnly: 'Downloading from link is supported only in the Electron build.',
-    gtfsUrlDownloadFailed: 'GTFS ZIP link could not be downloaded.',
-    gtfsCalendarAutoSelected: 'GTFS calendar was automatically selected for today.',
-    gtfsLargeDataWarning: '⚠️ Large dataset: {loaded} of {total} trips were loaded',
-    gtfsReplacingPrevious: 'Previous data was removed. Activating new GTFS.',
-    gtfsImportError: 'A GTFS import error occurred',
-    gtfsConfirmImport: 'Import to System',
-    cancel: 'Cancel',
-    gtfsReportStatusError: '⚠️ Errors Detected - Imported Anyway',
-    gtfsReportStatusWarn: '⚠️ Warnings Present - Imported',
-    gtfsReportStatusOk: '✅ Valid GTFS - Imported',
-    gtfsReportNotice: 'ℹ {errors} errors and {warnings} warnings were detected. Simulation continues with the available data.',
-    gtfsReportFooter: '{errors} errors - {warnings} warnings - {info} info',
-    gtfsExportJson: '⬇ JSON Report',
-    loaderPreparingData: 'Preparing Data...',
-    platformElectron: 'ELECTRON',
-    platformWeb: 'WEB BROWSER',
-    routeLongNameMissing: 'No long name',
-    landingUploadButton: '📂 Upload GTFS ZIP',
-    landingStartButton: '🗺️ Open Map',
-    sidebarLayers: 'LAYERS',
-    sidebarRoutes: 'ROUTES',
-    sidebarStops: 'STOPS',
-    sidebarCities: 'CITY',
-    sidebarRouteType: 'ROUTE TYPE',
-    sidebarMapStyle: 'MAP STYLE',
-    sidebarServiceCalendar: 'Service Calendar',
-    sidebarRouteSearch: 'Search route...',
-    sidebarStopSearch: 'Search stop...',
-    togglePaths: 'Route Lines',
-    toggleAnimation: 'Vehicle Animation',
-    toggleDensity: 'Stop Density 3D',
-    toggleStops: 'Stops',
-    toggleConnectivityGrid: 'Connectivity Grid (Beta)',
-    toggleStopCoverage: 'Stop 300 m',
-    toggleStopScoreBase: 'Base Stop Score',
-    toggleStopScoreLive: 'Live Stop Service Score',
-    stopCoverageRadius: 'Radius',
-    stopCoverageMode: 'Appearance',
-    stopCoverageModeFillStroke: 'Fill + Stroke',
-    stopCoverageModeFill: 'Fill Only',
-    stopCoverageModeStroke: 'Stroke Only',
-    stopCoverageFillColor: 'Fill Color',
-    stopCoverageFillOpacity: 'Fill Opacity',
-    stopCoverageStrokeColor: 'Stroke Color',
-    stopCoverageStrokeWidth: 'Stroke Width',
-    toggleHeadway: 'Headway Lines',
-    toggleBunching: 'Bunching Alerts',
-    toggleWaiting: 'Waiting Time 3D',
-    toggleHeatmap: 'Density Heatmap',
-    toggleTrail: 'Vehicle Trails (Fade)',
-    toggleIsochron: 'Isochrone Analysis 🗺️',
-    vehicleDetailLongName: 'Route Long Name',
-    vehicleDetailDirection: 'Direction',
-    vehicleDetailService: 'Service Calendar',
-    vehicleDetailDeparture: 'Departure',
-    vehicleDetailArrival: 'Arrival',
-    vehicleDetailTripsSameDirection: 'Trips Same Direction',
-    vehicleFollowStop: 'Stop Following',
-    routeTypeTram: 'Tram',
-    routeTypeMetro: 'Metro',
-    routeTypeTrain: 'Train',
-    routeTypeBus: 'Bus',
-    routeTypeFerry: 'Ferry',
-    routeTypeCableCar: 'Cable Car',
-    routeTypeGondola: 'Gondola',
-    routeTypeFunicular: 'Funicular',
-    routeTypeMinibus: 'Minibus',
-    routeTypeSharedTaxi: 'Shared Taxi',
-    peakMorning: 'MORNING PEAK',
-    peakEvening: 'EVENING PEAK',
-    activeBadge: '{active} active vehicles - {routes} routes - {trips} trips',
-    mapStyleSatellite: 'SATELLITE',
-    mapStyleDark: 'DARK',
-    mapStyleLight: 'LIGHT',
-    cityVisible: 'Visible',
-    adaptedBadge: '⚠️ ADAPTED',
-    serviceAdaptedReason: 'No service was found for today, calendar was adapted from past data.',
-    dayNightNight: '🌙 NIGHT',
-    dayNightDawn: '🌅 DAWN',
-    dayNightDay: '☀️ DAY',
-    dayNightDusk: '🌆 EVENING',
-    dayNightSatellite: '🛰️ SATELLITE',
-    dayNightDark: '🌙 DARK',
-    dayNightLight: '☀️ LIGHT',
-    cinematicStart: '🎬 Cinematic',
-    cinematicStop: '⏹ Stop',
-    cinematicOverview: 'Overview',
-    cinematicWestCorridor: 'West Corridor',
-    cinematicEastCorridor: 'East Corridor',
-    cinematicNorthLine: 'North Line',
-    cinematicNetworkSummary: 'Network Summary',
-  },
-};
+const {
+  configureRuntimeI18n,
+  getLanguage,
+  t,
+  ensureLanguageSwitcher,
+  applyStaticTranslations,
+  setLanguage,
+} = window.RuntimeI18n;
+const {
+  configureRuntimeStopCoverage,
+  bindStopCoverageControls,
+  setStopCoverageEnabled,
+  updateStopCoverageControlsVisibility,
+} = window.RuntimeStopCoverageControls;
+const {
+  configureRuntimeHeatmap,
+  bindHeatmapControls,
+  setHeatmapEnabled,
+} = window.RuntimeHeatmapControls;
+const {
+  configureRuntimeBunching,
+  bindBunchingControls,
+  setBunchingEnabled,
+} = window.RuntimeBunchingControls;
+const {
+  configureRuntimeIsochron,
+  bindIsochronControls,
+  setIsochronEnabled,
+} = window.RuntimeIsochronControls;
+const {
+  configureRuntimePlayback,
+  bindPlaybackControls,
+  updatePlaybackSpeedLabel,
+} = window.RuntimePlaybackControls;
+const {
+  configureRuntimeTypeFilter,
+  bindTypeFilterControls,
+  updateTypeFilterButtons,
+} = window.RuntimeTypeFilterControls;
+const {
+  bindSectionCollapseControls,
+} = window.RuntimeSectionCollapseControls;
 
-let currentLanguage = (() => {
-  try {
-    const saved = localStorage.getItem('gtfs-city-language');
-    return saved === 'en' ? 'en' : 'tr';
-  } catch (_) {
-    return 'tr';
-  }
-})();
+configureRuntimeI18n({
+  getFollowTripIdx: getFollowTripIdxState,
+});
 
-function t(key, fallback = '') {
-  return I18N_MESSAGES[currentLanguage]?.[key] || I18N_MESSAGES.tr?.[key] || fallback || key;
-}
+configureRuntimeStopCoverage({
+  getState: getStopCoverageState,
+  setState: setStopCoverageState,
+  refreshLayersNow,
+});
 
-function ensureLanguageSwitcher() {
-  if (document.getElementById('language-switcher')) return;
-  const wrap = document.createElement('div');
-  wrap.id = 'language-switcher';
-  wrap.innerHTML = `
-    <label id="language-switcher-label" for="language-select">${t('languageLabel', 'Language')}</label>
-    <select id="language-select" aria-label="Language">
-      <option value="tr">Turkce</option>
-      <option value="en">English</option>
-    </select>
-  `;
-  document.body.appendChild(wrap);
-  const select = document.getElementById('language-select');
-  if (select) {
-    select.value = currentLanguage;
-    select.addEventListener('change', (event) => setLanguage(event.target.value));
-  }
-}
+configureRuntimeHeatmap({
+  getState: getHeatmapState,
+  setState: setHeatmapState,
+  refreshLayersNow,
+});
 
-function applyStaticTranslations() {
-  document.documentElement.lang = currentLanguage;
-  ensureLanguageSwitcher();
-  const label = document.getElementById('language-switcher-label');
-  const select = document.getElementById('language-select');
-  if (label) label.textContent = t('languageLabel', 'Language');
-  if (select) select.value = currentLanguage;
-  const subtitle = document.querySelector('.lp-subtitle');
-  if (subtitle) subtitle.textContent = t('landingSubtitle');
-  const labels = document.querySelectorAll('.lp-card-lbl');
-  if (labels[0]) labels[0].textContent = t('landingRoutes');
-  if (labels[1]) labels[1].textContent = t('landingTrips');
-  if (labels[2]) labels[2].textContent = t('landingStops');
-  const uploadLink = document.getElementById('lp-btn-url');
-  if (uploadLink) uploadLink.textContent = t('loadFromLink');
-  const uploadBtn = document.getElementById('lp-btn-upload');
-  if (uploadBtn && !uploadBtn.classList.contains('is-loading')) uploadBtn.textContent = t('landingUploadButton');
-  const startBtn = document.getElementById('lp-btn-start');
-  if (startBtn) startBtn.textContent = t('landingStartButton');
-  const linkNote = document.getElementById('lp-link-note');
-  if (linkNote) linkNote.textContent = t('linkNote');
-  const examplesTitle = document.getElementById('lp-examples-title');
-  if (examplesTitle) examplesTitle.textContent = t('landingExamplesTitle');
-  const examplesSubtitle = document.getElementById('lp-examples-subtitle');
-  if (examplesSubtitle) examplesSubtitle.textContent = t('landingExamplesSubtitle');
-  document.querySelectorAll('.lp-example-load').forEach((button) => { button.textContent = t('landingExampleLoad'); });
-  document.querySelectorAll('.lp-example-source').forEach((link) => { link.textContent = t('landingExampleSource'); });
-  const homeBtn = document.getElementById('home-toggle-btn');
-  if (homeBtn) homeBtn.title = t('homeTitle');
-  const vehicleLabels = document.querySelectorAll('.vp-l');
-  if (vehicleLabels[1]) vehicleLabels[1].textContent = t('vehicleHeadway');
-  if (vehicleLabels[2]) vehicleLabels[2].textContent = t('vehicleProgress');
-  const vehicleNextLabels = document.querySelectorAll('.vp-next-lbl');
-  if (vehicleNextLabels[0]) vehicleNextLabels[0].textContent = t('vehicleNextStop');
-  if (vehicleNextLabels[1]) vehicleNextLabels[1].textContent = `⏱ ${t('vehicleEta')}`;
-  const followBtn = document.getElementById('vp-follow-btn');
-  if (followBtn) followBtn.textContent = `📍 ${t('vehicleFollow')}`;
-  const routeBtn = document.getElementById('vp-route-btn');
-  if (routeBtn) routeBtn.textContent = `🗺 ${t('vehicleFocusRoute')}`;
-  const followLabel = document.getElementById('follow-label');
-  if (followLabel && followTripIdx === null) followLabel.textContent = `📍 ${t('followMode')}`;
-  const plannerToggle = document.getElementById('route-planner-toggle');
-  if (plannerToggle) {
-    plannerToggle.title = t('plannerToggle');
-    plannerToggle.textContent = `🧭 ${t('plannerToggle')}`;
-  }
-  const fromInput = document.getElementById('stop-from');
-  if (fromInput) fromInput.placeholder = t('plannerFromPlaceholder');
-  const toInput = document.getElementById('stop-to');
-  if (toInput) toInput.placeholder = t('plannerToPlaceholder');
-  const routeBuildBtn = document.getElementById('btn-route');
-  if (routeBuildBtn) routeBuildBtn.textContent = t('plannerBuildRoute');
-  const resultTitle = document.querySelector('#route-result-header > span');
-  if (resultTitle) resultTitle.textContent = t('plannerResultTitle');
-  const plannerHeaderTitle = document.querySelector('#route-planner-header > div > span');
-  if (plannerHeaderTitle) plannerHeaderTitle.textContent = `🧭 ${t('plannerHeaderTitle')}`;
-  const heatmapFollow = document.querySelector('label[for="heatmap-follow-sim"], #heatmap-ctrl .small-check');
-  const heatmapCheckbox = document.getElementById('heatmap-follow-sim');
-  if (heatmapFollow && heatmapCheckbox) heatmapFollow.lastChild.textContent = ` ${t('heatmapFollowSimulation')}`;
-  const bunchingTitle = document.querySelector('#bunching-header > span');
-  if (bunchingTitle) bunchingTitle.textContent = `⚠️ ${t('bunchingAlertsTitle')}`;
-  const thresholdLabel = document.querySelector('#threshold-row > span');
-  if (thresholdLabel) thresholdLabel.textContent = t('bunchingThreshold');
-  const worstHeader = document.querySelector('#worst-header > span');
-  if (worstHeader) worstHeader.textContent = `⏱ ${t('worstWaitTitle')}`;
-  const worstSub = document.querySelector('#worst-header .worst-sub');
-  if (worstSub) worstSub.textContent = t('worstWaitSubtitle');
-  const gtfsProgressMsg = document.getElementById('gtfs-progress-msg');
-  if (gtfsProgressMsg && !gtfsProgressMsg.dataset.dynamic) gtfsProgressMsg.textContent = t('gtfsPreparing');
-  const gtfsInfoTitle = document.querySelector('.gtfs-info-title');
-  if (gtfsInfoTitle) gtfsInfoTitle.textContent = t('gtfsExpectedFiles');
-  const gtfsNote = document.querySelector('.gtfs-note');
-  if (gtfsNote) gtfsNote.textContent = t('gtfsInfoNote');
-  const cityLoadingName = document.getElementById('city-loading-name');
-  if (cityLoadingName && !cityLoadingName.dataset.city) cityLoadingName.textContent = t('cityLoadingGeneric');
-  const warningTitle = document.querySelector('.gwd-title');
-  if (warningTitle) warningTitle.textContent = t('warningTitle');
-  const warningClose = document.getElementById('gwd-close');
-  if (warningClose) warningClose.title = t('close');
-  const loaderText = document.querySelector('.loader-text');
-  if (loaderText) loaderText.textContent = t('loaderPreparingData');
-  const layersLabel = document.querySelector('#section-layers .section-label');
-  if (layersLabel) layersLabel.textContent = t('sidebarLayers');
-  const citiesLabel = document.querySelector('#section-cities .section-label');
-  if (citiesLabel) citiesLabel.textContent = t('sidebarCities');
-  const routesLabel = document.querySelector('#section-routes .section-label');
-  if (routesLabel) routesLabel.textContent = t('sidebarRoutes');
-  const stopsLabel = document.querySelector('#section-stops-list .section-label');
-  if (stopsLabel) stopsLabel.textContent = t('sidebarStops');
-  const routeTypeLabel = document.getElementById('route-type-label');
-  if (routeTypeLabel) routeTypeLabel.textContent = t('sidebarRouteType');
-  const mapStyleLabel = document.getElementById('map-style-label');
-  if (mapStyleLabel) mapStyleLabel.textContent = t('sidebarMapStyle');
-  const serviceLabel = document.querySelector('.service-selector-label');
-  if (serviceLabel) serviceLabel.textContent = t('sidebarServiceCalendar');
-  const routeSearch = document.getElementById('route-filter-inp');
-  if (routeSearch) routeSearch.placeholder = t('sidebarRouteSearch');
-  const stopSearch = document.getElementById('stop-list-filter');
-  if (stopSearch) stopSearch.placeholder = t('sidebarStopSearch');
-  const toggleAnim = document.querySelector('label[for="tog-anim"], #tog-anim')?.closest('.tog-row');
-  const togglePaths = document.querySelector('label[for="tog-paths"], #tog-paths')?.closest('.tog-row');
-  const toggleDensity = document.querySelector('label[for="tog-density"], #tog-density')?.closest('.tog-row');
-  const toggleStopsEl = document.querySelector('label[for="tog-stops"], #tog-stops')?.closest('.tog-row');
-  const toggleConnectivityGridEl = document.querySelector('label[for="tog-connectivity-grid"], #tog-connectivity-grid')?.closest('.tog-row');
-  const toggleStopCoverageEl = document.querySelector('label[for="tog-stop-coverage"], #tog-stop-coverage')?.closest('.tog-row');
-  const toggleHeatmapEl = document.querySelector('label[for="tog-heatmap"], #tog-heatmap')?.closest('.tog-row');
-  const toggleTrailEl = document.querySelector('label[for="tog-trail"], #tog-trail')?.closest('.tog-row');
-  const toggleHeadwayEl = document.querySelector('label[for="tog-headway"], #tog-headway')?.closest('.tog-row');
-  const toggleBunchingEl = document.querySelector('label[for="tog-bunching"], #tog-bunching')?.closest('.tog-row');
-  const toggleWaitingEl = document.querySelector('label[for="tog-waiting"], #tog-waiting')?.closest('.tog-row');
-  const toggleIsochronEl = document.querySelector('label[for="tog-isochron"], #tog-isochron')?.closest('.tog-row');
-  if (toggleAnim) toggleAnim.lastChild.textContent = t('toggleAnimation');
-  if (togglePaths) togglePaths.lastChild.textContent = t('togglePaths');
-  if (toggleDensity) toggleDensity.lastChild.textContent = t('toggleDensity');
-  if (toggleStopsEl) toggleStopsEl.lastChild.textContent = t('toggleStops');
-  if (toggleConnectivityGridEl) toggleConnectivityGridEl.lastChild.textContent = t('toggleConnectivityGrid');
-  if (toggleStopCoverageEl) toggleStopCoverageEl.lastChild.textContent = t('toggleStopCoverage');
-  const stopCoverageRadiusLabel = document.getElementById('stop-coverage-radius-label');
-  if (stopCoverageRadiusLabel) stopCoverageRadiusLabel.textContent = t('stopCoverageRadius');
-  const stopCoverageModeLabel = document.getElementById('stop-coverage-mode-label');
-  if (stopCoverageModeLabel) stopCoverageModeLabel.textContent = t('stopCoverageMode');
-  const stopCoverageFillColorLabel = document.getElementById('stop-coverage-fill-color-label');
-  if (stopCoverageFillColorLabel) stopCoverageFillColorLabel.textContent = t('stopCoverageFillColor');
-  const stopCoverageFillOpacityLabel = document.getElementById('stop-coverage-fill-opacity-label');
-  if (stopCoverageFillOpacityLabel) stopCoverageFillOpacityLabel.textContent = t('stopCoverageFillOpacity');
-  const stopCoverageStrokeColorLabel = document.getElementById('stop-coverage-stroke-color-label');
-  if (stopCoverageStrokeColorLabel) stopCoverageStrokeColorLabel.textContent = t('stopCoverageStrokeColor');
-  const stopCoverageStrokeWidthLabel = document.getElementById('stop-coverage-stroke-width-label');
-  if (stopCoverageStrokeWidthLabel) stopCoverageStrokeWidthLabel.textContent = t('stopCoverageStrokeWidth');
-  const stopCoverageModeSelect = document.getElementById('stop-coverage-mode');
-  if (stopCoverageModeSelect?.options?.length >= 3) {
-    stopCoverageModeSelect.options[0].textContent = t('stopCoverageModeFillStroke');
-    stopCoverageModeSelect.options[1].textContent = t('stopCoverageModeFill');
-    stopCoverageModeSelect.options[2].textContent = t('stopCoverageModeStroke');
-  }
-  if (toggleHeatmapEl) toggleHeatmapEl.lastChild.textContent = t('toggleHeatmap');
-  if (toggleTrailEl) toggleTrailEl.lastChild.textContent = t('toggleTrail');
-  if (toggleHeadwayEl) toggleHeadwayEl.lastChild.textContent = t('toggleHeadway');
-  if (toggleBunchingEl) toggleBunchingEl.lastChild.textContent = t('toggleBunching');
-  if (toggleWaitingEl) toggleWaitingEl.lastChild.textContent = t('toggleWaiting');
-  if (toggleIsochronEl) toggleIsochronEl.lastChild.textContent = t('toggleIsochron');
-  const peakLabels = document.querySelectorAll('#peak-labels .peak-label');
-  if (peakLabels[0]) peakLabels[0].textContent = t('peakMorning');
-  if (peakLabels[1]) peakLabels[1].textContent = t('peakEvening');
-  const styleButtons = document.querySelectorAll('#map-style-btns .sstyle');
-  if (styleButtons[1]) styleButtons[1].textContent = t('mapStyleSatellite');
-  if (styleButtons[2]) styleButtons[2].textContent = t('mapStyleDark');
-  if (styleButtons[3]) styleButtons[3].textContent = t('mapStyleLight');
-  document.querySelectorAll('.city-visibility-toggle span').forEach((el) => { el.textContent = t('cityVisible'); });
-  const adaptedBadge = document.getElementById('calendar-adapted-badge');
-  if (adaptedBadge) adaptedBadge.textContent = t('adaptedBadge');
-  const gtfsSidebarBtn = document.getElementById('btn-gtfs-upload');
-  if (gtfsSidebarBtn) gtfsSidebarBtn.textContent = t('landingUploadButton');
-  const staticStopHeader = document.querySelector('#stop-panel .sa-head');
-  if (staticStopHeader) {
-    const spans = staticStopHeader.querySelectorAll('span');
-    if (spans[0]) spans[0].textContent = t('stopPanelHeaderLine');
-    if (spans[1]) spans[1].textContent = t('stopPanelHeaderDirection');
-    if (spans[2]) spans[2].textContent = t('stopPanelHeaderNextVehicle', 'Duration');
-  }
-  const cinematicBtn = document.getElementById('btn-cinematic');
-  if (cinematicBtn && !document.body.classList.contains('cinematic-mode')) cinematicBtn.textContent = t('cinematicStart');
-}
+configureRuntimeBunching({
+  getState: getBunchingState,
+  setState: setBunchingState,
+  refreshLayersNow,
+});
 
-function setLanguage(lang) {
-  currentLanguage = lang === 'en' ? 'en' : 'tr';
-  try {
-    localStorage.setItem('gtfs-city-language', currentLanguage);
-  } catch (_) {}
-  applyStaticTranslations();
+configureRuntimeIsochron({
+  getState: getIsochronState,
+  setState: setIsochronState,
+  clearIsochron,
+  refreshLayersNow,
+});
+
+configureRuntimePlayback({
+  getState: getPlaybackState,
+  setState: setPlaybackState,
+  speeds: SPEEDS,
+  toggleSimulationPaused,
+  resetSimulationPlayback,
+  syncPanelsForCurrentSimTime,
+  updateDayNight,
+  refreshLayersNow,
+  startCinematic,
+  stopCinematic,
+  isCinematic: () => isCinematic,
+});
+
+configureRuntimeTypeFilter({
+  getState: () => ({ typeFilter }),
+  applyTypeFilter: setTypeFilter,
+});
+
+window.addEventListener('app-language-change', () => {
   updateConnectivityGridToggleLabel();
   updateConnectivityLegend();
-  window.dispatchEvent(new CustomEvent('app-language-change', { detail: { language: currentLanguage } }));
   updateLandingPageReports();
-}
-
-window.I18n = {
-  getLanguage: () => currentLanguage,
-  setLanguage,
-  t,
-};
+});
 
 ensureLanguageSwitcher();
 applyStaticTranslations();
 
-function updateConnectivityGridToggleLabel(progress = null) {
-  const row = document.querySelector('label[for="tog-connectivity-grid"], #tog-connectivity-grid')?.closest('.tog-row');
-  if (!row) return;
-  const baseLabel = t('toggleConnectivityGrid');
-  let label = baseLabel;
-  if (Number.isFinite(progress) && progress >= 0 && progress < 100) {
-    label = `${baseLabel} (%${Math.round(progress)})`;
-  }
-  row.lastChild.textContent = label;
-}
+const {
+  configureRuntimeConnectivityGrid,
+  updateConnectivityGridToggleLabel,
+  updateConnectivityLegend,
+  setConnectivityGridCamera,
+  setConnectivityGridMapStyle,
+} = window.RuntimeConnectivityGridControls;
 
 updateConnectivityGridToggleLabel();
 
-function updateConnectivityLegend(progress = null) {
-  const legend = document.getElementById('legend');
-  if (!legend) return;
-  if (!showConnectivityGrid) {
-    legend.style.display = 'none';
-    legend.innerHTML = '';
-    return;
-  }
-  const snapshotComplete = !!AppState.stopConnectivityScores?.meta?.validation_summary;
-  const statusText = Number.isFinite(progress) && progress >= 0 && progress < 100
-    ? `Bu görünüm hazırlanıyor: %${Math.round(progress)}`
-    : snapshotComplete
-      ? 'Hazır'
-      : 'Bu görünüm hazır, yeni alanlar kaydırdıkça hazırlanır.';
-  const selectedCellState = !connectivityGridSelectedCell
-    ? ''
-    : Number.isFinite(connectivityGridSelectedCell.score)
-      ? `${connectivityGridSelectedCell.score}/100`
-      : connectivityGridSelectedCell.pending
-        ? 'Henüz hesaplanmadı'
-        : 'Veri yok';
-  legend.style.display = 'block';
-  legend.innerHTML = `
-    <div class="li" style="padding-bottom:6px;border-bottom:1px solid rgba(255,255,255,.08);margin-bottom:6px;">${t('toggleConnectivityGrid')}</div>
-    <div class="li"><span class="ld" style="background:#ef4444"></span><span>Düşük bağlantı</span></div>
-    <div class="li"><span class="ld" style="background:#f97316"></span><span>Sınırlı bağlantı</span></div>
-    <div class="li"><span class="ld" style="background:#eab308"></span><span>Dengeli bağlantı</span></div>
-    <div class="li"><span class="ld" style="background:#22c55e"></span><span>Görece güçlü bağlantı</span></div>
-    <div class="li"><span class="ld" style="background:#747c8a"></span><span>Henüz hesaplanmadı / veri yok</span></div>
-    <div class="legend-note">Bu görünüm daha sert bir bağlantı metriği kullanır. Yürüme kenarları hariç tutulur, üst süre sınırı 30 dakikadır ve renkler görünümdeki skor dağılımına göre yeniden kalibre edilir.</div>
-    <div class="legend-note">Gri kareler veri yok veya henüz hesaplanmadı anlamına gelir; pan ve zoom sırasında kareler kademeli tamamlanabilir.</div>
-    <div class="legend-status">${statusText}</div>
-    ${connectivityGridSelectedCell ? `
-      <div class="legend-note" style="margin-top:8px;padding-top:8px;border-top:1px solid rgba(255,255,255,.08)">
-        <strong>Seçili Kare</strong><br>
-        Skor: ${selectedCellState}<br>
-        Durak: ${connectivityGridSelectedCell.count || 0}
-      </div>
-    ` : ''}
-  `;
-}
-
-function setConnectivityGridCamera(enabled) {
-  if (!mapgl?.easeTo || !mapgl?.getPitch || !mapgl?.getBearing) return;
-  if (enabled) {
-    if (!connectivityGridCameraRestore) {
-      connectivityGridCameraRestore = {
-        pitch: mapgl.getPitch(),
-        bearing: mapgl.getBearing(),
-      };
-    }
-    mapgl.easeTo({ pitch: 0, bearing: 0, duration: 500 });
-    return;
-  }
-  if (!connectivityGridCameraRestore) return;
-  mapgl.easeTo({
-    pitch: connectivityGridCameraRestore.pitch,
-    bearing: connectivityGridCameraRestore.bearing,
-    duration: 500,
-  });
-  connectivityGridCameraRestore = null;
-}
-
-function setConnectivityGridMapStyle(enabled) {
-  if (enabled) {
-    if (connectivityGridStyleRestore == null) {
-      connectivityGridStyleRestore = currentMapStyle || 'auto';
-    }
-    if (currentMapStyle !== 'dark') {
-      currentMapStyle = 'dark';
-      updateDayNight();
-    }
-    return;
-  }
-  if (connectivityGridStyleRestore == null) return;
-  currentMapStyle = connectivityGridStyleRestore || 'auto';
-  connectivityGridStyleRestore = null;
-  updateDayNight();
-}
+configureRuntimeConnectivityGrid({
+  getMap: () => mapgl,
+  getShowConnectivityGrid: () => !!showConnectivityGrid,
+  getSelectedCell: () => connectivityGridSelectedCell,
+  getConnectivityScores: getStopConnectivityScoresState,
+  getCurrentMapStyle: () => currentMapStyle,
+  setCurrentMapStyle: (v) => { currentMapStyle = v; },
+  updateDayNight,
+  t,
+});
 
 if ('serviceWorker' in navigator && window.PLATFORM === 'web') {
   navigator.serviceWorker.register('./sw.js').catch(() => { });
@@ -1851,15 +1552,19 @@ const DEPLOY = {
 };
 
 // ── MAPLIBRE ──────────────────────────────────────────────
+// powerPreference: 'high-performance' requests dedicated GPU on hybrid systems.
+// preserveDrawingBuffer omitted (default false) — saves 25-50% of framebuffer VRAM;
+// capture-controls uses Electron native capture or html2canvas, neither needs it.
 const mapgl = new maplibregl.Map({
   container: 'map', style: PHASE_CFG.night.style,
   center: activeCity?.center || [-0.5792, 44.8378], zoom: activeCity?.zoom || 11.6, pitch: activeCity?.pitch || 52, bearing: activeCity?.bearing || -10,
-  antialias: true, attributionControl: false, canvasContextAttributes: { preserveDrawingBuffer: true }
+  antialias: true, attributionControl: false, canvasContextAttributes: { powerPreference: 'high-performance' }
 });
 mapgl.addControl(new maplibregl.NavigationControl(), 'bottom-right');
 mapgl.addControl(new maplibregl.AttributionControl({ compact: true }), 'bottom-right');
 mapgl.on('load', () => {
   bindMapRecoveryHandlers();
+  logGpuInfo();
   startDeck();
   if (window.SimulationEngine?.start) window.SimulationEngine.start();
   else requestAnimationFrame(animate);
@@ -1868,13 +1573,13 @@ mapgl.on('load', () => {
   });
   mapgl.on('moveend', () => {
     if (showConnectivityGrid) {
-      ensureConnectivityViewportScores();
+      if (!connectivityWorker) ensureConnectivityViewportScores();
       refreshLayersNow();
     }
   });
   mapgl.on('zoomend', () => {
     if (showConnectivityGrid) {
-      ensureConnectivityViewportScores();
+      if (!connectivityWorker) ensureConnectivityViewportScores();
       refreshLayersNow();
     }
   });
@@ -1884,111 +1589,136 @@ mapgl.on('load', () => {
 let deckgl;
 let deckRecoveryBound = false;
 let mapRecoveryBound = false;
+let deckRecoveryTimer = null;
+let mapRecoveryTimer = null;
+let deckContextRecovering = false;
+let mapContextRecovering = false;
 
 window.LegacyMapBridge = createLegacyBridge(() => ({
-  TRIPS,
-  SHAPES,
-  STOPS,
-  STOP_INFO,
-  STOP_DEPS,
+  TRIPS: AppState.trips,
+  SHAPES: AppState.shapes,
+  STOPS: AppState.stops,
+  STOP_INFO: AppState.stopInfo,
+  STOP_DEPS: AppState.stopDeps,
   AppState,
   QUALITY,
   TYPE_META,
   simTime,
   typeFilter,
-  activeRoutes,
-  focusedRoute,
-  selectedRouteDirection,
-  showPaths,
-  showStops,
-  showStopCoverage,
+  activeRoutes: getHiddenRoutes(),
+  focusedRoute: getFocusedRoute(),
+  selectedPatternKey: getSelectedPatternKeyState(),
   stopCoverageRadiusM,
   stopCoverageFillColor: hexToRgb(stopCoverageFillColorHex),
   stopCoverageFillOpacityPct,
   stopCoverageStrokeColor: hexToRgb(stopCoverageStrokeColorHex),
   stopCoverageStrokeWidthPx,
   stopCoverageMode,
-  showDensity,
-  showConnectivityGrid,
   connectivityGridSelectedCell,
-  showHeatmap,
-  heatmapHour,
-  heatmapFollowSim,
-  routeHighlightPath,
-  showAnim,
-  showTrail,
-  show3D,
-  followTripIdx,
-  showHeadway,
-  showBunching,
-  showWaiting,
-  showIsochron,
-  activeServiceId,
-  isochronData: _isochronData,
-  isochronOriginSid: _isochronOriginSid,
-  stopAvgHeadways: _stopAvgHeadways,
+  followTripIdx: getFollowTripIdxState(),
+  activeServiceId: getActiveServiceIdState(),
   getVehiclePos,
-  getVehicleMarkerColor,
-  getVehicleIconDefinition,
-  getStopIconDefinition,
   getRouteColorRgb,
   getRouteMeta,
+  getFocusedRouteId,
+  isRouteHidden,
   getFocusedStopsData,
   getFilteredStopsData,
   getFilteredStopIdSet,
   displayText,
   HEADWAY_CFG,
   WAITING_CFG,
-  activeServiceId,
   computeAverageHeadwaySeconds,
+  computeStopHeadwaySeconds,
   getActiveServiceLabel,
-  getModelNotice,
-  getModelPath,
   getModelOrientation,
-  getModelScale,
   updateActiveBadge,
   calcHeadwayPairs,
   detectBunching,
   updateBunchingPanel,
-  waitingColor,
   haversineM,
-  setLodBadge,
+  getShowAnim: () => !!showAnim,
+  getShowPaths: () => !!showPaths,
+  getShowStops: () => !!showStops,
+  getShowStopCoverage: () => !!showStopCoverage,
+  getShowConnectivityGrid: () => !!showConnectivityGrid,
+  getShowHeatmap: () => !!showHeatmap,
+  getShowTrail: () => !!showTrail,
+  getShow3D: () => !!show3D,
+  getShowHeadway: () => !!showHeadway,
+  getShowBunching: () => !!showBunching,
+  getShowIsochron: () => !!showIsochron,
+  getHeatmapHour: () => heatmapHour,
+  getHeatmapFollowSim: () => !!heatmapFollowSim,
+  getRouteHighlightPath: () => Array.isArray(routeHighlightPath) ? routeHighlightPath.slice() : routeHighlightPath,
+  getIsochronData: () => _isochronData,
+  getIsochronOriginSid: () => _isochronOriginSid,
+  getStopConnectivityScores: getStopConnectivityScoresState,
 }), {
   getMapgl: () => mapgl,
   getDeckgl: () => deckgl,
+  getTrips: () => AppState.trips,
+  getShapes: () => AppState.shapes,
+  getRouteCatalog: () => AppState.routeCatalog,
+  getStops: () => AppState.stops,
+  getStopInfo: () => AppState.stopInfo,
+  getStopDeps: () => AppState.stopDeps,
+  getAppState: () => AppState,
+  getSimTime: () => simTime,
+  getTypeFilter: getTypeFilterState,
+  getActiveRoutes: getHiddenRoutes,
+  getFocusedRoute,
+  getSelectedPatternKey: getSelectedPatternKeyState,
+  getFollowTripIdx: getFollowTripIdxState,
+  getShowAnim: () => !!showAnim,
+  getShowPaths: () => !!showPaths,
+  getShowStops: () => !!showStops,
+  getShowStopCoverage: () => !!showStopCoverage,
+  getShowConnectivityGrid: () => !!showConnectivityGrid,
+  getShowHeatmap: () => !!showHeatmap,
+  getShowTrail: () => !!showTrail,
+  getShow3D: () => !!show3D,
+  getShowHeadway: () => !!showHeadway,
+  getShowBunching: () => !!showBunching,
+  getShowIsochron: () => !!showIsochron,
+  getHeatmapHour: () => heatmapHour,
+  getHeatmapFollowSim: () => !!heatmapFollowSim,
+  getRouteHighlightPath: () => Array.isArray(routeHighlightPath) ? routeHighlightPath.slice() : routeHighlightPath,
+  getIsochronData: () => _isochronData,
+  getIsochronOriginSid: () => _isochronOriginSid,
+  getActiveServiceId: getActiveServiceIdState,
+  getActiveServiceDate: getActiveServiceDateState,
+  getStopConnectivityScores: getStopConnectivityScoresState,
   getLastFollowPos: () => window._lastFollowPos,
   setLastFollowPos: (pos) => { window._lastFollowPos = pos; },
 });
 
 window.LegacyUIBridge = createLegacyBridge(() => ({
-    TRIPS,
-    SHAPES,
-    STOPS,
-    STOP_INFO,
-    STOP_DEPS,
+    TRIPS: AppState.trips,
+    SHAPES: AppState.shapes,
+    STOPS: AppState.stops,
+    STOP_INFO: AppState.stopInfo,
+    STOP_DEPS: AppState.stopDeps,
     TYPE_META,
     AppState,
     simTime,
-    focusedRoute,
-    selectedRouteDirection,
-    selectedTripIdx,
-    selectedEntity,
+    focusedRoute: getFocusedRoute(),
+    selectedPatternKey: getSelectedPatternKeyState(),
+    selectedTripIdx: getSelectedTripIdx(),
+    selectedEntity: getSelectedEntity(),
     showIsochron,
-    showWaiting,
-    followTripIdx,
-    isCinematic,
-    cinematicIdx,
-    cinematicTimer,
-    waitingComputedForSec: _waitingComputedForSec,
-    stopAvgHeadways: _stopAvgHeadways,
-    activeRoutes,
-    stopNames,
-    mapgl,
+    followTripIdx: getFollowTripIdxState(),
+    isCinematic: isCinematicState(),
+    cinematicIdx: getCinematicIdxState(),
+    cinematicTimer: getCinematicTimerState(),
+    activeRoutes: getHiddenRoutes(),
+    stopNames: AppState.stopNames,
+    mapgl: getMapState(),
     getCinematicWaypoints,
     HEADWAY_CFG,
     WAITING_CFG,
-    activeServiceOptions,
-    activeServiceId,
+    activeServiceOptions: getActiveServiceOptionsState(),
+    activeServiceId: getActiveServiceIdState(),
     getDeckCanvas: () => deckgl?.getCanvas?.(),
     getStopMetaByArray,
     buildStopTooltipHtml,
@@ -2000,11 +1730,12 @@ window.LegacyUIBridge = createLegacyBridge(() => ({
     displayText,
     buildRoutePanelStats,
     getActiveServiceLabel,
-    currentLanguage,
+    currentLanguage: getLanguage(),
     t,
     formatHeadwayLabel,
     colorToCss,
     computeAverageHeadwaySeconds,
+    computeStopHeadwaySeconds,
     getStopRouteSummaries,
     findTripIdx,
     setSelectedEntity,
@@ -2013,31 +1744,62 @@ window.LegacyUIBridge = createLegacyBridge(() => ({
     buildVehiclePanelState,
     refreshLayersNow,
     secsToHHMM,
-    setActiveStopData: (stop) => { _activeStopData = stop; },
-    setSelectedTripIdx: (idx) => { selectedTripIdx = idx; },
-    setFocusedRoute: (value) => { focusedRoute = value; },
-    setSelectedRouteDirection: (value) => { selectedRouteDirection = Number.isInteger(value) ? value : null; },
+    setActiveStopData: (stop) => { setActiveStopDataState(stop); },
+    triggerStopBlink: (pos) => { triggerStopBlink(pos); },
+    getHighlightedStopPos: () => _highlightedStopPos,
+    getStopBlinkVisible: () => _stopBlinkVisible,
+    getStopBlinkColor: () => _BLINK_COLORS[_stopBlinkStep % _BLINK_COLORS.length],
+    setSelectedTripIdx: (idx) => { setSelectedTripIdxState(idx); },
+    getSelectedTripIdx,
+    getSelectedEntity,
+    getTrips: () => AppState.trips,
+    getShapes: () => AppState.shapes,
+    getRouteCatalog: () => AppState.routeCatalog,
+    getStops: () => AppState.stops,
+    getStopInfo: () => AppState.stopInfo,
+    getStopDeps: () => AppState.stopDeps,
+    getStopTariffIndex: () => AppState.stopTariffIndex,
+    getStopNames: () => AppState.stopNames,
+    getAppState: () => AppState,
+    setRouteCatalog: (value) => { setRouteCatalogState(value); },
+    getActiveStopData: getActiveStopDataState,
+    getFollowTripIdx: getFollowTripIdxState,
+    getMap: getMapState,
+    getTypeFilter: getTypeFilterState,
+    setFocusedRoute: (value) => { setFocusedRouteState(value); },
+    getFocusedRoute,
+    setFocusedRouteId: (value) => { setFocusedRouteIdState(value); },
+    getFocusedRouteId,
+    getSelectedPatternKey: getSelectedPatternKeyState,
+    setSelectedPatternKey: (value) => { setSelectedPatternKeyState(value); },
     setFocusedStopIdsCache: (value) => { _focusedStopIdsCache = value; },
     setRouteHighlightPath: (value) => { routeHighlightPath = value; },
     invalidateMapCaches: () => { _cachedVisTrips = null; _cachedVisShapes = null; _filteredStopsCache = null; _filteredStopIdSetCache = null; },
+    isRouteHidden,
+    hideRoute,
+    showRoute,
+    clearHiddenRoutes,
     getVehiclePos,
     haversineM,
-    setFollowTripIdx: (idx) => { followTripIdx = idx; },
+    setFollowTripIdx: (idx) => { setFollowTripIdxState(idx); },
     getModelOrientation,
     updateLandingPageReports,
     triggerIsochron,
+    loadRouteRuntimeSubset: (routeId) => callManager('DataManager', 'loadRouteRuntimeSubset', [routeId]),
     setCinematic: (value) => { isCinematic = value; },
+    getIsCinematic: isCinematicState,
     setCinematicIdx: (value) => { cinematicIdx = value; },
+    getCinematicIdx: getCinematicIdxState,
     setCinematicTimer: (value) => { cinematicTimer = value; },
-    getWorstStops: () => _worstStops,
-    setWorstStops: (value) => { _worstStops = value; },
+    getCinematicTimer: getCinematicTimerState,
   }));
 
 window.addEventListener('stop-connectivity-progress', (event) => {
   if (event?.detail?.stopId) {
     updateConnectivityViewportStatus();
     if (showConnectivityGrid) refreshLayersNow();
-    if (_activeStopData) _renderStopPanel(_activeStopData);
+    const activeStopData = getActiveStopDataState();
+    if (activeStopData) _renderStopPanel(activeStopData);
     return;
   }
   const index = Number(event?.detail?.index || 0);
@@ -2063,7 +1825,8 @@ window.addEventListener('stop-connectivity-progress', (event) => {
   if (!event?.detail?.done) return;
   updateConnectivityGridToggleLabel(null);
   updateConnectivityLegend(null);
-  if (_activeStopData) _renderStopPanel(_activeStopData);
+  const activeStopData = getActiveStopDataState();
+  if (activeStopData) _renderStopPanel(activeStopData);
 });
 
 window.addEventListener('connectivity-grid-select', (event) => {
@@ -2072,10 +1835,13 @@ window.addEventListener('connectivity-grid-select', (event) => {
 });
 
 window.LegacyPlannerBridge = createLegacyBridge(() => ({
-    ADJ,
-    STOP_INFO,
+    ADJ: AppState.adj,
+    STOP_INFO: AppState.stopInfo,
     displayText,
-    getActiveCity: () => activeCity,
+    getActiveCity: getActiveCityState,
+    getAdj: () => AppState.adj,
+    getStopInfo: () => AppState.stopInfo,
+    getStopConnectivityScores: getStopConnectivityScoresState,
     refreshLayersNow,
     setIsochronData: (value) => { _isochronData = value; },
     setIsochronOriginSid: (value) => { _isochronOriginSid = value; },
@@ -2084,63 +1850,95 @@ window.LegacyPlannerBridge = createLegacyBridge(() => ({
   }));
 
 window.LegacyServiceBridge = createLegacyBridge(() => ({
-    activeServiceOptions,
-    activeServiceId,
-    activeServiceIds,
-    calendarCache: _calendarCache,
     displayText,
-    currentLanguage,
+    currentLanguage: getLanguage(),
     t,
     showToast,
     getBuiltinGtfsPayload,
     loadGtfsIntoSim,
-    getActiveCity: () => activeCity,
-    getUploadedCityPayload: (cityId) => uploadedGtfsCities.get(cityId),
+    getActiveCity: getActiveCityState,
+    getUploadedCityPayload: getUploadedCityPayloadState,
     getCalendarCache: () => _calendarCache,
     setCalendarCache: (value) => { _calendarCache = resetCalendarCache(value); },
-    getActiveServiceOptions: () => activeServiceOptions,
-    getActiveServiceId: () => activeServiceId,
-    setActiveServiceOptions: (value) => { activeServiceOptions = normalizeArray(value); },
-    setActiveServiceId: (value) => { activeServiceId = value || 'all'; },
-    setActiveServiceIds: (value) => { activeServiceIds = normalizeSet(value); },
+    getActiveServiceOptions: getActiveServiceOptionsState,
+    getActiveServiceId: getActiveServiceIdState,
+    getActiveServiceDate: getActiveServiceDateState,
+    getPreparedGtfsSource: getPreparedGtfsSourceState,
+    rebuildRuntimeForActiveServices: (options) => callManager('DataManager', 'rebuildRuntimeForActiveServices', [options]),
+    setActiveServiceOptions: (value) => { setActiveServiceOptionsState(value); },
+    setActiveServiceId: (value) => { setActiveServiceIdState(value); },
+    setActiveServiceDate: (value) => { setActiveServiceDateState(value); },
+    setActiveServiceIds: (value) => { setActiveServiceIdsState(value); },
   }));
 
 window.LegacyCityBridge = createLegacyBridge(() => ({
-    CITIES,
     AppState,
-    mapgl,
-    hiddenCities,
-    uploadedGtfsCities,
     displayText,
     getBuiltinGtfsPayload,
     loadGtfsIntoSim,
     applyGtfsRuntimeData,
+    loadRouteRuntimeSubset: (routeId) => callManager('DataManager', 'loadRouteRuntimeSubset', [routeId]),
     captureRuntimeDataSnapshot,
     buildServiceOptions,
     autoSelectAndAdaptService,
     renderServiceDatePicker,
     toggleUI,
     showToast,
-    getActiveCity: () => activeCity,
-    getActiveServiceId: () => activeServiceId,
-    getActiveServiceIds: () => activeServiceIds,
-    setActiveCity: (value) => { activeCity = value; },
-    setActiveServiceId: (value) => { activeServiceId = value || 'all'; },
-    setActiveServiceIds: (value) => { activeServiceIds = normalizeSet(value); },
-    setActiveServiceOptions: (value) => { activeServiceOptions = normalizeArray(value); },
+    getActiveCity: getActiveCityState,
+    getActiveServiceId: getActiveServiceIdState,
+    getActiveServiceDate: getActiveServiceDateState,
+    getActiveServiceIds: getActiveServiceIdsState,
+    getMap: getMapState,
+    getTrips: () => AppState.trips,
+    getShapes: () => AppState.shapes,
+    getStops: () => AppState.stops,
+    getStopInfo: () => AppState.stopInfo,
+    getStopDeps: () => AppState.stopDeps,
+    getHourlyCounts: () => AppState.hourlyCounts,
+    getHourlyHeat: () => AppState.hourlyHeat,
+    getBaseRuntimeData: getBaseRuntimeDataState,
+    getCalendarRows: () => AppState.calendarRows?.length ? AppState.calendarRows : (_calendarCache.rows || []),
+    getCalendarDateRows: () => AppState.calendarDateRows?.length ? AppState.calendarDateRows : (_calendarCache.dateRows || []),
+    getCapped: () => AppState.capped || false,
+    getTotalTrips: () => AppState.totalTrips || 0,
+    getTripCap: () => AppState.tripCap || Infinity,
+    getMissingShapeRouteCount: () => AppState.missingShapeRouteCount || 0,
+    getCities: getCitiesState,
+    findCityById: findCityState,
+    getUploadedCityPayload: getUploadedCityPayloadState,
+    isHiddenCity: isHiddenCityState,
+    addCity: addCityState,
+    removeCityById: removeCityStateById,
+    hideCity: hideCityState,
+    showCity: showCityState,
+    deleteUploadedCityPayload: deleteUploadedCityPayloadState,
+    setActiveCity: (value) => { setActiveCityState(value); },
+    setActiveServiceId: (value) => { setActiveServiceIdState(value); },
+    setActiveServiceDate: (value) => { setActiveServiceDateState(value); },
+    setActiveServiceIds: (value) => { setActiveServiceIdsState(value); },
+    setActiveServiceOptions: (value) => { setActiveServiceOptionsState(value); },
     setCalendarCache: (value) => { _calendarCache = resetCalendarCache(value); },
     clearRuntimeData: () => {
+      if (connectivityWorker) {
+        connectivityWorker.terminate();
+        connectivityWorker = null;
+      }
       AppState.trips = [];
       AppState.shapes = [];
+      AppState.routeCatalog = [];
+      AppState.preparedGtfsSource = null;
+      AppState.routeRuntimeSource = null;
+      AppState.loadedRuntimeRouteIds = new Set();
+      AppState.resolvedRuntimeRouteIds = new Set();
+      AppState.loadingRuntimeRouteIds = new Set();
+      AppState.routeRuntimeRequestSeq = 0;
+      AppState.lastRequestedRuntimeRouteId = null;
       AppState.stops = [];
       AppState.stopInfo = {};
       AppState.stopDeps = {};
+      AppState.stopTariffIndex = {};
       AppState.stopConnectivityScores = null;
-      TRIPS = [];
-      SHAPES = [];
-      STOPS = [];
-      STOP_INFO = {};
-      STOP_DEPS = {};
+      AppState.activeServiceDate = '';
       _cachedVisTrips = null;
       _cachedVisShapes = null;
       clearTripLookupCache();
@@ -2149,21 +1947,21 @@ window.LegacyCityBridge = createLegacyBridge(() => ({
       if (deckgl) deckgl.setProps({ layers: buildLayers() });
       buildRouteList();
       buildStopList();
+      window.dispatchEvent(new CustomEvent('app-runtime-data-change'));
     },
   }));
 
 window.LegacyDataBridge = createLegacyBridge(() => ({
     AppState,
     deckgl,
-    mapgl,
     gtfsErrorLog,
-    parseCsvRows,
-    parseGtfsTables,
-    buildRouteMap,
-    buildShapePoints,
-    buildStopsMap,
-    buildTripMetaMap,
-    buildTripStopsMap,
+    parseCsvRows: (txt) => window.GtfsUtils.parseCsvRows(txt),
+    parseGtfsTables: (files) => window.GtfsUtils.parseGtfsTables(files),
+    buildRouteMap: (rows) => window.GtfsUtils.buildRouteMap(rows, getRouteColorRgb, TYPE_META),
+    buildShapePoints: (rows) => window.GtfsUtils.buildShapePoints(rows),
+    buildStopsMap: (rows) => window.GtfsUtils.buildStopsMap(rows),
+    buildTripMetaMap: (rows) => window.GtfsUtils.buildTripMetaMap(rows),
+    buildTripStopsMap: (rows) => window.GtfsUtils.buildTripStopsMap(rows),
     buildServiceOptions,
     autoSelectAndAdaptService,
     renderServiceDatePicker,
@@ -2177,66 +1975,77 @@ window.LegacyDataBridge = createLegacyBridge(() => ({
     refreshLayersNow,
     buildLayers,
     captureRuntimeDataSnapshot,
-    updateDensityGrid,
     updateWarningDashboard,
     updateLandingPageReports,
     buildCityList,
     toggleUI,
     pushGtfsError,
     resetGtfsErrors,
-    uploadedGtfsCities,
-    hiddenCities,
-    CITIES,
-    getActiveCity: () => activeCity,
-    getActiveServiceIds: () => activeServiceIds,
+    getActiveCity: getActiveCityState,
+    getActiveServiceDate: getActiveServiceDateState,
+    getActiveServiceIds: getActiveServiceIdsState,
+    getMap: getMapState,
+    getCities: getCitiesState,
+    findCityById: findCityState,
+    getUploadedCityPayload: getUploadedCityPayloadState,
+    isHiddenCity: isHiddenCityState,
     getLastGtfsLoadError: () => lastGtfsLoadError,
     getLastGtfsFiles: () => window._lastGtfsFiles,
     getLastGtfsFileName: () => window._lastGtfsFileName,
-    setActiveServiceId: (value) => { activeServiceId = value || 'all'; },
-    setActiveServiceIds: (value) => { activeServiceIds = normalizeSet(value); },
-    setActiveServiceOptions: (value) => { activeServiceOptions = normalizeArray(value); },
-    setActiveCity: (value) => { activeCity = value; },
+    replaceCities: replaceCitiesState,
+    addCity: addCityState,
+    removeCityById: removeCityStateById,
+    clearUploadedCityPayloads: clearUploadedCityPayloadsState,
+    setUploadedCityPayload: setUploadedCityPayloadState,
+    deleteUploadedCityPayload: deleteUploadedCityPayloadState,
+    clearHiddenCities: clearHiddenCitiesState,
+    setRuntimeCollections: setRuntimeCollectionsState,
+    setStopNames: setStopNamesState,
+    setRouteCatalog: setRouteCatalogState,
+    getRouteRuntimeSource: getRouteRuntimeSourceState,
+    setRouteRuntimeSource: setRouteRuntimeSourceState,
+    getPreparedGtfsSource: getPreparedGtfsSourceState,
+    setPreparedGtfsSource: setPreparedGtfsSourceState,
+    mergeRuntimeCollections: mergeRuntimeCollectionsState,
+    getLoadedRuntimeRouteIds: getLoadedRuntimeRouteIdsState,
+    isRuntimeRouteLoaded: isRuntimeRouteLoadedState,
+    getResolvedRuntimeRouteIds: getResolvedRuntimeRouteIdsState,
+    isRuntimeRouteResolved: isRuntimeRouteResolvedState,
+    markRuntimeRouteResolved: markRuntimeRouteResolvedState,
+    setRuntimeRouteLoading: setRuntimeRouteLoadingState,
+    isRuntimeRouteLoading: isRuntimeRouteLoadingState,
+    beginRuntimeRouteRequest: beginRuntimeRouteRequestState,
+    isRuntimeRouteRequestCurrent: isRuntimeRouteRequestCurrentState,
+    getBaseRuntimeData: getBaseRuntimeDataState,
+    setBaseRuntimeData: setBaseRuntimeDataState,
+    setActiveServiceId: (value) => { setActiveServiceIdState(value); },
+    setActiveServiceDate: (value) => { setActiveServiceDateState(value); },
+    setActiveServiceIds: (value) => { setActiveServiceIdsState(value); },
+    setActiveServiceOptions: (value) => { setActiveServiceOptionsState(value); },
+    setActiveCity: (value) => { setActiveCityState(value); },
     setCalendarCache: (value) => { _calendarCache = resetCalendarCache(value); },
     setLastGtfsFiles: (value) => { window._lastGtfsFiles = value; },
     setLastGtfsFileName: (value) => { window._lastGtfsFileName = value; },
     setGtfsReport: (value) => { _gtfsReport = value; AppState.gtfsValidationReport = value; },
     setStaticLayerKey: (value) => { _staticLayerKey = value || ''; },
-    clearIconCaches: () => {
-      Object.keys(VEHICLE_ICON_CACHE).forEach((key) => delete VEHICLE_ICON_CACHE[key]);
-      Object.keys(STOP_ICON_CACHE).forEach((key) => delete STOP_ICON_CACHE[key]);
-    },
-    syncRuntimeAliases: () => {
-      TRIPS = AppState.trips;
-      SHAPES = AppState.shapes;
-      STOPS = AppState.stops;
-      STOP_INFO = AppState.stopInfo;
-      STOP_DEPS = AppState.stopDeps;
-      HOURLY_COUNTS = AppState.hourlyCounts;
-      HOURLY_HEAT = AppState.hourlyHeat;
-      ADJ = AppState.adj;
-    },
-    getTrips: () => TRIPS,
-    getStopDeps: () => STOP_DEPS,
-    setStopNames: (value) => { stopNames = value; },
+    clearIconCaches: () => { window.MapManager?.clearIconCaches?.(); },
+    getTrips: () => AppState.trips,
+    getStopDeps: () => AppState.stopDeps,
     resetRuntimeCaches: () => {
       _cachedVisTrips = null;
       _cachedVisShapes = null;
-      _stopAvgHeadways = null;
-      _worstStops = null;
       _focusedStopIdsCache = null;
       _filteredStopsCache = null;
       _filteredStopIdSetCache = null;
-      _waitingTimeBucket = null;
-      _waitingComputedForSec = null;
       _routeShapeSnapCache = new Map();
       clearTripLookupCache();
       clearStopRouteSummariesCache();
-      selectedTripIdx = null;
-      followTripIdx = null;
-      focusedRoute = null;
-      selectedRouteDirection = null;
-      activeRoutes.clear();
-      selectedEntity = null;
+      setSelectedTripIdxState(null);
+      setFollowTripIdxState(null);
+      setFocusedRouteState(null);
+      setSelectedPatternKeyState(null);
+      clearHiddenRoutes();
+      setSelectedEntityState(null);
       panelPauseOwner = null;
       _lastBuildTime = 0;
       _lastBuiltLayers = [];
@@ -2252,10 +2061,8 @@ window.LegacyDataBridge = createLegacyBridge(() => ({
       showConnectivityGrid = false;
       updateConnectivityGridToggleLabel(null);
       updateConnectivityLegend(null);
-      showStopCoverage = false;
+      setStopCoverageState({ showStopCoverage: false });
       updateStopCoverageControlsVisibility();
-      showDensity = false;
-      showWaiting = false;
       showPaths = true;
       const toggles = {
         'tog-stops': false,
@@ -2263,7 +2070,6 @@ window.LegacyDataBridge = createLegacyBridge(() => ({
         'tog-stop-coverage': false,
         'tog-anim': true,
         'tog-paths': true,
-        'tog-density': false,
       };
       Object.entries(toggles).forEach(([id, value]) => {
         const element = document.getElementById(id);
@@ -2277,10 +2083,31 @@ window.LegacyAppBridge = createLegacyBridge(() => ({
     openGTFSModal,
     refreshLayersNow,
     updateDayNight,
-    getTrips: () => TRIPS,
-    getStops: () => STOPS,
+    getTrips: () => AppState.trips,
+    getStops: () => AppState.stops,
+    getRouteCatalog: () => AppState.routeCatalog,
+    getTariffIndex: () => AppState.tariffIndex,
+    getStopTariffIndex: () => AppState.stopTariffIndex,
+    getTripCountBySid: () => AppState.tripCountBySid || {},
+    getStopInfo: () => AppState.stopInfo,
+    getCalendarCache: () => _calendarCache,
+    getCalendarRows: () => AppState.calendarRows?.length ? AppState.calendarRows : (_calendarCache.rows || []),
+    getCalendarDateRows: () => AppState.calendarDateRows?.length ? AppState.calendarDateRows : (_calendarCache.dateRows || []),
+    getActiveServiceDate: getActiveServiceDateState,
+    getSelectedEntity,
+    setSelectedEntity: setSelectedEntityState,
+    getFocusedRouteId,
+    getFocusedRoute,
+    getActiveWorkspace: getActiveWorkspaceState,
+    getActiveServiceId: getActiveServiceIdState,
+    setActiveWorkspace: setActiveWorkspaceState,
+    getSelectedPatternKey: getSelectedPatternKeyState,
+    setSelectedPatternKey: (value) => { setSelectedPatternKeyState(value); },
+    setFocusedStopIdsCache: (value) => { _focusedStopIdsCache = value; },
+    invalidateMapCaches: () => { _cachedVisTrips = null; _cachedVisShapes = null; _filteredStopsCache = null; _filteredStopIdSetCache = null; },
     setShowTrail: (value) => { showTrail = value; },
     setCurrentMapStyle: (value) => { currentMapStyle = value || 'auto'; },
+    loadRouteRuntimeSubset: (routeId) => callManager('DataManager', 'loadRouteRuntimeSubset', [routeId]),
   }));
 
 const legacySimulationContext = {
@@ -2290,7 +2117,7 @@ const legacySimulationContext = {
   HEADWAY_CFG,
   WAITING_CFG,
   SPEEDS,
-  activeRoutes,
+  activeRoutes: getHiddenRoutes(),
   getPhase,
   secsToHHMM,
   getVehiclePos,
@@ -2299,13 +2126,10 @@ const legacySimulationContext = {
   inferTripDirectionLabel,
   haversineM,
   computeAverageHeadwaySeconds,
-  buildWorstStops,
-  updateWorstStopsPanel,
   refreshLayersNow,
   updateVehiclePanel,
   renderStopPanel: _renderStopPanel,
   buildLayers,
-  getStopAvgHeadways: () => _stopAvgHeadways,
   setSimTime: (value) => { simTime = value; },
   setSimPaused: (value) => { simPaused = !!value; },
   setLastTs: (value) => { lastTs = value; },
@@ -2314,16 +2138,13 @@ const legacySimulationContext = {
   setIsReplay: (value) => { isReplay = !!value; },
   setReplayLoop: (value) => { replayLoop = !!value; },
   setBunchingEvents: (value) => { bunchingEvents = value; },
-  setStopAvgHeadways: (value) => { _stopAvgHeadways = value; },
-  setWaitingTimeBucket: (value) => { _waitingTimeBucket = value; },
-  setWaitingComputedForSec: (value) => { _waitingComputedForSec = value; },
   syncPlayButton,
   setSimulationPaused,
   isContextReady: () => !!mapgl,
 };
 window.LegacySimulationBridge = {
   getContext() {
-    legacySimulationContext.TRIPS = TRIPS;
+    legacySimulationContext.TRIPS = AppState.trips;
     legacySimulationContext.simTime = simTime;
     legacySimulationContext.simPaused = simPaused;
     legacySimulationContext.lastTs = lastTs;
@@ -2332,17 +2153,14 @@ window.LegacySimulationBridge = {
     legacySimulationContext.currentMapStyle = currentMapStyle;
     legacySimulationContext.isReplay = isReplay;
     legacySimulationContext.replayLoop = replayLoop;
-    legacySimulationContext.showWaiting = showWaiting;
     legacySimulationContext.showHeadway = showHeadway;
     legacySimulationContext.typeFilter = typeFilter;
-    legacySimulationContext.focusedRoute = focusedRoute;
+    legacySimulationContext.focusedRoute = getFocusedRoute();
     legacySimulationContext.bunchingThreshold = bunchingThreshold;
     legacySimulationContext.bunchingEvents = bunchingEvents;
-    legacySimulationContext.waitingTimeBucket = _waitingTimeBucket;
-    legacySimulationContext.waitingComputedForSec = _waitingComputedForSec;
-    legacySimulationContext.selectedTripIdx = selectedTripIdx;
-    legacySimulationContext.activeStopData = _activeStopData;
-    legacySimulationContext.hourlyCounts = HOURLY_COUNTS;
+    legacySimulationContext.selectedTripIdx = getSelectedTripIdx();
+    legacySimulationContext.activeStopData = getActiveStopDataState();
+    legacySimulationContext.hourlyCounts = AppState.hourlyCounts;
     legacySimulationContext.mapgl = mapgl;
     legacySimulationContext.deckgl = deckgl;
     legacySimulationContext.updateVehiclePanel = updateVehiclePanel || (() => {});
@@ -2351,15 +2169,140 @@ window.LegacySimulationBridge = {
   },
 };
 
-function detachDeckOverlay() {
+function logGpuInfo() {
+  try {
+    const canvas = mapgl.getCanvas?.();
+    const gl = canvas?.getContext('webgl2') || canvas?.getContext('webgl');
+    if (!gl) return;
+    const dbg = gl.getExtension('WEBGL_debug_renderer_info');
+    if (dbg) {
+      const vendor = gl.getParameter(dbg.UNMASKED_VENDOR_WEBGL);
+      const renderer = gl.getParameter(dbg.UNMASKED_RENDERER_WEBGL);
+      console.info('[GPU]', vendor, '/', renderer);
+      window._gpuRenderer = renderer;
+    }
+    const maxTexSize = gl.getParameter(gl.MAX_TEXTURE_SIZE);
+    const maxVaryings = gl.getParameter(gl.MAX_VARYING_VECTORS);
+    console.info('[GPU] maxTextureSize:', maxTexSize, 'maxVaryings:', maxVaryings);
+  } catch (_) {}
+  scheduleMemoryPressureCheck();
+}
+
+let _memPressureTimer = null;
+function scheduleMemoryPressureCheck() {
+  if (_memPressureTimer) return;
+  _memPressureTimer = setInterval(() => {
+    const mem = performance?.memory;
+    if (!mem) return;
+    const ratio = mem.usedJSHeapSize / mem.jsHeapSizeLimit;
+    if (ratio > 0.82 && QUALITY.level > 0) {
+      console.warn('[GPU] JS heap pressure high (' + Math.round(ratio * 100) + '%), lowering quality');
+      QUALITY.level = Math.max(0, QUALITY.level - 1);
+    }
+  }, 15000);
+}
+
+function detachDeckOverlay(skipFinalize = false) {
   if (!deckgl) return;
   try {
     mapgl.removeControl(deckgl);
   } catch (_) {}
-  try {
-    deckgl.finalize?.();
-  } catch (_) {}
+  if (!skipFinalize) {
+    try {
+      deckgl.finalize?.();
+    } catch (_) {}
+  }
   deckgl = null;
+}
+
+function clearDeckRecoveryTimer() {
+  if (deckRecoveryTimer) {
+    clearTimeout(deckRecoveryTimer);
+    deckRecoveryTimer = null;
+  }
+}
+
+function clearMapRecoveryTimer() {
+  if (mapRecoveryTimer) {
+    clearTimeout(mapRecoveryTimer);
+    mapRecoveryTimer = null;
+  }
+}
+
+function engageWebglSafeMode(source = 'unknown') {
+  try {
+    QUALITY.level = 0;
+    showTrail = false;
+    show3D = false;
+    showHeatmap = false;
+    ['tog-trail', 'tog-heatmap'].forEach((id) => {
+      const el = document.getElementById(id);
+      if (el) el.checked = false;
+    });
+    const heatmapControls = document.getElementById('heatmap-controls');
+    if (heatmapControls) heatmapControls.classList.add('hidden');
+    console.warn('[WebGLRecovery] safe mode aktif', source);
+  } catch (error) {
+    console.warn('[WebGLRecovery] safe mode uygulanamadi', source, error);
+  }
+}
+
+function recoverDeckContext(reason = 'restore') {
+  clearDeckRecoveryTimer();
+  if (reason === 'restore') deckContextRecovering = false;
+  setTimeout(() => {
+    try {
+      startDeck(true, true);
+      refreshLayersNow();
+      mapgl.resize();
+      mapgl.triggerRepaint?.();
+    } catch (err) {
+      console.warn('[WebGLRecovery] deck recovery failed', reason, err);
+    }
+  }, reason === 'restore' ? 120 : 260);
+}
+
+function recoverMapContext(reason = 'restore') {
+  clearMapRecoveryTimer();
+  if (reason === 'restore') mapContextRecovering = false;
+  setTimeout(() => {
+    try {
+      mapgl.resize();
+      mapgl.triggerRepaint?.();
+    } catch (_) {}
+    try {
+      startDeck(true, true);
+      refreshLayersNow();
+    } catch (err) {
+      console.warn('[WebGLRecovery] map recovery failed', reason, err);
+    }
+  }, reason === 'restore' ? 180 : 320);
+}
+
+function scheduleDeckRecoveryFallback() {
+  clearDeckRecoveryTimer();
+  deckRecoveryTimer = setTimeout(() => {
+    if (!deckContextRecovering) return;
+    console.warn('[WebGLRecovery] deck restore event gelmedi, fallback recovery deneniyor');
+    recoverDeckContext('fallback');
+  }, 1800);
+}
+
+function scheduleMapRecoveryFallback() {
+  clearMapRecoveryTimer();
+  mapRecoveryTimer = setTimeout(() => {
+    if (!mapContextRecovering) return;
+    console.warn('[WebGLRecovery] map restore event gelmedi, fallback recovery deneniyor');
+    recoverMapContext('fallback');
+    setTimeout(() => {
+      if (!mapContextRecovering) return;
+      console.warn('[WebGLRecovery] map hala toparlanmadi, sayfa yeniden yukleniyor');
+      try {
+        sessionStorage.setItem('gtfs-city-webgl-recover-map', '1');
+      } catch (_) {}
+      window.location.reload();
+    }, 1400);
+  }, 2200);
 }
 
 function bindDeckRecoveryHandlers() {
@@ -2368,15 +2311,13 @@ function bindDeckRecoveryHandlers() {
   if (!canvas) return;
   canvas.addEventListener('webglcontextlost', (event) => {
     event.preventDefault();
+    deckContextRecovering = true;
+    engageWebglSafeMode('deck');
+    scheduleDeckRecoveryFallback();
     showToast('WebGL bağlamı kayboldu. Katmanlar yeniden hazırlanıyor...', 'warn');
   });
   canvas.addEventListener('webglcontextrestored', () => {
-    setTimeout(() => {
-      startDeck(true);
-      refreshLayersNow();
-      mapgl.resize();
-      mapgl.triggerRepaint?.();
-    }, 120);
+    recoverDeckContext('restore');
   });
   deckRecoveryBound = true;
 }
@@ -2387,27 +2328,23 @@ function bindMapRecoveryHandlers() {
   if (!canvas) return;
   canvas.addEventListener('webglcontextlost', (event) => {
     event.preventDefault();
+    mapContextRecovering = true;
+    engageWebglSafeMode('map');
+    scheduleMapRecoveryFallback();
     showToast('Harita WebGL bağlamı kayboldu. Geri yükleniyor...', 'warn');
   });
   canvas.addEventListener('webglcontextrestored', () => {
-    setTimeout(() => {
-      try {
-        mapgl.resize();
-        mapgl.triggerRepaint?.();
-      } catch (_) {}
-      startDeck(true);
-      refreshLayersNow();
-    }, 180);
+    recoverMapContext('restore');
   });
   mapRecoveryBound = true;
 }
 
-function startDeck(forceRecreate = false) {
+function startDeck(forceRecreate = false, skipFinalize = false) {
   const canvas = document.getElementById('deck-canvas');
   if (canvas) canvas.style.display = 'none';
   if (forceRecreate) {
     deckRecoveryBound = false;
-    detachDeckOverlay();
+    detachDeckOverlay(skipFinalize);
   } else if (deckgl) {
     return deckgl;
   }
@@ -2458,11 +2395,65 @@ function inferTripDirectionLabel(trip) {
   return `${from} → ${to}`;
 }
 
+function getOrderedStopsForPattern(routeId, routeShort, patternDir, patternHead, filteredTrips) {
+  const stopInfoMap = AppState.stopInfo || {};
+
+  // Primary: full stop list from preparedGtfsSource via stopTariffIndex (all stops, including non-timepoints)
+  const tariff = AppState.stopTariffIndex || {};
+  const tripCounts = {};
+  for (const entries of Object.values(tariff)) {
+    for (const e of entries) {
+      const ridMatch = routeId ? e.rid === routeId : e.s === routeShort;
+      if (!ridMatch) continue;
+      if (patternDir != null && e.dir !== patternDir) continue;
+      if (patternHead && e.h !== patternHead) continue;
+      tripCounts[e.trip_id] = (tripCounts[e.trip_id] || 0) + 1;
+    }
+  }
+  let bestTripId = null, bestCount = 0;
+  for (const [tripId, count] of Object.entries(tripCounts)) {
+    if (count > bestCount) { bestCount = count; bestTripId = tripId; }
+  }
+
+  if (bestTripId) {
+    const rawTripStops =
+      AppState.routeRuntimeSource?.tripStops?.[bestTripId] ||
+      AppState.preparedGtfsSource?.tripStops?.[bestTripId];
+    if (rawTripStops?.length > 0) {
+      return rawTripStops
+        .map(([seq, , sid]) => ({ sid, name: stopInfoMap[sid]?.[2] || sid, seq }))
+        .sort((a, b) => a.seq - b.seq)
+        .map(({ sid, name }) => ({ sid, name }));
+    }
+  }
+
+  // Secondary: pre-built stop arrays on trip objects (small feeds / attachStopSequences)
+  const tripWithStops = filteredTrips.find((t) => t.st && t.st.length > 1);
+  if (tripWithStops) {
+    return tripWithStops.st.map(({ sid }) => ({ sid, name: stopInfoMap[sid]?.[2] || sid }));
+  }
+
+  if (!bestTripId) return [];
+
+  // Last resort: timepoint-only entries from stopTariffIndex for bestTripId
+  const fallback = [];
+  for (const [sid, entries] of Object.entries(tariff)) {
+    for (const e of entries) {
+      if (e.trip_id === bestTripId) { fallback.push({ sid, seq: e.seq }); break; }
+    }
+  }
+  fallback.sort((a, b) => a.seq - b.seq);
+  return fallback.map(({ sid }) => ({ sid, name: stopInfoMap[sid]?.[2] || sid }));
+}
+
 function buildRoutePanelStats(routeShort) {
-  const routeTrips = TRIPS.filter((trip) => trip.s === routeShort);
-  const filteredTrips = selectedRouteDirection === null
+  const routeId = focusedRouteId;
+  const routeTrips = AppState.trips.filter((trip) =>
+    routeId ? trip.rid === routeId : trip.s === routeShort
+  );
+  const filteredTrips = selectedPatternKey === null
     ? routeTrips
-    : routeTrips.filter((trip) => trip?.dir === selectedRouteDirection);
+    : routeTrips.filter((trip) => trip?.dir === selectedPatternKey.dir && trip?.h === selectedPatternKey.h);
   const departures = filteredTrips
     .map((trip, idx) => [trip._idx ?? idx, trip.ts?.[0] ?? null, routeShort, trip])
     .filter(([, offset]) => Number.isFinite(offset));
@@ -2475,25 +2466,29 @@ function buildRoutePanelStats(routeShort) {
     }
   });
 
-  const directionMap = new Map();
-  routeTrips.forEach(trip => {
-    const label = inferTripDirectionLabel(trip);
-    directionMap.set(label, (directionMap.get(label) || 0) + 1);
-  });
-  const directionEntries = [...directionMap.entries()].sort((a, b) => b[1] - a[1]);
-  const directionOptionMap = new Map();
+  const patternMap = new Map();
   routeTrips.forEach((trip) => {
-    if (!Number.isInteger(trip?.dir)) return;
-    if (!directionOptionMap.has(trip.dir)) {
-      directionOptionMap.set(trip.dir, { value: trip.dir, label: inferTripDirectionLabel(trip), count: 0 });
+    const key = `${trip?.dir ?? '?'}|${trip?.h || ''}`;
+    if (!patternMap.has(key)) {
+      const dirPrefix = trip?.dir === 0 ? 'G' : trip?.dir === 1 ? 'D' : '?';
+      const head = displayText(trip?.h || '');
+      patternMap.set(key, { dir: trip?.dir ?? null, h: trip?.h || '', label: head ? `${dirPrefix} > ${head}` : dirPrefix, count: 0 });
     }
-    directionOptionMap.get(trip.dir).count += 1;
+    patternMap.get(key).count += 1;
   });
-  const directionOptions = [...directionOptionMap.values()].sort((a, b) => a.value - b.value);
+  const patternList = [...patternMap.values()].sort((a, b) => {
+    if (a.dir !== b.dir) return (a.dir ?? 99) - (b.dir ?? 99);
+    return b.count - a.count;
+  });
 
-  // Hat uzunluğu hesaplama: en uzun güzergahı (shape) bul
+  // Hat uzunluğu hesaplama: seçili varyanta en iyi uyan shape'i bul
   let maxM = 0;
-  const routeShapes = SHAPES.filter((shape) => shape.s === routeShort && (selectedRouteDirection === null || shape.dir === selectedRouteDirection));
+  const routeShapes = AppState.shapes.filter((shape) =>
+    (routeId ? shape.rid === routeId : shape.s === routeShort) &&
+    (selectedPatternKey === null ||
+      (shape.dir === selectedPatternKey.dir &&
+        (!selectedPatternKey.h || !shape.h || shape.h === selectedPatternKey.h)))
+  );
   routeShapes.forEach(rs => {
     if (rs.p && rs.p.length >= 2) {
       const len = window.GtfsMathUtils ? window.GtfsMathUtils.pathLengthM(rs.p) : 0;
@@ -2501,21 +2496,24 @@ function buildRoutePanelStats(routeShort) {
     }
   });
 
+  const stopList = getOrderedStopsForPattern(
+    routeId,
+    routeShort,
+    selectedPatternKey?.dir ?? null,
+    selectedPatternKey?.h ?? null,
+    filteredTrips
+  );
+
   return {
-    directionLabel: filteredTrips.length
-      ? [...new Set(filteredTrips.map((trip) => inferTripDirectionLabel(trip)))].slice(0, 2).join(' / ')
-      : directionEntries.map(([label]) => label).slice(0, 2).join(' / ') || 'Yön bilgisi yok',
-    directionEntries,
-    directionOptions,
-    selectedDirection: selectedRouteDirection,
-    tripCountByDirection: directionEntries.length
-      ? directionEntries.map(([label, count]) => `${label}: ${count}`).join(' · ')
-      : 'Sefer bilgisi yok',
+    directionLabel: patternList.slice(0, 2).map((p) => p.label).join(' / ') || 'Yön bilgisi yok',
+    patternList,
+    selectedPatternKey,
     totalTrips: filteredTrips.length,
     firstTime: firstSec !== Infinity ? secsToHHMM(firstSec % 86400) : '—',
     lastTime: lastSec !== -Infinity ? secsToHHMM(lastSec % 86400) : '—',
     routeLengthKm: maxM > 0 ? (maxM / 1000).toFixed(2) : '—',
     averageHeadway: computeAverageHeadwaySeconds(departures),
+    stopList,
   };
 }
 
@@ -2541,10 +2539,10 @@ function handleClick(info) {
 function findTripIdx(o) {
   const trip = o?.trip || o;
   const idx = o?.idx ?? o?.id ?? trip?._idx;
-  if (Number.isInteger(idx) && idx >= 0 && idx < TRIPS.length) {
+  if (Number.isInteger(idx) && idx >= 0 && idx < AppState.trips.length) {
     return idx;
   }
-  const directRefIdx = TRIPS.indexOf(trip);
+  const directRefIdx = AppState.trips.indexOf(trip);
   if (directRefIdx >= 0) {
     return directRefIdx;
   }
@@ -2556,10 +2554,10 @@ function findTripIdx(o) {
   });
   const searchIndexes = candidateIndexes.length
     ? [...new Set(candidateIndexes)]
-    : TRIPS.map((_, index) => index);
+    : AppState.trips.map((_, index) => index);
   let bestIdx = -1, bestScore = Infinity;
   for (const i of searchIndexes) {
-    const t = TRIPS[i];
+    const t = AppState.trips[i];
     if (!t || t.s !== trip.s || t.t != trip.t) continue;
     let score = 0;
     if (trip.h && t.h === trip.h) score -= 200;
@@ -2576,7 +2574,7 @@ function findTripIdx(o) {
 }
 
 function hydratePreloadTripState() {
-  TRIPS.forEach((trip, index) => {
+  AppState.trips.forEach((trip, index) => {
     trip._idx = index;
     trip.id = index;
     if (!Number.isFinite(trip._delay)) {
@@ -2610,11 +2608,11 @@ function calcSpeed(trip, time) {
   return 0;
 }
 function calcHeadway(tripsParam, tripIdx, time, getVehPos, haversM) {
-  if (arguments.length === 2) { time = tripIdx; tripIdx = tripsParam; tripsParam = TRIPS; }
-  return window.AnalyticsUtils.calcHeadway(tripsParam || TRIPS, tripIdx, time, getVehPos || getVehiclePos, haversM || haversineM, getTripProgressAtTime);
+  if (arguments.length === 2) { time = tripIdx; tripIdx = tripsParam; tripsParam = AppState.trips; }
+  return window.AnalyticsUtils.calcHeadway(tripsParam || AppState.trips, tripIdx, time, getVehPos || getVehiclePos, haversM || haversineM, getTripProgressAtTime);
 }
 function getNextStop(trip, time, stopInf, getVehPos, haversM) {
-  return window.AnalyticsUtils.getNextStop(trip, time, stopInf || STOP_INFO, getVehPos || getVehiclePos, haversM || haversineM);
+  return window.AnalyticsUtils.getNextStop(trip, time, stopInf || AppState.stopInfo, getVehPos || getVehiclePos, haversM || haversineM);
 }
 function syncPlayButton() {
   const btn = document.getElementById('btn-play');
@@ -2635,19 +2633,18 @@ function resetSimulationPlayback() {
   simTime = 6 * 3600;
   speedIdx = 3;
   simSpeed = 60;
-  _waitingTimeBucket = null;
   stopReplay();
   updateSpd();
-  if (showWaiting) ensureDynamicStopHeadways(true);
 }
 function syncPanelsForCurrentSimTime() {
   const clock = document.getElementById('clock');
   if (clock) clock.textContent = secsToHHMM(simTime % 86400);
   if (selectedTripIdx !== null) updateVehiclePanel();
-  if (_activeStopData) _renderStopPanel(_activeStopData);
+  const activeStopData = getActiveStopDataState();
+  if (activeStopData) _renderStopPanel(activeStopData);
 }
 function setSelectedEntity(entity) {
-  selectedEntity = entity || null;
+  setSelectedEntityState(entity);
 }
 function pauseSimulationForSelection(owner) {
   if (simPaused) return;
@@ -2659,22 +2656,22 @@ function releaseSelectionPause(owner) {
 }
 document.getElementById('vp-close').onclick = closeVehiclePanel;
 document.getElementById('vp-follow-btn').onclick = () => {
-  if (followTripIdx === selectedTripIdx) { followTripIdx = null; document.getElementById('follow-bar').classList.add('hidden'); }
+  if (getFollowTripIdxState() === selectedTripIdx) { setFollowTripIdxState(null); document.getElementById('follow-bar').classList.add('hidden'); }
   else startFollow(selectedTripIdx);
   updateVehiclePanel();
 };
 document.getElementById('vp-route-btn').onclick = () => {
   if (selectedTripIdx === null) return;
-  focusRoute(TRIPS[selectedTripIdx]?.s);
+  focusRoute(AppState.trips[selectedTripIdx]?.s);
 };
 
 // ── FOLLOW MODE ───────────────────────────────────────────
 function startFollow(idx) {
-  followTripIdx = idx;
+  setFollowTripIdxState(idx);
   document.getElementById('follow-bar').classList.remove('hidden');
-  document.getElementById('follow-label').textContent = `📍 ${TRIPS[idx].s} ${t('followingRoute')}`;
+  document.getElementById('follow-label').textContent = `📍 ${AppState.trips[idx].s} ${t('followingRoute')}`;
 }
-document.getElementById('btn-unfollow').onclick = () => { followTripIdx = null; document.getElementById('follow-bar').classList.add('hidden'); };
+document.getElementById('btn-unfollow').onclick = () => { setFollowTripIdxState(null); document.getElementById('follow-bar').classList.add('hidden'); };
 
 // ── ROUTE LIST ────────────────────────────────────────────
 const routeListEl = document.getElementById('route-list');
@@ -2701,20 +2698,13 @@ document.getElementById('stop-list-filter')?.addEventListener('input', function 
   buildStopList(this.value);
 });
 
-document.querySelectorAll('.section-hdr.collapsible').forEach(hdr => {
-  const target = document.getElementById(hdr.dataset.target); if (!target) return;
-  hdr.onclick = () => { const open = target.classList.toggle('open'); hdr.querySelector('.section-toggle')?.classList.toggle('open', open); };
-});
+bindSectionCollapseControls();
 
 // ── RENDEZVOUS ────────────────────────────────────────────
 let _rendezvousCache = null;
 let _rendezvousCacheTime = -1;
 
 // ── DENSITY ───────────────────────────────────────────────
-AppState.densityData = [];
-AppState.maxDensity = 1;
-
-let stopNames = Object.entries(STOP_INFO).map(([sid, info]) => [displayText(info[2]).toLowerCase(), sid, info[0], info[1], displayText(info[2])]);
 
 // SPRINT 3 — buildLayers statik/dinamik ayırması
 // Önce: tüm katmanlar (path, stops, trips, heads, rendezvous...) her 80ms'de yeniden oluşuyordu.
@@ -2726,7 +2716,7 @@ let stopNames = Object.entries(STOP_INFO).map(([sid, info]) => [displayText(info
 //   - visShapes/visTrips değişince (_cacheActiveRoutes veya _cacheTypeFilter değişince)
 //   - focusedRoute değişince
 //   - QUALITY.level değişince
-//   - showPaths/showStops/showDensity/showHeatmap toggle'ı değişince
+//   - showPaths/showStops/showHeatmap toggle'ı değişince
 
 
 function _getStaticLayerKey(time) {
@@ -2746,7 +2736,7 @@ function _getVisData() {
   if (window.MapManager?.getVisData) {
     return window.MapManager.getVisData();
   }
-  return { visTrips: TRIPS, visShapes: SHAPES };
+  return { visTrips: AppState.trips, visShapes: AppState.shapes };
 }
 
 function buildPathLayers(visShapes) {
@@ -2782,7 +2772,6 @@ function stopReplay() {
 }
 document.getElementById('btn-replay').onclick = () => isReplay ? stopReplay() : startReplay();
 document.getElementById('replay-stop').onclick = stopReplay;
-document.getElementById('replay-loop').onchange = e => { replayLoop = e.target.checked; };
 function updateReplayBar() {
   return window.SimulationEngine?.updateReplayBar?.();
 }
@@ -2793,32 +2782,32 @@ function animate(ts) {
 }
 
 // ── UI KONTROLLER ─────────────────────────────────────────
-document.getElementById('btn-play').onclick = function () { toggleSimulationPaused(); };
-document.getElementById('btn-faster').onclick = () => { speedIdx = Math.min(speedIdx + 1, SPEEDS.length - 1); simSpeed = SPEEDS[speedIdx]; updateSpd(); };
-document.getElementById('btn-slower').onclick = () => { speedIdx = Math.max(speedIdx - 1, 0); simSpeed = SPEEDS[speedIdx]; updateSpd(); };
-document.getElementById('btn-reset').onclick = () => { resetSimulationPlayback(); };
-function updateSpd() { const s = SPEEDS[speedIdx]; document.getElementById('speed-lbl').textContent = s < 60 ? s + '×' : Math.round(s / 60) + 'dk/s'; }
-document.getElementById('time-slider').oninput = function () {
-  simTime = parseInt(this.value);
-  if (showWaiting) ensureDynamicStopHeadways(true);
-  syncPanelsForCurrentSimTime();
-  updateDayNight();
-  refreshLayersNow();
-};
+function updateSpd() { updatePlaybackSpeedLabel(); }
 const togMap = {
   'anim': v => showAnim = v,
   'paths': v => showPaths = v,
-  'density': v => { showDensity = v; updateDensityGrid(); },
   'stops': v => {
     showStops = v;
+    refreshLayersNow();
+  },
+  'trail': v => {
+    showTrail = v;
     refreshLayersNow();
   },
   'connectivity-grid': v => {
     showConnectivityGrid = v;
     connectivityGridPerfOpenAt = v ? performance.now() : 0;
-    if (!v) connectivityGridSelectedCell = null;
+    if (!v) {
+      connectivityGridSelectedCell = null;
+      updateConnectivityGridToggleLabel(null);
+      updateConnectivityLegend(null);
+    }
     if (v) {
-      console.log('[ConnectivityPerf]', { phase: 'start' });
+      console.log('[ConnectivityPerf]', {
+        phase: 'start',
+        stopInfoCount: Object.keys(AppState.stopInfo || {}).length,
+        stopDepsCount: Object.keys(AppState.stopDeps || {}).length,
+      });
       if (AppState.stopConnectivityScores?.meta?.validation_summary) {
         console.log('[ConnectivityPerf]', {
           phase: 'cached',
@@ -2828,29 +2817,36 @@ const togMap = {
     }
     setConnectivityGridCamera(v);
     setConnectivityGridMapStyle(v);
-    if (v) ensureConnectivityViewportScores();
-    else updateConnectivityViewportStatus();
+    if (v) startConnectivityWorker();
+    else {
+      if (connectivityWorker) {
+        connectivityWorker.terminate();
+        connectivityWorker = null;
+      }
+      updateConnectivityViewportStatus();
+    }
     refreshLayersNow();
   },
   'stop-coverage': v => {
-    showStopCoverage = v;
-    updateStopCoverageControlsVisibility();
-    refreshLayersNow();
+    setStopCoverageEnabled(v);
   },
-  'heatmap': v => { showHeatmap = v; document.getElementById('heatmap-ctrl').classList.toggle('hidden', !v); },
+  'heatmap': v => {
+    setHeatmapEnabled(v);
+  },
   'headway': v => showHeadway = v,
-  'bunching': v => { showBunching = v; if (!v) document.getElementById('bunching-panel').classList.add('hidden'); },
-  'waiting': v => { showWaiting = v; if (v) ensureDynamicStopHeadways(true); updateWorstStopsPanel(); document.getElementById('worst-stops-panel').classList.toggle('hidden', !v); },
+  'bunching': v => {
+    setBunchingEnabled(v);
+  },
   'isochron': v => {
-    showIsochron = v;
-    const panel = document.getElementById('isochron-panel');
-    if (panel) panel.style.display = v ? 'block' : 'none';
-    if (!v) clearIsochron();
-    refreshLayersNow();
+    setIsochronEnabled(v);
   }
 };
 Object.keys(togMap).forEach(id => { const el = document.getElementById('tog-' + id); if (el) el.onchange = function () { togMap[id](this.checked); }; });
-initStopCoverageControls();
+bindStopCoverageControls();
+bindHeatmapControls();
+bindBunchingControls();
+bindIsochronControls();
+bindPlaybackControls();
 
 function setTypeFilter(t) {
   const parsedType = Number.parseInt(String(t ?? '').trim(), 10);
@@ -2860,40 +2856,29 @@ function setTypeFilter(t) {
   _filteredStopIdSetCache = null;
   routeHighlightPath = null;
   if (focusedRoute) {
-    const focusTrip = TRIPS.find((trip) => trip?.s === focusedRoute);
+    const focusTrip = AppState.trips.find((trip) => trip?.s === focusedRoute);
     if (focusTrip && String(Number.parseInt(String(focusTrip.t ?? '').trim(), 10)) !== typeFilter && typeFilter !== 'all') {
       clearFocusedRouteSelection(false);
     }
   }
-  document.querySelectorAll('.tbtn').forEach(b => b.classList.toggle('active', b.dataset.t === typeFilter));
+  updateTypeFilterButtons();
   filterRouteListByType(typeFilter);
   buildStopList(document.getElementById('stop-list-filter')?.value || '');
   refreshLayersNow();
   return true;
 }
 
-document.querySelectorAll('.tbtn').forEach(btn => {
-  btn.onclick = function () { setTypeFilter(this.dataset.t); };
-});
+bindTypeFilterControls();
 function filterRouteListByType(t) {
   return window.UIManager?.filterRouteListByType?.(t);
 }
-document.getElementById('heatmap-hour').oninput = function () { heatmapHour = parseInt(this.value); document.getElementById('heatmap-hour-lbl').textContent = secsToHHMM(heatmapHour * 3600); };
-document.getElementById('heatmap-follow-sim').onchange = e => { heatmapFollowSim = e.target.checked; };
-
-const bThresh = document.getElementById('bunching-threshold');
-if (bThresh) {
-  bThresh.oninput = function () { bunchingThreshold = parseInt(this.value); document.getElementById('threshold-lbl').textContent = this.value + 'm'; };
-}
-
-document.getElementById('btn-cinematic').onclick = () => isCinematic ? stopCinematic() : startCinematic();
 
 (function () {
   const s = document.createElement('style');
   s.textContent = `
     #cinematic-label{position:fixed;bottom:44px;left:50%;transform:translateX(-50%);color:rgba(255,255,255,0.92);font-size:17px;font-weight:300;letter-spacing:3px;text-transform:uppercase;text-shadow:0 2px 16px rgba(0,0,0,0.9);pointer-events:none;z-index:200;transition:opacity 0.8s;}
     #sidebar{transition:opacity 0.5s;}
-    #worst-stops-panel:not(.hidden),#bunching-panel:not(.hidden){transition:all 0.3s;}
+    #bunching-panel:not(.hidden){transition:all 0.3s;}
   `;
   document.head.appendChild(s);
 })();
@@ -2927,25 +2912,6 @@ function updateBunchingPanel(alarms) {
   return callManager('UIManager', 'updateBunchingPanel', [alarms]);
 }
 
-function precomputeStopHeadways() {
-  return window.SimulationEngine?.precomputeStopHeadways?.();
-}
-
-function ensureDynamicStopHeadways(force = false) {
-  return window.SimulationEngine?.ensureDynamicStopHeadways?.(force);
-}
-
-function waitingColor(hw) {
-  return window.AnalyticsUtils.waitingColor(hw);
-}
-
-function buildWorstStops() {
-  return callManager('UIManager', 'buildWorstStops');
-}
-
-function updateWorstStopsPanel() {
-  return callManager('UIManager', 'updateWorstStopsPanel');
-}
 
 function startCinematic() {
   return window.UIManager?.startCinematic?.();
@@ -2956,6 +2922,15 @@ function stopCinematic() {
 function cinematicNext() {
   return window.UIManager?.cinematicNext?.();
 }
+
+configureRuntimeCinematic({
+  getFilteredStopsData,
+  getMap: () => mapgl,
+  t,
+  startCinematic,
+  stopCinematic,
+  cinematicNext,
+});
 
 // ── BAŞLANGIÇ ─────────────────────────────────────────────
 hydratePreloadTripState();
@@ -2985,17 +2960,6 @@ async function handleGTFSFile(file) {
 }
 window.handleGTFSFile = handleGTFSFile;
 
-// SPRINT 2: parseCsvRows GtfsUtils'e taşındı — window.GtfsUtils.parseCsvRows kullanılıyor.
-// Bu wrapper geriye dönük uyumluluk için korundu.
-function parseCsvRows(txt) { return window.GtfsUtils.parseCsvRows(txt); }
-// SPRINT 2: parseCsvRows artık GtfsUtils içinde tanımlı ve export ediliyor.
-// parseGtfsTables parametresi opsiyonel yapıldı — geçirmemek yeterli.
-function parseGtfsTables(files) { return window.GtfsUtils.parseGtfsTables(files); }
-function buildRouteMap(routeRows) { return window.GtfsUtils.buildRouteMap(routeRows, getRouteColorRgb, TYPE_META); }
-function buildShapePoints(shapeRows) { return window.GtfsUtils.buildShapePoints(shapeRows); }
-function buildStopsMap(stopRows) { return window.GtfsUtils.buildStopsMap(stopRows); }
-function buildTripMetaMap(tripRows) { return window.GtfsUtils.buildTripMetaMap(tripRows); }
-function buildTripStopsMap(stRows) { return window.GtfsUtils.buildTripStopsMap(stRows); }
 
 function buildServiceOptions(calendarRows, calendarDateRows) {
   return callManager('ServiceManager', 'buildServiceOptions', [calendarRows, calendarDateRows], []);
@@ -3054,52 +3018,66 @@ function setLodBadge(text, className, title = '') {
 
 document.getElementById('stop-panel-close')?.addEventListener('click', closeStopPanel);
 document.getElementById('route-panel-close')?.addEventListener('click', () => clearFocusedRouteSelection(true));
-document.getElementById('isochron-close')?.addEventListener('click', () => {
-  const tog = document.getElementById('tog-isochron');
-  if (tog) { tog.checked = false; tog.dispatchEvent(new Event('change')); }
-});
 
 function getStopRouteSummaries(sid, simMod) {
-  const deps = sid ? STOP_DEPS[sid] : null;
-  if (!deps?.length) return [];
+  // stopTariffIndex (pre-cap, tüm hatlar) kullanılıyor — runtime cap'ten bağımsız
+  const tariffEntries = sid ? (AppState.stopTariffIndex?.[sid] || []) : [];
+  if (!tariffEntries.length) return [];
+
+  const daySec = ((simMod % 86400) + 86400) % 86400;
   const bucketSize = 30;
-  const timeBucket = Math.floor((((simMod % 86400) + 86400) % 86400) / bucketSize);
-  const cacheKey = `${sid}|${timeBucket}|${deps.length}`;
+  const timeBucket = Math.floor(daySec / bucketSize);
+  const cacheKey = `tariff|${sid}|${timeBucket}|${tariffEntries.length}`;
   const cached = _stopRouteSummariesCache.get(cacheKey);
   if (cached) return cached;
-  const byRoute = {};
-  for (const [ti, offset, routeShort] of deps) {
-    const trip = TRIPS[ti]; if (!trip) continue;
-    const absOffset = getAbsoluteDepartureSec(trip, offset);
-    if (absOffset == null) continue;
-    const diff = ((absOffset - simMod + 86400) % 86400);
-    const key = routeShort || trip.s;
-    if (!byRoute[key]) byRoute[key] = { trip, short: key, longName: displayText(trip.ln || trip.h || ''), arrivals: [], deps: [] };
-    byRoute[key].arrivals.push({ diff, offset: absOffset });
-    byRoute[key].deps.push([ti, absOffset, routeShort]);
+
+  // Hat bazında grupla (route short)
+  const byShort = new Map();
+  for (const e of tariffEntries) {
+    const s = e.s || '';
+    if (!s || !Number.isFinite(e.dep)) continue;
+    if (!byShort.has(s)) byShort.set(s, { s, rid: e.rid, h: e.h || '', allDeps: [] });
+    byShort.get(s).allDeps.push(e.dep % 86400);
   }
-  const result = Object.values(byRoute).map(route => {
-    route.arrivals.sort((a, b) => a.diff - b.diff);
-    const uniqueArrivals = [];
-    route.arrivals.forEach(arr => {
-      if (!uniqueArrivals.length || Math.abs(arr.diff - uniqueArrivals[uniqueArrivals.length - 1].diff) > STOP_PANEL_CFG.uniqueArrivalThresholdSeconds) {
-        uniqueArrivals.push({
+
+  const result = [];
+  for (const { s, rid, h, allDeps } of byShort.values()) {
+    const sorted = [...new Set(allDeps)].sort((a, b) => a - b);
+    // simMod'dan sonraki en yakın iki kalkış (gece yarısı wrap dahil)
+    const upcoming = sorted.map((dep) => {
+      const diff = ((dep - daySec) + 86400) % 86400;
+      return { diff, offset: dep };
+    }).sort((a, b) => a.diff - b.diff);
+
+    const arrivals = [];
+    for (const arr of upcoming) {
+      if (arrivals.length >= 2) break;
+      if (!arrivals.length || arr.diff - arrivals[arrivals.length - 1].diff > STOP_PANEL_CFG.uniqueArrivalThresholdSeconds) {
+        arrivals.push({
           diff: arr.diff > STOP_PANEL_CFG.maxArrivalWindowSeconds ? null : arr.diff,
           offset: arr.offset,
         });
       }
+    }
+
+    // trip referansı — animasyonlu araç varsa bağla, yoksa boş bırak
+    const runtimeTrip = AppState.trips.find((t) => String(t?.rid || '') === String(rid) || String(t?.s || '') === s) || null;
+    result.push({
+      short: s,
+      longName: displayText(runtimeTrip?.ln || runtimeTrip?.h || h || ''),
+      trip: runtimeTrip || { s, rid, h, t: null, c: null },
+      arrivals,
+      deps: sorted.map((dep) => [null, dep, s]),
     });
-    route.arrivals = uniqueArrivals.slice(0, 2);
-    route.headway = computeAverageHeadwaySeconds(route.deps);
-    return route;
-  }).filter(route => route.arrivals.length).sort((a, b) => {
-    const aDiff = a.arrivals.find(arr => Number.isFinite(arr.diff))?.diff ?? Number.MAX_SAFE_INTEGER;
-    const bDiff = b.arrivals.find(arr => Number.isFinite(arr.diff))?.diff ?? Number.MAX_SAFE_INTEGER;
+  }
+
+  result.sort((a, b) => {
+    const aDiff = a.arrivals.find((arr) => Number.isFinite(arr.diff))?.diff ?? Number.MAX_SAFE_INTEGER;
+    const bDiff = b.arrivals.find((arr) => Number.isFinite(arr.diff))?.diff ?? Number.MAX_SAFE_INTEGER;
     return aDiff - bDiff;
   });
-  if (_stopRouteSummariesCache.size > 800) {
-    clearStopRouteSummariesCache();
-  }
+
+  if (_stopRouteSummariesCache.size > 800) clearStopRouteSummariesCache();
   _stopRouteSummariesCache.set(cacheKey, result);
   return result;
 }
@@ -3145,6 +3123,7 @@ build3DVehicleLayer = function (visTrips, time) {
 var activeCity = CITIES[0];
 var activeServiceId = 'all';
 var activeServiceIds = new Set();
+AppState.activeServiceDate = AppState.activeServiceDate || '';
 var _calendarCache = { rows: [], dateRows: [] };
 var activeServiceOptions = [];
 function isCityVisible(city) {
@@ -3187,867 +3166,18 @@ show3D = false;
 
 window.IS_ELECTRON = typeof window !== 'undefined' && !!window.electronAPI;
 
-const CAPTURE_PRESET_CLASSES = [
-  'capture-preset-official',
-  'capture-preset-poster',
-  'capture-preset-blueprint',
-  'capture-preset-mono',
-  'capture-preset-transit-poster',
-  'capture-preset-cartoon-map',
-  'capture-preset-minimal-white',
-  'capture-preset-schematic',
-  'capture-preset-print-friendly',
-  'capture-preset-neo-transit',
-  'capture-preset-vintage-metro',
-  'capture-preset-heat-poster',
-  'capture-preset-comic-panel',
-];
-
-let activeCapturePreset = 'original';
 const GTFS_CITY_CREDIT = '© GTFS City tarafından üretilmiştir • https://ttezer.github.io/gtfs-city/app/';
-
-function tariffText(tr, en) {
-  return (window.I18n?.getLanguage?.() === 'en') ? en : tr;
-}
-
-function getCaptureDefaultFileName() {
-  const filterLabel = typeFilter === 'all'
-    ? 'tum-ag'
-    : ({
-      '1': 'metro',
-      '3': 'otobus',
-      '0': 'tramvay',
-      '4': 'feribot',
-      '7': 'funicular',
-      '9': 'minibus',
-      '10': 'dolmus',
-    }[String(typeFilter)] || 'secim');
-  return `gtfs-city-${filterLabel}-${activeCapturePreset}`;
-}
-
-function setActiveCapturePreset(preset) {
-  activeCapturePreset = preset || 'original';
-  document.querySelectorAll('.capture-preset-btn').forEach((button) => {
-    button.classList.toggle('active', button.dataset.preset === activeCapturePreset);
-  });
-}
-
-function openCaptureModal() {
-  const modal = document.getElementById('capture-modal');
-  const fileNameInput = document.getElementById('capture-file-name');
-  if (!modal) return;
-  modal.classList.remove('hidden');
-  document.body.classList.add('capture-modal-open');
-  setActiveCapturePreset(activeCapturePreset || 'original');
-  if (fileNameInput) {
-    fileNameInput.value = getCaptureDefaultFileName();
-    fileNameInput.focus();
-    fileNameInput.select();
-  }
-}
-
-function closeCaptureModal() {
-  const modal = document.getElementById('capture-modal');
-  if (!modal) return;
-  modal.classList.add('hidden');
-  document.body.classList.remove('capture-modal-open');
-}
-
-function applyCaptureClasses({ includeSidebar, includeOverlays, preset }) {
-  document.body.classList.remove(...CAPTURE_PRESET_CLASSES);
-  document.body.classList.toggle('capture-hide-sidebar', !includeSidebar);
-  document.body.classList.toggle('capture-hide-overlays', !includeOverlays);
-  if (preset === 'official') document.body.classList.add('capture-preset-official');
-  if (preset === 'poster') document.body.classList.add('capture-preset-poster');
-  if (preset === 'blueprint') document.body.classList.add('capture-preset-blueprint');
-  if (preset === 'mono') document.body.classList.add('capture-preset-mono');
-  if (preset === 'transit-poster') document.body.classList.add('capture-preset-transit-poster');
-  if (preset === 'cartoon-map') document.body.classList.add('capture-preset-cartoon-map');
-  if (preset === 'minimal-white') document.body.classList.add('capture-preset-minimal-white');
-  if (preset === 'schematic') document.body.classList.add('capture-preset-schematic');
-  if (preset === 'print-friendly') document.body.classList.add('capture-preset-print-friendly');
-  if (preset === 'neo-transit') document.body.classList.add('capture-preset-neo-transit');
-  if (preset === 'vintage-metro') document.body.classList.add('capture-preset-vintage-metro');
-  if (preset === 'heat-poster') document.body.classList.add('capture-preset-heat-poster');
-  if (preset === 'comic-panel') document.body.classList.add('capture-preset-comic-panel');
-}
-
-function resetCaptureClasses() {
-  document.body.classList.remove('capture-hide-sidebar', 'capture-hide-overlays', ...CAPTURE_PRESET_CLASSES);
-}
-
-async function saveCurrentViewportCapture() {
-  const includeSidebar = document.getElementById('capture-include-sidebar')?.checked !== false;
-  const includeOverlays = document.getElementById('capture-include-overlays')?.checked !== false;
-  const fileName = document.getElementById('capture-file-name')?.value?.trim() || getCaptureDefaultFileName();
-  const scale = Number.parseInt(document.getElementById('capture-resolution')?.value || '2', 10) || 2;
-
-  applyCaptureClasses({ includeSidebar, includeOverlays, preset: activeCapturePreset });
-  document.body.classList.add('capture-watermark');
-
-  try {
-    closeCaptureModal();
-    await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
-    if (window.IS_ELECTRON && typeof window.electronAPI?.saveCapturedImage === 'function') {
-      const result = await window.electronAPI.saveCapturedImage({ fileName, scale });
-      if (result?.success) {
-        showToast(`Ekran görüntüsü kaydedildi: ${result.path}`, 'ok');
-      } else if (!result?.canceled) {
-        showToast(result?.error || 'Ekran görüntüsü kaydedilemedi.', 'err');
-      }
-      return;
-    }
-
-    if (typeof window.html2canvas !== 'function') {
-      showToast('Ekran görüntüsü aracı yüklenemedi.', 'err');
-      return;
-    }
-
-    const canvas = await window.html2canvas(document.body, {
-      useCORS: true,
-      allowTaint: true,
-      backgroundColor: null,
-      scale,
-      logging: false,
-      windowWidth: window.innerWidth,
-      windowHeight: window.innerHeight,
-    });
-
-    const blob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/png'));
-    if (!blob) {
-      showToast('Ekran görüntüsü kaydedilemedi.', 'err');
-      return;
-    }
-    const objectUrl = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = objectUrl;
-    link.download = /\.png$/i.test(fileName) ? fileName : `${fileName}.png`;
-    document.body.appendChild(link);
-    link.click();
-    link.remove();
-    URL.revokeObjectURL(objectUrl);
-    showToast('Ekran görüntüsü indirildi.', 'ok');
-  } catch (err) {
-    showToast(err?.message || 'Ekran görüntüsü kaydedilemedi.', 'err');
-  } finally {
-    document.body.classList.remove('capture-watermark');
-    resetCaptureClasses();
-  }
-}
-
-function getCalendarDateBounds() {
-  const cache = _calendarCache || { rows: [], dateRows: [] };
-  const latest = window.ServiceManager?.getLatestDateInCalendar?.(cache.rows || []) || new Date().toISOString().slice(0, 10);
-  let minDate = '';
-  for (const row of (cache.rows || [])) {
-    const candidate = window.ServiceManager?.parseGtfsDateToIso?.(row.start_date);
-    if (candidate && (!minDate || candidate < minDate)) minDate = candidate;
-  }
-  return { minDate, maxDate: latest };
-}
-
-function syncTariffDateInputs() {
-  const { minDate, maxDate } = getCalendarDateBounds();
-  const currentPickerValue = document.getElementById('service-date-picker')?.value || maxDate || new Date().toISOString().slice(0, 10);
-  ['route-tariff-date', 'stop-tariff-date'].forEach((id) => {
-    const input = document.getElementById(id);
-    if (!input) return;
-    input.min = minDate || '';
-    input.max = maxDate || '';
-    if (!input.value) input.value = currentPickerValue;
-  });
-}
-
-function buildRouteTariffOptions() {
-  const list = document.getElementById('route-tariff-list');
-  if (!list) return;
-  const routes = [...new Map(TRIPS.map((trip) => [trip.s, trip])).values()]
-    .sort((left, right) => String(left.s || '').localeCompare(String(right.s || ''), 'tr'));
-  list.innerHTML = routes.map((trip) => {
-    const meta = getRouteMeta(trip.s, trip.t, trip.c, trip.ln || trip.h || '');
-    const label = `${meta.short} | ${displayText(meta.longName || trip.h || '')}`;
-    return `<option value="${label}" data-route="${trip.s}"></option>`;
-  }).join('');
-}
-
-function buildStopTariffOptions() {
-  const list = document.getElementById('stop-tariff-list');
-  if (!list) return;
-  const stops = Object.entries(STOP_INFO || {})
-    .map(([sid, info]) => ({ sid, name: displayText(info?.[2] || sid), code: displayText(info?.[3] || sid) }))
-    .sort((left, right) => left.name.localeCompare(right.name, 'tr'));
-  list.innerHTML = stops.map((stop) => `<option value="${stop.name} | ${stop.code}" data-stop="${stop.sid}"></option>`).join('');
-}
-
-function resolveRouteInputValue() {
-  const input = document.getElementById('route-tariff-input');
-  const value = input?.value?.trim() || '';
-  if (!value) return '';
-  const direct = TRIPS.find((trip) => trip.s === value);
-  if (direct) return direct.s;
-  const token = value.split('|')[0]?.trim();
-  const match = TRIPS.find((trip) => trip.s === token);
-  return match?.s || '';
-}
-
-function resolveStopInputValue() {
-  const input = document.getElementById('stop-tariff-input');
-  const value = input?.value?.trim() || '';
-  if (!value) return '';
-  if (STOP_INFO[value]) return value;
-  const token = value.split('|')[0]?.trim().toLowerCase();
-  const match = Object.entries(STOP_INFO || {}).find(([, info]) => displayText(info?.[2] || '').toLowerCase() === token);
-  return match?.[0] || '';
-}
-
-function getActiveTariffDate(type) {
-  return document.getElementById(type === 'route' ? 'route-tariff-date' : 'stop-tariff-date')?.value
-    || document.getElementById('service-date-picker')?.value
-    || new Date().toISOString().slice(0, 10);
-}
-
-async function ensureTariffDateLoaded(dateStr) {
-  const currentDate = document.getElementById('service-date-picker')?.value || '';
-  if (!dateStr || dateStr === currentDate) return true;
-  if (typeof window.ServiceManager?.handleDateChange !== 'function') return true;
-  await window.ServiceManager.handleDateChange(dateStr);
-  return true;
-}
-
-function buildRouteTariffData(routeShort, directionValue) {
-  const routeTrips = TRIPS.filter((trip) => trip.s === routeShort && (directionValue === 'all' || String(trip.dir) === String(directionValue)));
-  const directionGroups = new Map();
-  routeTrips.forEach((trip) => {
-    const label = inferTripDirectionLabel(trip);
-    const startSec = trip.ts?.[0];
-    if (!Number.isFinite(startSec)) return;
-    if (!directionGroups.has(label)) directionGroups.set(label, []);
-    directionGroups.get(label).push(secsToHHMM(startSec % 86400));
-  });
-  directionGroups.forEach((times, label) => {
-    directionGroups.set(label, [...new Set(times)].sort());
-  });
-  return { routeTrips, directionGroups };
-}
-
-function buildStopTariffData(stopId) {
-  const deps = STOP_DEPS?.[stopId] || [];
-  const grouped = new Map();
-  deps.forEach(([tripIdx, offset, routeShort]) => {
-    const trip = TRIPS[tripIdx];
-    if (!trip) return;
-    const absSec = getAbsoluteDepartureSec(trip, offset);
-    if (!Number.isFinite(absSec)) return;
-    const key = `${routeShort || trip.s}|${inferTripDirectionLabel(trip)}`;
-    if (!grouped.has(key)) {
-      grouped.set(key, {
-        routeShort: routeShort || trip.s,
-        direction: inferTripDirectionLabel(trip),
-        longName: displayText(trip.ln || trip.h || ''),
-        times: [],
-      });
-    }
-    grouped.get(key).times.push(secsToHHMM(absSec % 86400));
-  });
-  grouped.forEach((entry) => {
-    entry.times = [...new Set(entry.times)].sort();
-  });
-  return [...grouped.values()].sort((left, right) => left.routeShort.localeCompare(right.routeShort, 'tr'));
-}
-
-function updateRouteTariffSummary() {
-  const summary = document.getElementById('route-tariff-summary');
-  if (!summary) return;
-  const routeShort = resolveRouteInputValue();
-  if (!routeShort) {
-    summary.textContent = 'Bir hat seçildiğinde burada kısa özet görünecek.';
-    return;
-  }
-  const { routeTrips, directionGroups } = buildRouteTariffData(routeShort, document.getElementById('route-tariff-direction')?.value || 'all');
-  const times = Array.from(directionGroups.values()).flat();
-  summary.innerHTML = `
-    <strong>${routeShort}</strong><br>
-    Toplam sefer: ${routeTrips.length}<br>
-    Yön sayısı: ${directionGroups.size}<br>
-    İlk saat: ${times[0] || '—'}<br>
-    Son saat: ${times[times.length - 1] || '—'}
-  `;
-}
-
-function updateStopTariffSummary() {
-  const summary = document.getElementById('stop-tariff-summary');
-  if (!summary) return;
-  const stopId = resolveStopInputValue();
-  if (!stopId) {
-    summary.textContent = 'Bir durak seçildiğinde burada kısa özet görünecek.';
-    return;
-  }
-  const info = STOP_INFO?.[stopId];
-  const rows = buildStopTariffData(stopId);
-  const allTimes = rows.flatMap((row) => row.times);
-  summary.innerHTML = `
-    <strong>${displayText(info?.[2] || stopId)}</strong><br>
-    Geçen hat sayısı: ${new Set(rows.map((row) => row.routeShort)).size}<br>
-    Satır sayısı: ${rows.length}<br>
-    İlk saat: ${allTimes[0] || '—'}<br>
-    Son saat: ${allTimes[allTimes.length - 1] || '—'}
-  `;
-}
-
-function openTariffOutput(title, html) {
-  const modal = document.getElementById('tariff-output-modal');
-  const titleEl = document.getElementById('tariff-output-title');
-  const contentEl = document.getElementById('tariff-output-content');
-  if (!modal || !titleEl || !contentEl) return;
-  titleEl.textContent = title;
-  contentEl.innerHTML = html;
-  modal.classList.remove('hidden');
-}
-
-function closeTariffOutput() {
-  document.getElementById('tariff-output-modal')?.classList.add('hidden');
-}
-
-function renderTariffFooter() {
-  return `
-    <div class="tariff-footer">
-      <span>© GTFS City tarafından üretilmiştir</span>
-      <span>https://ttezer.github.io/gtfs-city/app/</span>
-    </div>
-  `;
-}
-
-function buildRouteTariffSheet() {
-  const routeShort = resolveRouteInputValue();
-  if (!routeShort) throw new Error('Hat seçilmedi.');
-  const style = document.getElementById('route-tariff-style')?.value || 'classic';
-  const dateStr = getActiveTariffDate('route');
-  const directionValue = document.getElementById('route-tariff-direction')?.value || 'all';
-  const sampleTrip = TRIPS.find((trip) => trip.s === routeShort);
-  const routeMeta = getRouteMeta(routeShort, sampleTrip?.t, sampleTrip?.c, sampleTrip?.ln || sampleTrip?.h || '');
-  const { routeTrips, directionGroups } = buildRouteTariffData(routeShort, directionValue);
-  const directionRows = [...directionGroups.entries()].map(([label, times]) => `
-    <tr>
-      <td>${label}</td>
-      <td>${times.length}</td>
-      <td><div class="tariff-times">${times.map((time) => `<span class="tariff-chip">${time}</span>`).join('')}</div></td>
-    </tr>
-  `).join('');
-  return `
-    <article class="tariff-sheet ${style}">
-      <div class="tariff-brand">
-        <div>
-          <div class="tariff-brand-mark">GTFS CITY</div>
-          <div class="tariff-code-badge"><span class="tariff-code-label">${tariffText('Hat Kodu', 'Route Code')}</span><span class="tariff-code-value">${routeMeta.short}</span></div>
-          <h1 class="tariff-headline">${tariffText('Hat Planı', 'Route Schedule')}</h1>
-          <div class="tariff-subline">${displayText(routeMeta.longName || sampleTrip?.h || tariffText('Planlı hat geçişleri', 'Planned route departures'))}</div>
-        </div>
-      </div>
-      <div class="tariff-meta-grid">
-        <div class="tariff-meta-card"><div class="tariff-meta-label">${tariffText('Tarih', 'Date')}</div><div class="tariff-meta-value">${dateStr}</div></div>
-        <div class="tariff-meta-card"><div class="tariff-meta-label">${tariffText('Yön', 'Direction')}</div><div class="tariff-meta-value">${directionValue === 'all' ? tariffText('Tüm yönler', 'All directions') : directionValue === '0' ? tariffText('Gidiş', 'Outbound') : tariffText('Dönüş', 'Inbound')}</div></div>
-        <div class="tariff-meta-card"><div class="tariff-meta-label">${tariffText('Sefer', 'Trips')}</div><div class="tariff-meta-value">${routeTrips.length}</div></div>
-      </div>
-      <div class="tariff-section-title">${tariffText('Planlı Geçiş Saatleri', 'Planned Departure Times')}</div>
-      <table class="tariff-table">
-        <thead><tr><th>${tariffText('Yön', 'Direction')}</th><th>${tariffText('Sefer', 'Trips')}</th><th>${tariffText('Saatler', 'Times')}</th></tr></thead>
-        <tbody>${directionRows || `<tr><td colspan="3">${tariffText('Bu seçim için saat bulunamadı.', 'No times found for this selection.')}</td></tr>`}</tbody>
-      </table>
-      ${renderTariffFooter()}
-    </article>
-  `;
-}
-
-function buildStopTariffSheet() {
-  const stopId = resolveStopInputValue();
-  if (!stopId) throw new Error('Durak seçilmedi.');
-  const style = document.getElementById('stop-tariff-style')?.value || 'classic';
-  const dateStr = getActiveTariffDate('stop');
-  const info = STOP_INFO?.[stopId];
-  const rows = buildStopTariffData(stopId);
-  const tableRows = rows.map((row) => `
-    <tr>
-      <td>${row.routeShort}</td>
-      <td>${row.direction}</td>
-      <td>${displayText(row.longName || '—')}</td>
-      <td><div class="tariff-times">${row.times.map((time) => `<span class="tariff-chip">${time}</span>`).join('')}</div></td>
-    </tr>
-  `).join('');
-  return `
-    <article class="tariff-sheet tariff-sheet-stop ${style}">
-      <div class="tariff-brand">
-        <div>
-          <div class="tariff-brand-mark">GTFS CITY</div>
-          <div class="stop-sign-board">
-            <div class="stop-sign-type">${tariffText('DURAK', 'STOP')}</div>
-            <h1 class="tariff-headline">${displayText(info?.[2] || stopId)}</h1>
-            <div class="tariff-subline">${tariffText('Kod', 'Code')}: ${displayText(info?.[3] || stopId)}</div>
-          </div>
-        </div>
-      </div>
-      <div class="tariff-meta-grid">
-        <div class="tariff-meta-card"><div class="tariff-meta-label">${tariffText('Tarih', 'Date')}</div><div class="tariff-meta-value">${dateStr}</div></div>
-        <div class="tariff-meta-card"><div class="tariff-meta-label">${tariffText('Hat', 'Routes')}</div><div class="tariff-meta-value">${new Set(rows.map((row) => row.routeShort)).size}</div></div>
-        <div class="tariff-meta-card"><div class="tariff-meta-label">${tariffText('Satır', 'Rows')}</div><div class="tariff-meta-value">${rows.length}</div></div>
-      </div>
-      <div class="tariff-section-title">${tariffText('Duraktan Geçen Planlı Seferler', 'Planned Services at This Stop')}</div>
-      <table class="tariff-table">
-        <thead><tr><th>${tariffText('Hat', 'Route')}</th><th>${tariffText('Yön', 'Direction')}</th><th>${tariffText('Açıklama', 'Description')}</th><th>${tariffText('Saatler', 'Times')}</th></tr></thead>
-        <tbody>${tableRows || `<tr><td colspan="4">${tariffText('Bu seçim için saat bulunamadı.', 'No times found for this selection.')}</td></tr>`}</tbody>
-      </table>
-      ${renderTariffFooter()}
-    </article>
-  `;
-}
-
-async function previewRouteTariff() {
-  const dateStr = getActiveTariffDate('route');
-  await ensureTariffDateLoaded(dateStr);
-  updateRouteTariffSummary();
-  openTariffOutput(tariffText('Hat Önizleme', 'Route Preview'), buildRouteTariffSheet());
-}
-
-async function previewStopTariff() {
-  const dateStr = getActiveTariffDate('stop');
-  await ensureTariffDateLoaded(dateStr);
-  updateStopTariffSummary();
-  openTariffOutput(tariffText('Durak Önizleme', 'Stop Preview'), buildStopTariffSheet());
-}
-
-async function printRouteTariff() {
-  await previewRouteTariff();
-  window.print();
-}
-
-async function printStopTariff() {
-  await previewStopTariff();
-  window.print();
-}
-
-function buildStopTariffSheet() {
-  const stopId = resolveStopInputValue();
-  if (!stopId) throw new Error('Durak seçilmedi.');
-  const style = document.getElementById('stop-tariff-style')?.value || 'classic';
-  const dateStr = getActiveTariffDate('stop');
-  const info = STOP_INFO?.[stopId];
-  const rows = buildStopTariffData(stopId);
-  const tableRows = rows.map((row) => `
-    <tr>
-      <td>${row.routeShort}</td>
-      <td>${row.direction}</td>
-      <td>${displayText(row.longName || '—')}</td>
-      <td><div class="tariff-times">${row.times.map((time) => `<span class="tariff-chip">${time}</span>`).join('')}</div></td>
-    </tr>
-  `).join('');
-  return `
-    <article class="tariff-sheet tariff-sheet-stop ${style}">
-      <div class="tariff-brand">
-        <div>
-          <div class="stop-sign-board">
-            <div class="stop-sign-row">
-              <span class="stop-sign-icon">📍</span>
-              <div class="stop-sign-type">${tariffText('DURAK', 'STOP')}</div>
-            </div>
-            <h1 class="tariff-headline">${displayText(info?.[2] || stopId)}</h1>
-            <div class="tariff-subline">${tariffText('Kod', 'Code')}: ${displayText(info?.[3] || stopId)}</div>
-          </div>
-        </div>
-      </div>
-      <div class="tariff-meta-grid">
-        <div class="tariff-meta-card"><div class="tariff-meta-label">${tariffText('Tarih', 'Date')}</div><div class="tariff-meta-value">${dateStr}</div></div>
-        <div class="tariff-meta-card"><div class="tariff-meta-label">${tariffText('Hat', 'Routes')}</div><div class="tariff-meta-value">${new Set(rows.map((row) => row.routeShort)).size}</div></div>
-        <div class="tariff-meta-card"><div class="tariff-meta-label">${tariffText('Sefer', 'Trips')}</div><div class="tariff-meta-value">${rows.length}</div></div>
-      </div>
-      <div class="tariff-section-title">${tariffText('Duraktan Geçen Planlı Seferler', 'Planned Services at This Stop')}</div>
-      <table class="tariff-table">
-        <thead><tr><th>${tariffText('Hat', 'Route')}</th><th>${tariffText('Yön', 'Direction')}</th><th>${tariffText('Açıklama', 'Description')}</th><th>${tariffText('Saatler', 'Times')}</th></tr></thead>
-        <tbody>${tableRows || `<tr><td colspan="4">${tariffText('Bu seçim için saat bulunamadı.', 'No times found for this selection.')}</td></tr>`}</tbody>
-      </table>
-      ${renderTariffFooter()}
-    </article>
-  `;
-}
-
-function openTariffModal(type) {
-  document.getElementById(type === 'route' ? 'route-tariff-modal' : 'stop-tariff-modal')?.classList.remove('hidden');
-}
-
-function closeTariffModal(type) {
-  document.getElementById(type === 'route' ? 'route-tariff-modal' : 'stop-tariff-modal')?.classList.add('hidden');
-}
-
-function resetTariffUiState() {
-  document.getElementById('route-tariff-input') && (document.getElementById('route-tariff-input').value = '');
-  document.getElementById('stop-tariff-input') && (document.getElementById('stop-tariff-input').value = '');
-  document.getElementById('route-tariff-summary') && (document.getElementById('route-tariff-summary').textContent = 'Bir hat seçildiğinde burada kısa özet görünecek.');
-  document.getElementById('stop-tariff-summary') && (document.getElementById('stop-tariff-summary').textContent = 'Bir durak seçildiğinde burada kısa özet görünecek.');
-  document.getElementById('route-tariff-list') && (document.getElementById('route-tariff-list').innerHTML = '');
-  document.getElementById('stop-tariff-list') && (document.getElementById('stop-tariff-list').innerHTML = '');
-  closeTariffOutput();
-  closeTariffModal('route');
-  closeTariffModal('stop');
-}
-
-function buildStopTariffData(stopId) {
-  const deps = STOP_DEPS?.[stopId] || [];
-  const grouped = new Map();
-  const tripIds = new Set();
-  deps.forEach(([tripIdx, offset, routeShort]) => {
-    const trip = TRIPS[tripIdx];
-    if (!trip) return;
-    const absSec = getAbsoluteDepartureSec(trip, offset);
-    if (!Number.isFinite(absSec)) return;
-    tripIds.add(`${tripIdx}|${absSec}`);
-    const key = `${routeShort || trip.s}|${inferTripDirectionLabel(trip)}`;
-    if (!grouped.has(key)) {
-      grouped.set(key, {
-        routeShort: routeShort || trip.s,
-        direction: inferTripDirectionLabel(trip),
-        longName: displayText(trip.ln || trip.h || ''),
-        times: [],
-      });
-    }
-    grouped.get(key).times.push(secsToHHMM(absSec % 86400));
-  });
-  grouped.forEach((entry) => {
-    entry.times = [...new Set(entry.times)].sort();
-  });
-  return {
-    rows: [...grouped.values()].sort((left, right) => left.routeShort.localeCompare(right.routeShort, 'tr')),
-    tripCount: tripIds.size,
-  };
-}
-
-function updateStopTariffSummary() {
-  const summary = document.getElementById('stop-tariff-summary');
-  if (!summary) return;
-  const stopId = resolveStopInputValue();
-  if (!stopId) {
-    summary.textContent = 'Bir durak seçildiğinde burada kısa özet görünecek.';
-    return;
-  }
-  const info = STOP_INFO?.[stopId];
-  const { rows, tripCount } = buildStopTariffData(stopId);
-  const allTimes = rows.flatMap((row) => row.times);
-  summary.innerHTML = `
-    <strong>${displayText(info?.[2] || stopId)}</strong><br>
-    Geçen hat sayısı: ${new Set(rows.map((row) => row.routeShort)).size}<br>
-    Toplam sefer: ${tripCount}<br>
-    İlk saat: ${allTimes[0] || '—'}<br>
-    Son saat: ${allTimes[allTimes.length - 1] || '—'}
-  `;
-}
-
-function buildRouteTariffSheet() {
-  const routeShort = resolveRouteInputValue();
-  if (!routeShort) throw new Error('Hat seçilmedi.');
-  const style = document.getElementById('route-tariff-style')?.value || 'classic';
-  const dateStr = getActiveTariffDate('route');
-  const directionValue = document.getElementById('route-tariff-direction')?.value || 'all';
-  const sampleTrip = TRIPS.find((trip) => trip.s === routeShort);
-  const routeMeta = getRouteMeta(routeShort, sampleTrip?.t, sampleTrip?.c, sampleTrip?.ln || sampleTrip?.h || '');
-  const { routeTrips, directionGroups } = buildRouteTariffData(routeShort, directionValue);
-  const directionOrder = { 'Gidiş': 0, Outbound: 0, 'Dönüş': 1, Inbound: 1 };
-  const directionRows = [...directionGroups.entries()]
-    .sort((left, right) => (directionOrder[left[0]] ?? 99) - (directionOrder[right[0]] ?? 99) || left[0].localeCompare(right[0], 'tr'))
-    .map(([label, times]) => `
-      <tr>
-        <td>${label}</td>
-        <td>${times.length}</td>
-        <td><div class="tariff-times">${times.map((time) => `<span class="tariff-chip">${time}</span>`).join('')}</div></td>
-      </tr>
-    `).join('');
-  return `
-    <article class="tariff-sheet ${style}">
-      <div class="tariff-brand">
-        <div>
-          <div class="tariff-code-badge"><span class="tariff-code-label">${tariffText('Hat Kodu', 'Route Code')}</span><span class="tariff-code-value">${routeMeta.short}</span></div>
-          <h1 class="tariff-headline">${tariffText('Hat Planı', 'Route Schedule')}</h1>
-          <div class="tariff-subline">${displayText(routeMeta.longName || sampleTrip?.h || tariffText('Planlı hat geçişleri', 'Planned route departures'))}</div>
-        </div>
-      </div>
-      <div class="tariff-meta-grid">
-        <div class="tariff-meta-card"><div class="tariff-meta-label">${tariffText('Tarih', 'Date')}</div><div class="tariff-meta-value">${dateStr}</div></div>
-        <div class="tariff-meta-card"><div class="tariff-meta-label">${tariffText('Yön', 'Direction')}</div><div class="tariff-meta-value">${directionValue === 'all' ? tariffText('Tüm yönler', 'All directions') : directionValue === '0' ? tariffText('Gidiş', 'Outbound') : tariffText('Dönüş', 'Inbound')}</div></div>
-        <div class="tariff-meta-card"><div class="tariff-meta-label">${tariffText('Sefer', 'Trips')}</div><div class="tariff-meta-value">${routeTrips.length}</div></div>
-      </div>
-      <div class="tariff-section-title">${tariffText('Planlı Geçiş Saatleri', 'Planned Departure Times')}</div>
-      <table class="tariff-table">
-        <thead><tr><th>${tariffText('Yön', 'Direction')}</th><th>${tariffText('Sefer', 'Trips')}</th><th>${tariffText('Saatler', 'Times')}</th></tr></thead>
-        <tbody>${directionRows || `<tr><td colspan="3">${tariffText('Bu seçim için saat bulunamadı.', 'No times found for this selection.')}</td></tr>`}</tbody>
-      </table>
-      ${renderTariffFooter()}
-    </article>
-  `;
-}
-
-function buildStopTariffSheet() {
-  const stopId = resolveStopInputValue();
-  if (!stopId) throw new Error('Durak seçilmedi.');
-  const style = document.getElementById('stop-tariff-style')?.value || 'classic';
-  const dateStr = getActiveTariffDate('stop');
-  const info = STOP_INFO?.[stopId];
-  const { rows, tripCount } = buildStopTariffData(stopId);
-  const tableRows = rows.map((row) => `
-    <tr>
-      <td>${row.routeShort}</td>
-      <td>${row.direction}</td>
-      <td>${displayText(row.longName || '—')}</td>
-      <td><div class="tariff-times">${row.times.map((time) => `<span class="tariff-chip">${time}</span>`).join('')}</div></td>
-    </tr>
-  `).join('');
-  return `
-    <article class="tariff-sheet tariff-sheet-stop ${style}">
-      <div class="tariff-brand">
-        <div>
-          <div class="stop-sign-board">
-            <div class="stop-sign-row">
-              <span class="stop-sign-icon">D</span>
-              <div class="stop-sign-type">${tariffText('DURAK', 'STOP')}</div>
-            </div>
-            <h1 class="tariff-headline">${displayText(info?.[2] || stopId)}</h1>
-            <div class="tariff-subline">${tariffText('Kod', 'Code')}: ${displayText(info?.[3] || stopId)}</div>
-          </div>
-        </div>
-      </div>
-      <div class="tariff-meta-grid">
-        <div class="tariff-meta-card"><div class="tariff-meta-label">${tariffText('Tarih', 'Date')}</div><div class="tariff-meta-value">${dateStr}</div></div>
-        <div class="tariff-meta-card"><div class="tariff-meta-label">${tariffText('Hat', 'Routes')}</div><div class="tariff-meta-value">${new Set(rows.map((row) => row.routeShort)).size}</div></div>
-        <div class="tariff-meta-card"><div class="tariff-meta-label">${tariffText('Sefer', 'Trips')}</div><div class="tariff-meta-value">${tripCount}</div></div>
-      </div>
-      <div class="tariff-section-title">${tariffText('Hatların Duraktan Geçiş Saatleri', 'Route Passing Times at the Stop')}</div>
-      <table class="tariff-table">
-        <thead><tr><th>${tariffText('Hat', 'Route')}</th><th>${tariffText('Yön', 'Direction')}</th><th>${tariffText('Açıklama', 'Description')}</th><th>${tariffText('Saatler', 'Times')}</th></tr></thead>
-        <tbody>${tableRows || `<tr><td colspan="4">${tariffText('Bu seçim için saat bulunamadı.', 'No times found for this selection.')}</td></tr>`}</tbody>
-      </table>
-      ${renderTariffFooter()}
-    </article>
-  `;
-}
-
-async function previewRouteTariff() {
-  updateRouteTariffSummary();
-  openTariffOutput(tariffText('Hat Önizleme', 'Route Preview'), buildRouteTariffSheet());
-}
-
-async function previewStopTariff() {
-  updateStopTariffSummary();
-  openTariffOutput(tariffText('Durak Önizleme', 'Stop Preview'), buildStopTariffSheet());
-}
-
-function openTariffModal(type) {
-  closeTariffModal(type === 'route' ? 'stop' : 'route');
-  closeTariffOutput();
-  document.getElementById(type === 'route' ? 'route-tariff-modal' : 'stop-tariff-modal')?.classList.remove('hidden');
-}
-
-function buildRouteTariffSheet() {
-  const routeShort = resolveRouteInputValue();
-  if (!routeShort) throw new Error('Hat seçilmedi.');
-  const style = document.getElementById('route-tariff-style')?.value || 'classic';
-  const dateStr = getActiveTariffDate('route');
-  const directionValue = document.getElementById('route-tariff-direction')?.value || 'all';
-  const sampleTrip = TRIPS.find((trip) => trip.s === routeShort);
-  const routeMeta = getRouteMeta(routeShort, sampleTrip?.t, sampleTrip?.c, sampleTrip?.ln || sampleTrip?.h || '');
-  const { routeTrips, directionGroups } = buildRouteTariffData(routeShort, directionValue);
-  const directionOrder = { 'Gidiş': 0, Outbound: 0, 'Dönüş': 1, Inbound: 1 };
-  const directionRows = [...directionGroups.entries()]
-    .sort((left, right) => (directionOrder[left[0]] ?? 99) - (directionOrder[right[0]] ?? 99) || left[0].localeCompare(right[0], 'tr'))
-    .map(([label, times]) => `
-      <tr>
-        <td>${label}</td>
-        <td>${times.length}</td>
-        <td><div class="tariff-times">${times.map((time) => `<span class="tariff-chip">${time}</span>`).join('')}</div></td>
-      </tr>
-    `).join('');
-  return `
-    <article class="tariff-sheet ${style}">
-      <div class="tariff-brand">
-        <div>
-          <div class="tariff-code-badge"><span class="tariff-code-label">${tariffText('Hat Kodu', 'Route Code')}</span><span class="tariff-code-value">${routeMeta.short}</span></div>
-          <h1 class="tariff-headline">${tariffText('Hat Sefer Saatleri', 'Route Trip Times')}</h1>
-          <div class="tariff-subline">${displayText(routeMeta.longName || sampleTrip?.h || tariffText('Planlı hat geçişleri', 'Planned route departures'))}</div>
-        </div>
-      </div>
-      <div class="tariff-meta-grid">
-        <div class="tariff-meta-card"><div class="tariff-meta-label">${tariffText('Tarih', 'Date')}</div><div class="tariff-meta-value">${dateStr}</div></div>
-        <div class="tariff-meta-card"><div class="tariff-meta-label">${tariffText('Yön', 'Direction')}</div><div class="tariff-meta-value">${directionValue === 'all' ? tariffText('Tüm yönler', 'All directions') : directionValue === '0' ? tariffText('Gidiş', 'Outbound') : tariffText('Dönüş', 'Inbound')}</div></div>
-        <div class="tariff-meta-card"><div class="tariff-meta-label">${tariffText('Sefer', 'Trips')}</div><div class="tariff-meta-value">${routeTrips.length}</div></div>
-      </div>
-      <table class="tariff-table">
-        <thead><tr><th>${tariffText('Yön', 'Direction')}</th><th>${tariffText('Sefer', 'Trips')}</th><th>${tariffText('Saatler', 'Times')}</th></tr></thead>
-        <tbody>${directionRows || `<tr><td colspan="3">${tariffText('Bu seçim için saat bulunamadı.', 'No times found for this selection.')}</td></tr>`}</tbody>
-      </table>
-      ${renderTariffFooter()}
-    </article>
-  `;
-}
-
-function buildStopTariffSheet() {
-  const stopId = resolveStopInputValue();
-  if (!stopId) throw new Error('Durak seçilmedi.');
-  const style = document.getElementById('stop-tariff-style')?.value || 'classic';
-  const dateStr = getActiveTariffDate('stop');
-  const info = STOP_INFO?.[stopId];
-  const { rows, tripCount } = buildStopTariffData(stopId);
-  const tableRows = rows.map((row) => `
-    <tr>
-      <td>${row.routeShort}</td>
-      <td>${row.direction}</td>
-      <td>${displayText(row.longName || '—')}</td>
-      <td><div class="tariff-times">${row.times.map((time) => `<span class="tariff-chip">${time}</span>`).join('')}</div></td>
-    </tr>
-  `).join('');
-  return `
-    <article class="tariff-sheet tariff-sheet-stop ${style}">
-      <div class="tariff-brand">
-        <div>
-          <div class="stop-sign-board">
-            <div class="stop-sign-row">
-              <span class="stop-sign-icon" aria-hidden="true">
-                <svg viewBox="0 0 64 64" role="img" focusable="false">
-                  <rect x="2" y="2" width="60" height="60" rx="10" fill="#1d95cf"></rect>
-                  <rect x="12" y="9" width="40" height="44" rx="7" fill="#ffffff"></rect>
-                  <rect x="18" y="16" width="28" height="4" rx="1.5" fill="#1d95cf"></rect>
-                  <rect x="15" y="24" width="34" height="16" rx="4" fill="#1d95cf"></rect>
-                  <circle cx="22" cy="46" r="4" fill="#1d95cf"></circle>
-                  <circle cx="42" cy="46" r="4" fill="#1d95cf"></circle>
-                  <rect x="20" y="50" width="6" height="9" rx="3" fill="#ffffff"></rect>
-                  <rect x="38" y="50" width="6" height="9" rx="3" fill="#ffffff"></rect>
-                </svg>
-              </span>
-            </div>
-            <h1 class="tariff-headline">${displayText(info?.[2] || stopId)}</h1>
-            <div class="tariff-subline">${tariffText('Kod', 'Code')}: ${displayText(info?.[3] || stopId)}</div>
-          </div>
-        </div>
-      </div>
-      <div class="tariff-meta-grid">
-        <div class="tariff-meta-card"><div class="tariff-meta-label">${tariffText('Tarih', 'Date')}</div><div class="tariff-meta-value">${dateStr}</div></div>
-        <div class="tariff-meta-card"><div class="tariff-meta-label">${tariffText('Hat', 'Routes')}</div><div class="tariff-meta-value">${new Set(rows.map((row) => row.routeShort)).size}</div></div>
-        <div class="tariff-meta-card"><div class="tariff-meta-label">${tariffText('Sefer', 'Trips')}</div><div class="tariff-meta-value">${tripCount}</div></div>
-      </div>
-      <div class="tariff-section-title">${tariffText('Hatların Duraktan Geçiş Saatleri', 'Route Passing Times at the Stop')}</div>
-      <table class="tariff-table">
-        <thead><tr><th>${tariffText('Hat', 'Route')}</th><th>${tariffText('Yön', 'Direction')}</th><th>${tariffText('Açıklama', 'Description')}</th><th>${tariffText('Saatler', 'Times')}</th></tr></thead>
-        <tbody>${tableRows || `<tr><td colspan="4">${tariffText('Bu seçim için saat bulunamadı.', 'No times found for this selection.')}</td></tr>`}</tbody>
-      </table>
-      ${renderTariffFooter()}
-    </article>
-  `;
-}
-
-function suspendMapForTariffOutput() {
-  document.body.classList.add('tariff-output-open');
-}
-
-function resumeMapAfterTariffOutput() {
-  document.body.classList.remove('tariff-output-open');
-  try {
-    mapgl?.resize?.();
-    refreshLayersNow?.();
-  } catch (_) {}
-  setTimeout(() => {
-    try {
-      mapgl?.resize?.();
-      refreshLayersNow?.();
-    } catch (_) {}
-  }, 120);
-}
-
-function openTariffOutput(title, html) {
-  const modal = document.getElementById('tariff-output-modal');
-  const titleEl = document.getElementById('tariff-output-title');
-  const contentEl = document.getElementById('tariff-output-content');
-  if (!modal || !titleEl || !contentEl) return;
-  titleEl.textContent = title;
-  contentEl.innerHTML = html;
-  suspendMapForTariffOutput();
-  modal.classList.remove('hidden');
-}
-
-function closeTariffOutput() {
-  document.getElementById('tariff-output-modal')?.classList.add('hidden');
-  resumeMapAfterTariffOutput();
-}
-
-async function printRouteTariff() {
-  await previewRouteTariff();
-  window.print();
-}
-
-async function printStopTariff() {
-  await previewStopTariff();
-  window.print();
-}
-
-function initializeCaptureUi() {
-  const toggleButton = document.getElementById('capture-toggle-btn');
-  const closeButton = document.getElementById('capture-modal-close');
-  const cancelButton = document.getElementById('capture-cancel-btn');
-  const confirmButton = document.getElementById('capture-confirm-btn');
-  const modal = document.getElementById('capture-modal');
-  const fileNameInput = document.getElementById('capture-file-name');
-
-  toggleButton?.classList.remove('hidden');
-  toggleButton?.addEventListener('click', openCaptureModal);
-  closeButton?.addEventListener('click', closeCaptureModal);
-  cancelButton?.addEventListener('click', closeCaptureModal);
-  confirmButton?.addEventListener('click', saveCurrentViewportCapture);
-  modal?.addEventListener('click', (event) => {
-    if (event.target === modal) closeCaptureModal();
-  });
-  document.querySelectorAll('.capture-preset-btn').forEach((button) => {
-    button.addEventListener('click', () => {
-      setActiveCapturePreset(button.dataset.preset || 'original');
-      if (fileNameInput) fileNameInput.value = getCaptureDefaultFileName();
-    });
-  });
-  fileNameInput?.addEventListener('keydown', (event) => {
-    if (event.key === 'Enter') saveCurrentViewportCapture();
-  });
-  document.addEventListener('keydown', (event) => {
-    if (event.key === 'Escape' && !modal?.classList.contains('hidden')) closeCaptureModal();
-  });
-}
-
-function initializeTariffUi() {
-  document.getElementById('route-tariff-toggle-btn')?.classList.remove('hidden');
-  document.getElementById('stop-tariff-toggle-btn')?.classList.remove('hidden');
-  document.getElementById('route-tariff-toggle-btn')?.addEventListener('click', () => {
-    syncTariffDateInputs();
-    buildRouteTariffOptions();
-    openTariffModal('route');
-  });
-  document.getElementById('stop-tariff-toggle-btn')?.addEventListener('click', () => {
-    syncTariffDateInputs();
-    buildStopTariffOptions();
-    openTariffModal('stop');
-  });
-  document.getElementById('route-tariff-close')?.addEventListener('click', () => closeTariffModal('route'));
-  document.getElementById('stop-tariff-close')?.addEventListener('click', () => closeTariffModal('stop'));
-  document.getElementById('route-tariff-preview')?.addEventListener('click', previewRouteTariff);
-  document.getElementById('stop-tariff-preview')?.addEventListener('click', previewStopTariff);
-  document.getElementById('route-tariff-generate')?.addEventListener('click', printRouteTariff);
-  document.getElementById('stop-tariff-generate')?.addEventListener('click', printStopTariff);
-  document.getElementById('route-tariff-input')?.addEventListener('input', updateRouteTariffSummary);
-  document.getElementById('route-tariff-direction')?.addEventListener('change', updateRouteTariffSummary);
-  document.getElementById('stop-tariff-input')?.addEventListener('input', updateStopTariffSummary);
-  document.getElementById('tariff-output-close')?.addEventListener('click', closeTariffOutput);
-  document.getElementById('tariff-output-print')?.addEventListener('click', () => window.print());
-  document.getElementById('route-tariff-modal')?.addEventListener('click', (event) => {
-    if (event.target?.id === 'route-tariff-modal') closeTariffModal('route');
-  });
-  document.getElementById('stop-tariff-modal')?.addEventListener('click', (event) => {
-    if (event.target?.id === 'stop-tariff-modal') closeTariffModal('stop');
-  });
-  document.getElementById('tariff-output-modal')?.addEventListener('click', (event) => {
-    if (event.target?.id === 'tariff-output-modal') closeTariffOutput();
-  });
-  window.addEventListener('afterprint', () => {
-    closeTariffOutput();
-  });
-}
+const {
+  configureRuntimeCapture,
+  bindCaptureControls,
+  openCaptureModal,
+  closeCaptureModal,
+  getCaptureDefaultFileName,
+} = window.RuntimeCaptureControls;
+const {
+  configureRuntimeMetroMap,
+  bindMetroMapControls,
+} = window.RuntimeMetroMapControls;
 
 function updateLandingPageReports() {
   return callManager('AppManager', 'updateLandingPageReports');
@@ -4055,10 +3185,6 @@ function updateLandingPageReports() {
 
 function toggleUI(showMap) {
   return callManager('AppManager', 'toggleUI', [showMap]);
-}
-
-function updateDensityGrid() {
-  return callManager('AppManager', 'updateDensityGrid');
 }
 
 window.getModelPath = getModelPath;
@@ -4070,7 +3196,17 @@ window.ServiceManager?.init?.();
 window.PlannerManager?.init?.();
 window.DataManager?.init?.();
 window.AppManager?.init?.();
-initializeCaptureUi();
+configureRuntimeCapture({ getTypeFilter: getTypeFilterState, showToast });
+bindCaptureControls();
+configureRuntimeMetroMap({
+  getTrips: () => AppState.trips,
+  getStopInfo: () => AppState.stopInfo,
+  getRouteMeta,
+  colorToCss,
+  displayText,
+  showToast,
+});
+bindMetroMapControls();
 initializeTariffUi();
 window.CityManager?.init?.().catch((err) => {
   console.warn('[Init] Başlangıç yüklemesi başarısız:', err);

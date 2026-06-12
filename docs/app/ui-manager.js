@@ -2,6 +2,7 @@ window.UIManager = (function () {
   let initialized = false;
   let pinnedTooltipHtml = '';
   let preCinematicView = null;
+  let routePanelDirFilter = null;
 
   function getCtx() {
     return window.LegacyUIBridge?.getContext?.() || null;
@@ -18,6 +19,48 @@ window.UIManager = (function () {
   function normalizeRouteType(value) {
     const parsed = Number.parseInt(String(value ?? '').trim(), 10);
     return Number.isFinite(parsed) ? String(parsed) : String(value ?? '');
+  }
+
+  function getTrips(ctx) {
+    return ctx?.getTrips ? ctx.getTrips() : (ctx?.TRIPS || []);
+  }
+
+  function getShapes(ctx) {
+    return ctx?.getShapes ? ctx.getShapes() : (ctx?.SHAPES || []);
+  }
+
+  function getStops(ctx) {
+    return ctx?.getStops ? ctx.getStops() : (ctx?.STOPS || []);
+  }
+
+  function getStopInfo(ctx) {
+    return ctx?.getStopInfo ? ctx.getStopInfo() : (ctx?.STOP_INFO || {});
+  }
+
+  function getStopDeps(ctx) {
+    return ctx?.getStopDeps ? ctx.getStopDeps() : (ctx?.STOP_DEPS || {});
+  }
+
+  function getStopNames(ctx) {
+    return ctx?.getStopNames ? ctx.getStopNames() : (ctx?.stopNames || []);
+  }
+
+  function buildRouteCatalogKey(routeLike) {
+    if (!routeLike || typeof routeLike !== 'object') return String(routeLike || '');
+    return String(
+      routeLike.k
+      || routeLike.rid
+      || `${routeLike.aid || 'na'}::${normalizeRouteType(routeLike.t)}::${routeLike.s || ''}`
+    );
+  }
+
+  function buildRouteListSubtitle(route, routeMeta, duplicateShorts) {
+    const hasDuplicateShort = (duplicateShorts.get(route.s) || 0) > 1;
+    if (hasDuplicateShort) {
+      const parts = [route.an, route.rid].filter(Boolean);
+      return parts.join(' · ');
+    }
+    return routeMeta.longName || route.an || route.rid || '';
   }
 
   function showElement(element) {
@@ -61,76 +104,142 @@ window.UIManager = (function () {
       ? ctx.getLocalizedRouteTypeName(routeMeta.type, typeMetaEntry?.n || '-')
       : ctx.displayText(typeMetaEntry?.n || '-');
     const stats = ctx.buildRoutePanelStats(routeMeta.short);
-    const directionOptions = Array.isArray(stats.directionOptions) ? stats.directionOptions : [];
-    const directionFilterHtml = directionOptions.length
-      ? `
-          <div class="rp-row">
-            <span class="rp-label">${translate('routePanelDirectionFilter', 'Route Direction')}</span>
-            <select id="route-direction-select" class="vp-btn" style="min-width:150px;padding:6px 10px;">
-              <option value="">${translate('routePanelDirectionAll', 'All Directions')}</option>
-              ${directionOptions.map((option) => `<option value="${option.value}" ${stats.selectedDirection === option.value ? 'selected' : ''}>${ctx.displayText(option.label)} (${option.count})</option>`).join('')}
-            </select>
-          </div>`
+    const selectedPat = stats.selectedPatternKey;
+    const selectedLabel = selectedPat ? stats.patternList?.find((p) => p.dir === selectedPat.dir && p.h === selectedPat.h)?.label || stats.directionLabel : stats.directionLabel;
+    const focusedStops = Array.isArray(stats.stopList) && stats.stopList.length
+      ? stats.stopList
+      : (Array.isArray(ctx.getFocusedStopsData?.()) ? ctx.getFocusedStopsData() : []);
+    const stopListHtml = focusedStops.length
+      ? `<div class="route-panel-box">
+          <div class="route-panel-box-title">${translate('routePanelStopsTitle', 'Stops')} <span class="route-panel-stop-count">(${focusedStops.length})</span></div>
+          <div class="route-panel-stops">
+            ${focusedStops.map((stop, index) => `
+              <div class="route-panel-stop-row" data-rp-stop-sid="${String(stop.sid || '').replace(/"/g, '&quot;')}">
+                <span class="route-panel-stop-index">${index + 1}</span>
+                <span class="route-panel-stop-name">${ctx.displayText(stop.name || stop.sid || translate('stopItem', 'Stop')).replace(/</g, '&lt;')}</span>
+              </div>
+            `).join('')}
+          </div>
+        </div>`
+      : `<div class="route-panel-box">
+          <div class="route-panel-box-title">${translate('routePanelStopsTitle', 'Stops')}</div>
+          <div class="route-panel-empty">${translate('routePanelNoStopsFound', 'No stops found for this selection.')}</div>
+        </div>`;
+    const allPatterns = stats.patternList || [];
+    const hasDir0 = allPatterns.some((p) => p.dir === 0);
+    const hasDir1 = allPatterns.some((p) => p.dir === 1);
+    const showDirPills = hasDir0 && hasDir1;
+    const isEn = window.I18n?.getLanguage?.() === 'en';
+    const filteredPatterns = routePanelDirFilter === null ? allPatterns : allPatterns.filter((p) => p.dir === routePanelDirFilter);
+    const dirPillsHtml = showDirPills
+      ? `<div class="insp-dir-pills">
+          <button class="insp-dir-pill${routePanelDirFilter === 0 ? ' active' : ''}" data-rp-dir-pill="0">${isEn ? 'I' : 'G'}</button>
+          <button class="insp-dir-pill${routePanelDirFilter === 1 ? ' active' : ''}" data-rp-dir-pill="1">${isEn ? 'O' : 'D'}</button>
+          ${routePanelDirFilter !== null ? `<button class="insp-dir-pill" data-rp-dir-pill="all">${isEn ? 'All' : 'Tümü'}</button>` : ''}
+        </div>`
+      : '';
+    const patternListHtml = allPatterns.length > 0
+      ? `<div class="route-panel-box">
+          <div class="route-panel-box-title">${translate('routePanelVariantsTitle', 'Variants')}</div>
+          ${dirPillsHtml}
+          <div class="insp-pattern-list">
+            ${filteredPatterns.map((p) => {
+              const isSel = selectedPat && selectedPat.dir === p.dir && selectedPat.h === p.h;
+              return `<div class="insp-pattern-row${isSel ? ' insp-pattern-row--selected' : ''}" data-rp-pattern-dir="${p.dir ?? ''}" data-rp-pattern-head="${p.h.replace(/"/g, '&quot;')}" title="${isSel ? translate('routePanelDeselectVariant', 'Deselect') : translate('routePanelSelectVariant', 'Focus this variant')}">
+                <span class="insp-pattern-label">${p.label.replace(/</g, '&lt;')}</span>
+                <span class="insp-pattern-count">${p.count.toLocaleString()} ${translate('routePanelTripsSuffix', 'trips')}</span>
+              </div>`;
+            }).join('')}
+          </div>
+        </div>`
       : '';
     nameEl.textContent = `${icon} ${routeMeta.short}${routeMeta.longName ? ` · ${ctx.displayText(routeMeta.longName)}` : ''}`.trim();
-    metaEl.textContent = `${typeName} · ${ctx.displayText(stats.directionLabel)}`;
+    metaEl.textContent = `${typeName} · ${ctx.displayText(selectedLabel)}`;
     detailsEl.innerHTML = `
       <div class="route-panel-stack">
         <div class="route-panel-box">
           <div class="route-panel-box-title">${translate('routePanelSummary', 'Operations Summary')}</div>
-          ${directionFilterHtml}
           <div class="rp-row"><span class="rp-label">${translate('routePanelServiceCalendar', 'Service Calendar')}</span><span class="rp-value">${ctx.getActiveServiceLabel()}</span></div>
           <div class="rp-row"><span class="rp-label">${translate('routePanelTripCount', 'Trip Count')}</span><span class="rp-value">${translate('routePanelTripsToday', '{count} trips today').replace('{count}', String(stats.totalTrips))}</span></div>
           <div class="rp-row"><span class="rp-label">${translate('routePanelServiceHours', 'Service Hours')}</span><span class="rp-value">${stats.firstTime} - ${stats.lastTime}</span></div>
           <div class="rp-row"><span class="rp-label">${translate('routePanelRouteLength', 'Route Length')}</span><span class="rp-value">${stats.routeLengthKm} km</span></div>
           <div class="rp-row"><span class="rp-label">${translate('routePanelAverageHeadway', 'Avg Headway')}</span><span class="rp-value">${ctx.formatHeadwayLabel(stats.averageHeadway)}</span></div>
+          <div class="rp-row"><span class="rp-label">${translate('routePanelStopCount', 'Stop Count')}</span><span class="rp-value">${stats.stopList?.length ?? '—'}</span></div>
         </div>
-        <div class="route-panel-box">
-          <div class="route-panel-box-title">${translate('routePanelDirectionDistribution', 'Direction Distribution')}</div>
-          <div class="rp-text">${(stats.directionEntries || []).length
-            ? stats.directionEntries.map(([label, count]) => `<div>${ctx.displayText(label)}: ${count}</div>`).join('')
-            : translate('routePanelNoTripInfo', 'No trip information')}</div>
-        </div>
+        ${patternListHtml}
+        ${stopListHtml}
       </div>`;
-    const directionSelect = detailsEl.querySelector('#route-direction-select');
-    if (directionSelect) {
-      directionSelect.addEventListener('change', () => {
-        const nextValue = directionSelect.value === '' ? null : Number.parseInt(directionSelect.value, 10);
-        ctx.setSelectedRouteDirection(Number.isInteger(nextValue) ? nextValue : null);
+    detailsEl.querySelectorAll('[data-rp-pattern-dir]').forEach((row) => {
+      row.addEventListener('click', () => {
+        const dirRaw = row.getAttribute('data-rp-pattern-dir');
+        const headsign = row.getAttribute('data-rp-pattern-head') || '';
+        const dir = dirRaw === '' || dirRaw == null ? null : Number.parseInt(dirRaw, 10);
+        const current = ctx.getSelectedPatternKey?.();
+        const isSame = current && current.dir === dir && current.h === headsign;
+        ctx.setSelectedPatternKey?.(isSame ? null : { dir: Number.isInteger(dir) ? dir : null, h: headsign });
         ctx.setFocusedStopIdsCache(null);
         ctx.invalidateMapCaches();
         buildStopList(document.getElementById('stop-list-filter')?.value || '');
         openRoutePanel(routeMeta, typeMetaEntry);
         ctx.refreshLayersNow();
       });
-    }
-    ctx.setSelectedEntity({ type: 'route', routeShort: routeMeta.short });
+    });
+    detailsEl.querySelectorAll('[data-rp-stop-sid]').forEach((row) => {
+      row.addEventListener('click', () => {
+        const sid = row.getAttribute('data-rp-stop-sid') || '';
+        if (!sid) return;
+        const si = getStopInfo(ctx)[sid];
+        if (!si) return;
+        showStopArrivals([si[0], si[1], si[2], sid, si[2]]);
+      });
+    });
+    detailsEl.querySelectorAll('[data-rp-dir-pill]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const val = btn.getAttribute('data-rp-dir-pill');
+        routePanelDirFilter = val === 'all' ? null : Number.parseInt(val, 10);
+        if (val === 'all') {
+          ctx.setSelectedPatternKey?.(null);
+        } else {
+          ctx.setSelectedPatternKey?.({ dir: routePanelDirFilter, h: null });
+        }
+        ctx.setFocusedStopIdsCache(null);
+        ctx.invalidateMapCaches();
+        buildStopList(document.getElementById('stop-list-filter')?.value || '');
+        ctx.refreshLayersNow();
+        openRoutePanel(routeMeta, typeMetaEntry);
+      });
+    });
+    ctx.setSelectedEntity({ type: 'route', routeShort: routeMeta.short, routeId: routeMeta.rid || null });
     showElement(panel);
     setTimeout(() => panel.classList.add('open'), 10);
   }
 
   function closeRoutePanel() {
     const ctx = getCtx();
+    const selectedEntity = ctx?.getSelectedEntity ? ctx.getSelectedEntity() : ctx?.selectedEntity;
     const panel = getElement('route-panel');
     if (panel) {
       panel.classList.remove('open');
       setTimeout(() => hideElement(panel), 260);
     }
-    if (ctx?.selectedEntity?.type === 'route') ctx.setSelectedEntity(null);
+    if (selectedEntity?.type === 'route') ctx.setSelectedEntity(null);
   }
 
   function clearFocusedRouteSelection(refresh = false) {
     const ctx = getCtx();
     if (!ctx) return;
-    if (!ctx.focusedRoute) {
+    const focusedRoute = ctx.getFocusedRoute ? ctx.getFocusedRoute() : ctx.focusedRoute;
+    if (!focusedRoute) {
       ctx.setRouteHighlightPath(null);
       closeRoutePanel();
       return;
     }
     ctx.setFocusedRoute(null);
-    ctx.setSelectedRouteDirection(null);
+    ctx.setFocusedRouteId?.(null);
+    ctx.setSelectedPatternKey?.(null);
     ctx.setFocusedStopIdsCache(null);
     ctx.setRouteHighlightPath(null);
+    routePanelDirFilter = null;
     document.querySelectorAll('.route-item').forEach((el) => el.classList.remove('focused'));
     buildStopList(document.getElementById('stop-list-filter')?.value || '');
     closeRoutePanel();
@@ -190,7 +299,7 @@ window.UIManager = (function () {
     }
     if (obj?.sid && obj?.pos) {
       hideTooltip(true);
-      const si = ctx.STOP_INFO[obj.sid];
+    const si = getStopInfo(ctx)[obj.sid];
       if (si) showStopArrivals([si[0], si[1], si[2], obj.sid, si[2]]);
       return;
     }
@@ -204,7 +313,7 @@ window.UIManager = (function () {
     }
     if (obj?.s && obj?.t) {
       hideTooltip(true);
-      focusRoute(obj.s);
+      focusRoute(obj);
     }
   }
 
@@ -226,22 +335,24 @@ window.UIManager = (function () {
 
   function closeVehiclePanel() {
     const ctx = getCtx();
+    const selectedEntity = ctx?.getSelectedEntity ? ctx.getSelectedEntity() : ctx?.selectedEntity;
     const panel = document.getElementById('vehicle-panel');
     if (panel) {
       panel.classList.remove('open');
       setTimeout(() => panel.classList.add('hidden'), 260);
     }
     ctx?.setSelectedTripIdx(null);
-    if (ctx?.selectedEntity?.type === 'vehicle') ctx.setSelectedEntity(null);
+    if (selectedEntity?.type === 'vehicle') ctx.setSelectedEntity(null);
     ctx?.releaseSelectionPause('vehicle-panel');
   }
 
   function updateVehiclePanel() {
     const ctx = getCtx();
-    if (!ctx || ctx.selectedTripIdx === null) return;
-    const trip = ctx.TRIPS[ctx.selectedTripIdx];
+    const selectedTripIdx = ctx?.getSelectedTripIdx ? ctx.getSelectedTripIdx() : ctx?.selectedTripIdx;
+    if (!ctx || selectedTripIdx === null) return;
+    const trip = getTrips(ctx)[selectedTripIdx];
     if (!trip) return;
-    const panelState = ctx.buildVehiclePanelState(trip, ctx.selectedTripIdx, ctx.simTime);
+    const panelState = ctx.buildVehiclePanelState(trip, selectedTripIdx, ctx.simTime);
     if (!panelState) return;
     const ids = ['vp-icon', 'vp-title', 'vp-subtitle', 'vp-speed', 'vp-headway', 'vp-progress', 'vp-next-stop', 'vp-eta', 'vp-trip-details', 'vp-stops-list', 'vp-follow-btn'];
     const els = Object.fromEntries(ids.map((id) => [id, document.getElementById(id)]));
@@ -272,7 +383,7 @@ window.UIManager = (function () {
     els['vp-follow-btn'].textContent = panelState.followLabel;
   }
 
-  function showStopArrivals(stop) {
+  function showStopArrivals(stop, { flyTo: doFlyTo = false } = {}) {
     const ctx = getCtx();
     if (!ctx) return;
     closeVehiclePanel();
@@ -280,6 +391,11 @@ window.UIManager = (function () {
     ctx.setActiveStopData(stop);
     const stopMeta = ctx.getStopMetaByArray(stop);
     ctx.setSelectedEntity(stopMeta?.sid ? { type: 'stop', sid: stopMeta.sid } : { type: 'stop' });
+    if (doFlyTo) {
+      const map = ctx.getMap ? ctx.getMap() : ctx.mapgl;
+      map?.flyTo({ center: [stop[0], stop[1]], zoom: 16, duration: 800 });
+    }
+    ctx.triggerStopBlink?.([stop[0], stop[1]]);
     renderStopPanel(stop);
     makeDraggable(document.getElementById('stop-panel'));
     ctx.refreshLayersNow();
@@ -347,49 +463,48 @@ window.UIManager = (function () {
     timeEl.textContent = `${translate('stopPanelSimulationTime', 'Simulation time')}: ${ctx.secsToHHMM(ctx.simTime % 86400)}`;
 
     table.innerHTML = `<div class="sa-head"><span>${translate('stopPanelHeaderLine', 'Line')}</span><span>${translate('stopPanelHeaderDirection', 'Direction')}</span><span>${translate('stopPanelHeaderFirstVehicle', 'First Vehicle')}</span><span>${translate('stopPanelHeaderNextVehicle', 'Next Vehicle')}</span></div>`;
-    const deps = stopMeta.sid ? ctx.STOP_DEPS[stopMeta.sid] : null;
-    if (!deps?.length) {
+
+    const simMod = ctx.simTime % 86400;
+    // getStopRouteSummaries artık stopTariffIndex kullanıyor — tüm hatlar, cap'siz
+    const rows = ctx.getStopRouteSummaries(stopMeta.sid, simMod);
+
+    if (!rows.length) {
       panelMeta.textContent = translate('stopPanelNoServiceData', 'No trip data for this stop');
       table.innerHTML += `<div class="sa-empty">${translate('stopPanelNoServiceFound', 'No trips found for this stop.')}</div>`;
       panel.classList.remove('hidden');
       return;
     }
-    const simMod = ctx.simTime % 86400;
-    const rows = ctx.getStopRouteSummaries(stopMeta.sid, simMod);
-    const dynamicHeadway = window.SimUtils?.computeDynamicHeadwaySeconds
+
+    const deps = stopMeta.sid ? getStopDeps(ctx)[stopMeta.sid] : null;
+    const dynamicHeadway = window.SimUtils?.computeDynamicHeadwaySeconds && deps?.length
       ? window.SimUtils.computeDynamicHeadwaySeconds(deps, simMod, ctx.HEADWAY_CFG, ctx.WAITING_CFG)
       : null;
     const stopHeadway = Number.isFinite(dynamicHeadway)
       ? dynamicHeadway
-      : (Number.isFinite(ctx.stopAvgHeadways?.[stopMeta.sid])
-        ? ctx.stopAvgHeadways[stopMeta.sid]
-        : ctx.computeAverageHeadwaySeconds(deps));
-    const routeCount = new Set(deps.map((dep) => dep[2] || ctx.TRIPS[dep[0]]?.s).filter(Boolean)).size;
+      : ctx.computeAverageHeadwaySeconds(deps || []);
+
     panelMeta.textContent = translate('stopPanelSummary', '{count} routes · Average headway {headway}')
-      .replace('{count}', String(routeCount))
+      .replace('{count}', String(rows.length))
       .replace('{headway}', ctx.formatHeadwayLabel(stopHeadway));
-    if (!rows.length) {
-      table.innerHTML += `<div class="sa-empty">${translate('stopPanelNoDisplayRoutes', 'No routes available to display for this stop.')}</div>`;
-      panel.classList.remove('hidden');
-      return;
-    }
-    rows.slice(0, 20).forEach((route) => {
-      const routeMeta = ctx.getRouteMeta(route.short, route.trip.t, route.trip.c, route.longName);
-      const arrivalLabels = [0, 1].map((index) => {
-        const arr = route.arrivals[index];
-        if (!arr || !Number.isFinite(arr.diff)) return '<span class="sa-eta">-</span>';
-        const mins = Math.round((arr.diff || 0) / 60);
-        const cls = mins < 2 ? 'soon' : mins < 6 ? 'coming' : '';
-        return `<span class="sa-eta ${cls}">${ctx.formatHeadwayLabel(arr.diff)}</span>`;
+
+    rows.slice(0, 30).forEach((route) => {
+      const routeMeta = ctx.getRouteMeta(route.short, route.trip?.t, route.trip?.c, route.longName);
+      const directionLabel = ctx.displayText(route.longName || route.trip?.h || '—');
+      const [etaA, etaB] = [0, 1].map((i) => {
+        const arr = route.arrivals[i];
+        if (!arr || !Number.isFinite(arr.offset)) return '<span class="sa-eta">-</span>';
+        const timeStr = ctx.secsToHHMM(((arr.offset % 86400) + 86400) % 86400);
+        const mins = Number.isFinite(arr.diff) ? Math.round(arr.diff / 60) : null;
+        const cls = mins != null && mins < 2 ? 'soon' : mins != null && mins < 6 ? 'coming' : '';
+        return `<span class="sa-eta ${cls}">${timeStr}</span>`;
       });
-      const directionLabel = ctx.displayText(route.longName || route.trip.h || '—');
       const row = document.createElement('div');
       row.className = 'sa-row';
       row.innerHTML = `
         <span class="sa-route" style="color:${ctx.colorToCss(routeMeta.color)}">${routeMeta.short}</span>
         <span class="sa-dest">${directionLabel}</span>
-        ${arrivalLabels[0]}
-        ${arrivalLabels[1]}
+        ${etaA}
+        ${etaB}
       `;
       table.appendChild(row);
     });
@@ -397,16 +512,6 @@ window.UIManager = (function () {
     setTimeout(() => panel.classList.add('open'), 10);
 
     const waitMinutes = stopHeadway && Number.isFinite(stopHeadway) ? Math.round(stopHeadway / 120) : null;
-    const waitingColorFn = typeof ctx.waitingColor === 'function'
-      ? ctx.waitingColor
-      : window.AnalyticsUtils?.waitingColor;
-    const waitingColor = Number.isFinite(stopHeadway) && typeof waitingColorFn === 'function'
-      ? waitingColorFn(stopHeadway)
-      : null;
-    const waitingLevel = waitingColor
-      ? (waitingColor[0] === 63 ? 'Yeşil' : waitingColor[0] === 210 ? 'Sarı' : 'Kırmızı')
-      : '—';
-
     let insightWrap = document.getElementById('stop-panel-insights');
     if (!insightWrap) {
       insightWrap = document.createElement('div');
@@ -419,11 +524,6 @@ window.UIManager = (function () {
         <span class="stop-insight-k">${translate('stopPanelAverageWait', 'Avg Wait')}</span>
         <span class="stop-insight-v">${waitMinutes != null ? `${waitMinutes} dk` : '—'}</span>
         <span class="stop-insight-s">${ctx.formatHeadwayLabel(stopHeadway)} headway</span>
-      </div>
-      <div class="stop-insight-card">
-        <span class="stop-insight-k">${translate('stopPanelWaiting3d', 'Waiting 3D')}</span>
-        <span class="stop-insight-v">${waitingLevel}</span>
-        <span class="stop-insight-s">${ctx.showWaiting ? translate('stopPanelLayerOpen', 'Layer enabled') : translate('stopPanelLayerClosed', 'Layer disabled')}</span>
       </div>`;
     document.getElementById('stop-spark-wrap')?.remove();
   }
@@ -431,12 +531,13 @@ window.UIManager = (function () {
 
   function closeStopPanel() {
     const ctx = getCtx();
+    const selectedEntity = ctx?.getSelectedEntity ? ctx.getSelectedEntity() : ctx?.selectedEntity;
     const panel = document.getElementById('stop-panel');
     if (!panel) return;
     panel.classList.remove('open');
     setTimeout(() => panel.classList.add('hidden'), 400);
     ctx?.setActiveStopData(null);
-    if (ctx?.selectedEntity?.type === 'stop') ctx.setSelectedEntity(null);
+    if (selectedEntity?.type === 'stop') ctx.setSelectedEntity(null);
   }
 
   function buildRouteList() {
@@ -445,39 +546,111 @@ window.UIManager = (function () {
     const routeListEl = document.getElementById('route-list');
     if (!routeListEl) return;
     const byType = {};
-    ctx.SHAPES.forEach((shape) => {
-      const type = normalizeRouteType(shape.t);
+    const routeCatalog = Array.isArray(ctx.getRouteCatalog?.()) ? ctx.getRouteCatalog() : [];
+    const routeSourceMap = new Map();
+    const upsertRouteLike = (routeLike) => {
+      if (!routeLike) return;
+      const shortName = String(routeLike.s || '').trim();
+      if (!shortName) return;
+      const key = buildRouteCatalogKey(routeLike);
+      const current = routeSourceMap.get(key) || {};
+      routeSourceMap.set(key, {
+        ...current,
+        ...routeLike,
+        k: current.k || routeLike.k || routeLike.rid || key,
+        rid: current.rid || routeLike.rid || routeLike.k || '',
+        aid: current.aid || routeLike.aid || '',
+        an: current.an || routeLike.an || '',
+        s: shortName,
+        c: routeLike.c ?? current.c,
+        t: routeLike.t ?? current.t,
+        ln: current.ln || routeLike.ln || routeLike.h || '',
+      });
+    };
+
+    routeCatalog.forEach(upsertRouteLike);
+    getShapes(ctx).forEach(upsertRouteLike);
+    const seenTripRouteKeys = new Set();
+    getTrips(ctx).forEach((trip) => {
+      const routeLike = {
+        k: trip.rid || `${trip.aid || 'na'}::${normalizeRouteType(trip.t)}::${trip.s || ''}`,
+        rid: trip.rid || '',
+        aid: trip.aid || '',
+        an: '',
+        s: trip.s || '',
+        c: trip.c,
+        t: trip.t,
+        ln: trip.ln || trip.h || '',
+      };
+      const routeKey = buildRouteCatalogKey(routeLike);
+      if (seenTripRouteKeys.has(routeKey)) return;
+      seenTripRouteKeys.add(routeKey);
+      upsertRouteLike(routeLike);
+    });
+
+    const routeSource = [...routeSourceMap.values()];
+    const seenRoutes = new Set();
+    const duplicateShorts = new Map();
+    routeSource.forEach((routeLike) => {
+      const shortName = (routeLike.s || '').trim();
+      if (!shortName) return;
+      duplicateShorts.set(shortName, (duplicateShorts.get(shortName) || 0) + 1);
+    });
+    routeSource.forEach((routeLike) => {
+      const type = normalizeRouteType(routeLike.t);
+      const shortName = (routeLike.s || '').trim();
+      if (!shortName) return;
+      const dedupeKey = buildRouteCatalogKey(routeLike);
+      if (seenRoutes.has(dedupeKey)) return;
+      seenRoutes.add(dedupeKey);
       if (!byType[type]) byType[type] = [];
-      if (!byType[type].find((route) => route.s === shape.s)) byType[type].push({ s: shape.s, c: shape.c, t: type, ln: shape.ln || '' });
+      byType[type].push({
+        k: dedupeKey,
+        rid: routeLike.rid || routeLike.k || '',
+        aid: routeLike.aid || '',
+        an: routeLike.an || '',
+        s: shortName,
+        c: routeLike.c,
+        t: type,
+        ln: routeLike.ln || '',
+      });
     });
     routeListEl.innerHTML = '';
-    Object.keys(ctx.TYPE_META).forEach((type) => {
+    const presentTypes = Object.keys(byType);
+    const orderedTypes = [
+      ...Object.keys(ctx.TYPE_META).filter((type) => presentTypes.includes(type)),
+      ...presentTypes.filter((type) => !Object.prototype.hasOwnProperty.call(ctx.TYPE_META, type)).sort(),
+    ];
+    orderedTypes.forEach((type) => {
       if (!byType[type]) return;
       byType[type].sort((a, b) => a.s.localeCompare(b.s, 'tr')).forEach((route) => {
         const routeMeta = ctx.getRouteMeta(route.s, type, route.c, route.ln);
         const div = document.createElement('div');
         div.className = 'route-item';
+        div.dataset.routeKey = route.k || route.s;
         div.dataset.short = route.s;
         div.dataset.type = normalizeRouteType(type);
         div.innerHTML = `<div class="ri-bar" style="background:${ctx.colorToCss(routeMeta.color)}"></div>
           <div class="ri-info"><div class="ri-name"></div><div class="ri-type"></div><div class="ri-long"></div></div>
-          <input type="checkbox" class="ri-check" ${ctx.activeRoutes.has(route.s) ? '' : 'checked'} data-short="${route.s}">`;
+          <input type="checkbox" class="ri-check" ${ctx.isRouteHidden?.(route) ? '' : 'checked'} data-short="${route.s}">`;
         div.querySelector('.ri-name').textContent = routeMeta.short;
         div.querySelector('.ri-type').textContent = ctx.getLocalizedRouteTypeName
-          ? ctx.getLocalizedRouteTypeName(type, ctx.TYPE_META[type]?.n || type)
-          : (ctx.TYPE_META[type]?.n || type);
-        div.querySelector('.ri-long').textContent = routeMeta.longName || '';
-        div.classList.toggle('hidden-route', ctx.activeRoutes.has(route.s));
+          ? ctx.getLocalizedRouteTypeName(type, ctx.TYPE_META[type]?.n || translate('routeTypeUnknown', 'Hat'))
+          : (ctx.TYPE_META[type]?.n || translate('routeTypeUnknown', 'Hat'));
+        div.querySelector('.ri-long').textContent = buildRouteListSubtitle(route, routeMeta, duplicateShorts);
+        div.classList.toggle('hidden-route', ctx.isRouteHidden?.(route));
         div.onclick = (e) => {
           if (e.target.type === 'checkbox') return;
-          focusRoute(route.s);
+          focusRoute(route);
         };
         div.querySelector('.ri-check').onchange = (e) => {
-          if (e.target.checked) ctx.activeRoutes.delete(route.s);
+          if (e.target.checked) ctx.showRoute?.(route);
           else {
-            ctx.activeRoutes.add(route.s);
+            ctx.hideRoute?.(route);
             ctx.setRouteHighlightPath(null);
-            if (ctx.focusedRoute === route.s) {
+            const focusedRoute = ctx.getFocusedRoute ? ctx.getFocusedRoute() : ctx.focusedRoute;
+            const focusedRouteId = ctx.getFocusedRouteId ? ctx.getFocusedRouteId() : null;
+            if ((route.rid && focusedRouteId && focusedRouteId === route.rid) || (!route.rid && focusedRoute === route.s)) {
               clearFocusedRouteSelection();
             }
           }
@@ -489,7 +662,16 @@ window.UIManager = (function () {
         routeListEl.appendChild(div);
       });
     });
-    filterRouteListByType(ctx.typeFilter || 'all');
+    const typeFilter = ctx.getTypeFilter ? ctx.getTypeFilter() : ctx.typeFilter;
+    filterRouteListByType(typeFilter || 'all');
+    if (ctx.AppState?.capped) {
+      const note = document.createElement('div');
+      note.className = 'route-list-cap-note';
+      const loaded = (ctx.AppState.tripCap === Infinity ? ctx.AppState.trips.length : ctx.AppState.tripCap).toLocaleString('tr');
+      const total = ctx.AppState.totalTrips.toLocaleString('tr');
+      note.textContent = translate('routeListCapNote', `Hat listesi tam · sefer animasyonu ${loaded}/${total} (temsili alt küme)`);
+      routeListEl.appendChild(note);
+    }
   }
 
   function buildStopList(filter = '') {
@@ -498,18 +680,19 @@ window.UIManager = (function () {
     const stopListEl = document.getElementById('stop-list');
     if (!stopListEl) return;
     const q = filter.trim().toLowerCase();
+    const focusedRoute = ctx.getFocusedRoute ? ctx.getFocusedRoute() : ctx.focusedRoute;
     const stopSource = ctx.getFilteredStopsData
       ? ctx.getFilteredStopsData()
-      : (ctx.focusedRoute
+      : (focusedRoute
         ? (ctx.getFocusedStopsData()?.map((entry) => [entry.pos[0], entry.pos[1], entry.name || entry.sid, entry.sid, entry.name || entry.sid]) || [])
-        : ctx.STOPS);
+      : getStops(ctx));
     stopListEl.innerHTML = '';
-    const limitedStops = ctx.focusedRoute ? stopSource : stopSource.slice(0, 300);
-    limitedStops
-      .filter((stop) => {
-        const stopMeta = ctx.getStopMetaByArray(stop);
-        return !q || stopMeta.name.toLowerCase().includes(q) || stopMeta.code.toLowerCase().includes(q);
-      })
+    const stopsToFilter = focusedRoute ? stopSource : (q ? stopSource : stopSource.slice(0, 300));
+    const matchedStops = stopsToFilter.filter((stop) => {
+      const stopMeta = ctx.getStopMetaByArray(stop);
+      return !q || stopMeta.name.toLowerCase().includes(q) || stopMeta.code.toLowerCase().includes(q);
+    });
+    (focusedRoute ? matchedStops : matchedStops.slice(0, 300))
       .forEach((stop) => {
         const stopMeta = ctx.getStopMetaByArray(stop);
         const item = document.createElement('div');
@@ -518,7 +701,8 @@ window.UIManager = (function () {
         item.querySelector('.stop-name').textContent = stopMeta.name;
         item.querySelector('.stop-meta').textContent = `${translate('stopPanelCode', 'Code')}: ${stopMeta.code}`;
         item.onclick = () => {
-          ctx.mapgl.flyTo({ center: [stop[0], stop[1]], zoom: 15, duration: 800 });
+          const map = ctx.getMap ? ctx.getMap() : ctx.mapgl;
+          map?.flyTo({ center: [stop[0], stop[1]], zoom: 15, duration: 800 });
           showStopArrivals(stop);
         };
         stopListEl.appendChild(item);
@@ -531,27 +715,78 @@ window.UIManager = (function () {
     });
   }
 
-  function focusRoute(shortName) {
+  async function focusRoute(routeRef) {
     const ctx = getCtx();
     if (!ctx) return;
-    if (ctx.focusedRoute === shortName) {
+    const shortName = typeof routeRef === 'object' ? String(routeRef.s || '').trim() : String(routeRef || '').trim();
+    const routeKey = typeof routeRef === 'object' ? buildRouteCatalogKey(routeRef) : shortName;
+    const focusedRoute = ctx.getFocusedRoute ? ctx.getFocusedRoute() : ctx.focusedRoute;
+    const focusedRouteId = ctx.getFocusedRouteId ? ctx.getFocusedRouteId() : null;
+    if ((typeof routeRef === 'object' && routeRef.rid && focusedRouteId === routeRef.rid)
+      || (typeof routeRef !== 'object' && focusedRoute === shortName && !focusedRouteId)) {
       clearFocusedRouteSelection(true);
       return;
     }
     ctx.setFocusedRoute(shortName);
-    ctx.setSelectedRouteDirection(null);
+    ctx.setFocusedRouteId?.(typeof routeRef === 'object' ? (routeRef.rid || null) : null);
+    ctx.setSelectedPatternKey?.(null);
     ctx.setFocusedStopIdsCache(null);
-    document.querySelectorAll('.route-item').forEach((el) => el.classList.toggle('focused', el.dataset.short === shortName));
-    const shape = ctx.SHAPES.find((s) => s.s === shortName);
+    document.querySelectorAll('.route-item').forEach((el) => el.classList.toggle('focused', el.dataset.routeKey === routeKey));
+    let shape = getShapes(ctx).find((s) => {
+      if (typeof routeRef !== 'object') return s.s === shortName;
+      if (routeRef.rid && s.rid && s.rid === routeRef.rid) return true;
+      if (routeRef.aid && s.aid && String(s.aid) !== String(routeRef.aid)) return false;
+      return s.s === shortName && normalizeRouteType(s.t) === normalizeRouteType(routeRef.t);
+    }) || getShapes(ctx).find((s) => s.s === shortName);
     if (shape?.p?.length) {
       const lons = shape.p.map((p) => p[0]);
       const lats = shape.p.map((p) => p[1]);
-      ctx.mapgl.fitBounds([[Math.min(...lons), Math.min(...lats)], [Math.max(...lons), Math.max(...lats)]], { padding: 80, maxZoom: 15, duration: 800 });
+      const map = ctx.getMap ? ctx.getMap() : ctx.mapgl;
+      map?.fitBounds([[Math.min(...lons), Math.min(...lats)], [Math.max(...lons), Math.max(...lats)]], { padding: 80, maxZoom: 15, duration: 800 });
     }
-    const trip = ctx.TRIPS.find((t) => t.s === shortName);
-    if (trip) {
-      const routeMeta = ctx.getRouteMeta(shortName, trip.t, trip.c, trip.ln || trip.h || '');
-      openRoutePanel(routeMeta, ctx.TYPE_META[trip.t] || {});
+    let trip = getTrips(ctx).find((t) => {
+      if (typeof routeRef !== 'object') return t.s === shortName;
+      if (routeRef.rid && t.rid && t.rid === routeRef.rid) return true;
+      if (routeRef.aid && t.aid && String(t.aid) !== String(routeRef.aid)) return false;
+      return t.s === shortName && normalizeRouteType(t.t) === normalizeRouteType(routeRef.t);
+    }) || getTrips(ctx).find((t) => t.s === shortName);
+    if (!trip && ctx.AppState?.capped && typeof routeRef === 'object' && routeRef.rid && ctx.loadRouteRuntimeSubset) {
+      const loaded = await ctx.loadRouteRuntimeSubset(routeRef.rid);
+      if (loaded) {
+        shape = getShapes(ctx).find((s) => s.rid === routeRef.rid)
+          || getShapes(ctx).find((s) => s.s === shortName && normalizeRouteType(s.t) === normalizeRouteType(routeRef.t))
+          || getShapes(ctx).find((s) => s.s === shortName);
+        trip = getTrips(ctx).find((t) => t.rid === routeRef.rid)
+          || getTrips(ctx).find((t) => t.s === shortName && normalizeRouteType(t.t) === normalizeRouteType(routeRef.t))
+          || getTrips(ctx).find((t) => t.s === shortName);
+      }
+    }
+    if (!trip && !shape) {
+      if (ctx.AppState?.capped) {
+        ctx.showToast?.(
+          translate(
+            'routeNotLoadedDueToCap',
+            'Bu hat katalogda var ancak performans cap nedeniyle runtime verisi yüklenmedi. Harita ve panel için daha küçük veri kümesi veya isteğe bağlı yükleme gerekiyor.'
+          ),
+          'info',
+          6000,
+        );
+      }
+      clearFocusedRouteSelection(true);
+      return;
+    }
+    const panelSource = trip || shape;
+    if (panelSource) {
+      const routeMeta = {
+        ...ctx.getRouteMeta(
+          shortName,
+          panelSource.t,
+          panelSource.c,
+          routeRef?.ln || panelSource.ln || panelSource.h || routeRef?.an || ''
+        ),
+        rid: typeof routeRef === 'object' ? (routeRef.rid || null) : null
+      };
+      openRoutePanel(routeMeta, ctx.TYPE_META[panelSource.t] || {});
     }
     buildStopList(document.getElementById('stop-list-filter')?.value || '');
     ctx.refreshLayersNow();
@@ -571,7 +806,7 @@ window.UIManager = (function () {
         sug.classList.remove('show');
         return;
       }
-      const res = ctx.stopNames.filter((s) => s[0].includes(q)).slice(0, 8);
+    const res = getStopNames(ctx).filter((s) => s[0].includes(q)).slice(0, 8);
       sug.innerHTML = res.map((s) => `<div class="sug-item" data-sid="${s[1]}" data-name="${ctx.displayText(s[4])}">${ctx.displayText(s[4])}</div>`).join('');
       sug.classList.toggle('show', res.length > 0);
       sug.querySelectorAll('.sug-item').forEach((el) => {
@@ -590,8 +825,8 @@ window.UIManager = (function () {
     const legs = [];
     path.forEach((step) => {
       const line = step.line || '??';
-      const fromInfo = ctx.STOP_INFO[step.from];
-      const toInfo = ctx.STOP_INFO[step.to];
+    const fromInfo = getStopInfo(ctx)[step.from];
+    const toInfo = getStopInfo(ctx)[step.to];
       const fromName = ctx.displayText(fromInfo?.[2] || step.from || '—');
       const toName = ctx.displayText(toInfo?.[2] || step.to || '—');
       const isWalk = line === '??' || line === 'Yürü' || line === 'WALK';
@@ -662,7 +897,7 @@ window.UIManager = (function () {
     tot.textContent = translate('routeTotal', 'Toplam: {minutes} dakika').replace('{minutes}', String(Math.round(total / 60)));
     steps.appendChild(tot);
     ctx.setRouteHighlightPath(path.map((s) => {
-      const si = ctx.STOP_INFO[s.to];
+    const si = getStopInfo(ctx)[s.to];
       return si ? [si[0], si[1]] : null;
     }).filter(Boolean));
     el.classList.remove('hidden');
@@ -687,56 +922,15 @@ window.UIManager = (function () {
       </div>`).join('');
   }
 
-  function updateWorstStopsPanel() {
-    const ctx = getCtx();
-    const list = getElement('worst-stops-list');
-    const header = document.querySelector('#worst-header > span');
-    const sub = document.querySelector('#worst-header .worst-sub');
-    const worstStops = ctx?.getWorstStops?.();
-    if (!ctx || !list || !worstStops) return;
-    const makeRow = (entry, index, labelColor) => {
-      const mins = Math.round(entry.avgWait / 60);
-      const valueColor = mins <= 5 ? '#3fb950' : mins <= 15 ? '#d29922' : '#f85149';
-      return `<div onclick="mapgl.flyTo({center:[${entry.info[0]},${entry.info[1]}],zoom:15,duration:800})"
-        style="display:flex;align-items:center;gap:8px;padding:6px 12px;border-bottom:1px solid rgba(48,54,61,0.5);cursor:pointer;">
-        <span style="color:${labelColor};font-size:10px;width:18px;text-align:right;font-weight:700">${index + 1}</span>
-        <span style="flex:1;font-size:11px;color:var(--text,#e6edf3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${ctx.displayText(entry.info[2])}</span>
-        <span style="font-size:12px;font-weight:700;color:${valueColor}">${mins}dk</span>
-      </div>`;
-    };
-    if (header) header.textContent = 'Bekleme Süresi 3D';
-    if (sub) sub.textContent = `${ctx.secsToHHMM(ctx.waitingComputedForSec || 0)} · En kötü 5 + En iyi 5`;
-    list.innerHTML = `
-      <div style="padding:7px 12px;font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#f85149;border-bottom:1px solid rgba(48,54,61,0.55);">En Kötü 5</div>
-      ${worstStops.worst.map((entry, index) => makeRow(entry, index, '#f85149')).join('')}
-      <div style="padding:7px 12px;font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#3fb950;border-bottom:1px solid rgba(48,54,61,0.55);">En İyi 5</div>
-      ${worstStops.best.map((entry, index) => makeRow(entry, index, '#3fb950')).join('')}
-    `;
-  }
-
-  function buildWorstStops() {
-    const ctx = getCtx();
-    if (!ctx?.stopAvgHeadways) return;
-    const ranked = Object.entries(ctx.stopAvgHeadways)
-      .filter(([stopId]) => ctx.STOP_INFO[stopId])
-      .map(([stopId, headway]) => ({ sid: stopId, avgWait: headway / 2, info: ctx.STOP_INFO[stopId] }))
-      .sort((a, b) => b.avgWait - a.avgWait);
-    ctx.setWorstStops({
-      worst: ranked.slice(0, 5),
-      best: [...ranked].reverse().slice(0, 5),
-      computedAt: ctx.waitingComputedForSec,
-    });
-    updateWorstStopsPanel();
-  }
-
   function startCinematic() {
     const ctx = getCtx();
     if (!ctx) return;
+    const map = ctx.getMap ? ctx.getMap() : ctx.mapgl;
     preCinematicView = {
-      center: ctx.mapgl.getCenter(),
-      zoom: ctx.mapgl.getZoom(),
-      pitch: ctx.mapgl.getPitch(),
-      bearing: ctx.mapgl.getBearing(),
+      center: map.getCenter(),
+      zoom: map.getZoom(),
+      pitch: map.getPitch(),
+      bearing: map.getBearing(),
     };
     ctx.setCinematic(true);
     ctx.setCinematicIdx(0);
@@ -757,8 +951,9 @@ window.UIManager = (function () {
   function stopCinematic() {
     const ctx = getCtx();
     if (!ctx) return;
+    const map = ctx.getMap ? ctx.getMap() : ctx.mapgl;
     ctx.setCinematic(false);
-    clearTimeout(ctx.cinematicTimer);
+    clearTimeout(ctx.getCinematicTimer ? ctx.getCinematicTimer() : ctx.cinematicTimer);
     ctx.setCinematicTimer(null);
     ctx.setFollowTripIdx(null);
     document.getElementById('sidebar').style.opacity = '';
@@ -778,7 +973,7 @@ window.UIManager = (function () {
       btn.style.color = '';
     }
     if (preCinematicView) {
-      ctx.mapgl.flyTo({
+      map?.flyTo({
         center: preCinematicView.center,
         zoom: preCinematicView.zoom,
         pitch: preCinematicView.pitch,
@@ -792,13 +987,16 @@ window.UIManager = (function () {
 
   function cinematicNext() {
     const ctx = getCtx();
-    if (!ctx || !ctx.isCinematic) return;
+    const isCinematic = ctx?.getIsCinematic ? ctx.getIsCinematic() : ctx?.isCinematic;
+    if (!ctx || !isCinematic) return;
+    const map = ctx.getMap ? ctx.getMap() : ctx.mapgl;
     const waypoints = ctx.getCinematicWaypoints?.() || [];
     if (!waypoints.length) {
       stopCinematic();
       return;
     }
-    const wp = waypoints[ctx.cinematicIdx % waypoints.length];
+    const cinematicIdx = ctx.getCinematicIdx ? ctx.getCinematicIdx() : ctx.cinematicIdx;
+    const wp = waypoints[cinematicIdx % waypoints.length];
     const lbl = document.getElementById('cinematic-label');
     if (lbl) {
       lbl.style.opacity = '0';
@@ -806,10 +1004,10 @@ window.UIManager = (function () {
       setTimeout(() => { lbl.style.transition = 'opacity 0.8s'; lbl.style.opacity = '1'; }, 200);
       setTimeout(() => { lbl.style.opacity = '0'; }, wp.duration - 800);
     }
-    ctx.mapgl.flyTo({ center: wp.center, zoom: wp.zoom, pitch: wp.pitch, bearing: wp.bearing, duration: wp.duration - 600, essential: true });
+    map?.flyTo({ center: wp.center, zoom: wp.zoom, pitch: wp.pitch, bearing: wp.bearing, duration: wp.duration - 600, essential: true });
     let nearest = null;
     let minD = Infinity;
-    for (const trip of ctx.TRIPS) {
+    for (const trip of getTrips(ctx)) {
       const pos = ctx.getVehiclePos(trip, ctx.simTime);
       if (!pos) continue;
       const d = ctx.haversineM(wp.center, pos);
@@ -819,14 +1017,16 @@ window.UIManager = (function () {
       }
     }
     if (nearest && minD < 3000) {
-      const tIdx = ctx.TRIPS.indexOf(nearest);
+    const tIdx = getTrips(ctx).indexOf(nearest);
       if (tIdx >= 0) ctx.setFollowTripIdx(tIdx);
       setTimeout(() => {
-        if (ctx.isCinematic) ctx.setFollowTripIdx(null);
+        const nextIsCinematic = ctx.getIsCinematic ? ctx.getIsCinematic() : ctx.isCinematic;
+        if (nextIsCinematic) ctx.setFollowTripIdx(null);
       }, 2500);
     }
     ctx.setCinematicTimer(setTimeout(() => {
-      ctx.setCinematicIdx((ctx.cinematicIdx + 1) % waypoints.length);
+      const nextIdx = ctx.getCinematicIdx ? ctx.getCinematicIdx() : ctx.cinematicIdx;
+      ctx.setCinematicIdx((nextIdx + 1) % waypoints.length);
       cinematicNext();
     }, wp.duration));
   }
@@ -862,8 +1062,6 @@ window.UIManager = (function () {
     init,
     showRouteResult,
     updateBunchingPanel,
-    updateWorstStopsPanel,
-    buildWorstStops,
     startCinematic,
     stopCinematic,
     cinematicNext,
