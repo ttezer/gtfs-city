@@ -347,15 +347,15 @@ window.ServiceManager = (function () {
 
   async function handleDateChange(dateStr) {
     const ctx = getCtx();
-    if (!ctx || !dateStr) return;
+    if (!ctx || !dateStr) return false;
 
     const cache = ctx.getCalendarCache();
-    if (!cache.rows.length) return;
+    if (!cache.rows.length) return false;
 
     const ids = getServiceIdsForDate(dateStr, cache.rows, cache.dateRows);
     if (!ids.size) {
       ctx.showToast('Bu tarihte sefer bulunamadı', 'warning');
-      return;
+      return false;
     }
 
     ctx.setActiveServiceDate?.(dateStr);
@@ -366,7 +366,7 @@ window.ServiceManager = (function () {
     const preparedSource = ctx.getPreparedGtfsSource?.();
     if (preparedSource) {
       await ctx.rebuildRuntimeForActiveServices?.({ source: preparedSource, activeServiceIds: ids, showCapWarning: false });
-      return;
+      return true;
     }
 
     const activeCity = ctx.getActiveCity();
@@ -377,6 +377,7 @@ window.ServiceManager = (function () {
       const payload = await ctx.getBuiltinGtfsPayload(activeCity).catch(() => null);
       if (payload) await ctx.loadGtfsIntoSim(payload.files, payload.fileName, ctx.getActiveServiceId(), ids);
     }
+    return true;
   }
 
   async function applyService(serviceId) {

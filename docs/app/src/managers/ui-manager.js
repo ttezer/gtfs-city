@@ -3,6 +3,7 @@ window.UIManager = (function () {
   let pinnedTooltipHtml = '';
   let preCinematicView = null;
   let routePanelDirFilter = null;
+  let routePickerCleanup = null;
 
   function getCtx() {
     return window.LegacyUIBridge?.getContext?.() || null;
@@ -87,6 +88,101 @@ window.UIManager = (function () {
     if (!force && pinnedTooltipHtml) return;
     tooltip.style.display = 'none';
     if (force) pinnedTooltipHtml = '';
+  }
+
+  function escapeHtml(value) {
+    return String(value ?? '').replace(/[&<>"']/g, (ch) => ({
+      '&': '&amp;',
+      '<': '&lt;',
+      '>': '&gt;',
+      '"': '&quot;',
+      "'": '&#39;',
+    }[ch]));
+  }
+
+  function closeRoutePicker() {
+    getElement('route-picker-popup')?.remove();
+    if (routePickerCleanup) routePickerCleanup();
+    routePickerCleanup = null;
+  }
+
+  function getRoutePickerCandidates(info, ctx) {
+    const deckgl = ctx.getDeckgl?.();
+    const picked = deckgl?.pickMultipleObjects
+      ? deckgl.pickMultipleObjects({ x: info.x, y: info.y, radius: 8, depth: 12 })
+      : [];
+    const catalog = Array.isArray(ctx.getRouteCatalog?.()) ? ctx.getRouteCatalog() : [];
+    const byKey = new Map();
+
+    picked.forEach((entry) => {
+      const obj = entry?.object;
+      if (!obj || !obj.s || obj.t === undefined || !obj.from || !obj.to) return;
+      const key = obj.rid || `${obj.aid || 'na'}::${normalizeRouteType(obj.t)}::${obj.s}`;
+      if (byKey.has(key)) return;
+      const route = catalog.find((item) => obj.rid && item?.rid === obj.rid)
+        || catalog.find((item) => String(item?.s || '').trim() === String(obj.s || '').trim()
+          && normalizeRouteType(item?.t) === normalizeRouteType(obj.t));
+      byKey.set(key, {
+        s: obj.s,
+        t: obj.t,
+        c: obj.c,
+        rid: obj.rid || route?.rid || '',
+        aid: obj.aid || route?.aid || '',
+        ln: route?.ln || obj.ln || obj.h || route?.an || '',
+        an: route?.an || '',
+      });
+    });
+
+    return [...byKey.values()].sort((left, right) => {
+      const leftLabel = String(left.s || left.rid || '');
+      const rightLabel = String(right.s || right.rid || '');
+      return leftLabel.localeCompare(rightLabel, 'tr', { numeric: true });
+    });
+  }
+
+  function showRoutePicker(x, y, routes) {
+    closeRoutePicker();
+    const popup = document.createElement('div');
+    popup.id = 'route-picker-popup';
+    popup.className = 'route-picker-popup';
+    popup.innerHTML = `
+      <div class="route-picker-title">Hat seç</div>
+      ${routes.map((route, index) => {
+        const color = route.c ? `#${String(route.c).replace(/^#/, '').slice(0, 6)}` : '#58a6ff';
+        const name = route.ln || route.an || route.rid || '';
+        return `<button type="button" class="route-picker-item" data-route-index="${index}">
+          <span class="route-picker-badge" style="background:${escapeHtml(color)}">${escapeHtml(route.s || route.rid || '—')}</span>
+          <span class="route-picker-name">${escapeHtml(name || 'Adsız hat')}</span>
+        </button>`;
+      }).join('')}`;
+    document.body.appendChild(popup);
+
+    const maxLeft = Math.max(8, window.innerWidth - popup.offsetWidth - 8);
+    const maxTop = Math.max(8, window.innerHeight - popup.offsetHeight - 8);
+    popup.style.left = `${Math.min(Math.max(8, x + 12), maxLeft)}px`;
+    popup.style.top = `${Math.min(Math.max(8, y + 12), maxTop)}px`;
+
+    popup.querySelectorAll('[data-route-index]').forEach((button) => {
+      button.addEventListener('click', async (event) => {
+        const idx = Number.parseInt(event.currentTarget?.dataset?.routeIndex || '-1', 10);
+        const route = routes[idx];
+        closeRoutePicker();
+        if (route) await focusRoute(route);
+      });
+    });
+
+    const onDocClick = (event) => {
+      if (!popup.contains(event.target)) closeRoutePicker();
+    };
+    const onEsc = (event) => {
+      if (event.key === 'Escape') closeRoutePicker();
+    };
+    setTimeout(() => document.addEventListener('click', onDocClick), 0);
+    document.addEventListener('keydown', onEsc);
+    routePickerCleanup = () => {
+      document.removeEventListener('click', onDocClick);
+      document.removeEventListener('keydown', onEsc);
+    };
   }
 
   function openRoutePanel(routeMeta, typeMetaEntry) {
@@ -284,6 +380,7 @@ window.UIManager = (function () {
     }
     if (!info?.object) {
       hideTooltip(true);
+      closeRoutePicker();
       clearFocusedRouteSelection(true);
       closeStopPanel();
       closeVehiclePanel();
@@ -293,12 +390,14 @@ window.UIManager = (function () {
     const obj = info.object;
     if (Array.isArray(obj) && obj.length >= 3) {
       hideTooltip(true);
+      closeRoutePicker();
       closeRoutePanel();
       showStopArrivals(obj);
       return;
     }
     if (obj?.sid && obj?.pos) {
       hideTooltip(true);
+      closeRoutePicker();
     const si = getStopInfo(ctx)[obj.sid];
       if (si) showStopArrivals([si[0], si[1], si[2], obj.sid, si[2]]);
       return;
@@ -306,6 +405,7 @@ window.UIManager = (function () {
     const tripObj = obj?.trip || obj;
     if (tripObj?.ts && tripObj?.d && tripObj?.s && tripObj?.t !== undefined) {
       hideTooltip(true);
+      closeRoutePicker();
       closeRoutePanel();
       const idx = ctx.findTripIdx(obj);
       if (idx >= 0) openVehiclePanel(idx);
@@ -313,7 +413,13 @@ window.UIManager = (function () {
     }
     if (obj?.s && obj?.t) {
       hideTooltip(true);
-      focusRoute(obj);
+      const routes = getRoutePickerCandidates(info, ctx);
+      if (routes.length > 1) {
+        showRoutePicker(info.x, info.y, routes);
+        return;
+      }
+      closeRoutePicker();
+      focusRoute(routes[0] || obj);
     }
   }
 

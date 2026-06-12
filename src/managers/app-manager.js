@@ -281,7 +281,7 @@
       bodyEl.querySelector('#insp-date-input')?.addEventListener('change', async (e) => {
         const nextDate = e.target.value || '';
         if (!nextDate) return;
-        await window.ServiceManager?.handleDateChange?.(nextDate);
+        await applyActiveServiceDate(nextDate, { calendarMode: 'day' });
       });
       bodyEl.querySelector('[data-info-action="open-stops"]')?.addEventListener('click', () => {
         inspectorState.stopsTrayOpen = true;
@@ -331,7 +331,7 @@
             btn.addEventListener('click', async () => {
               const date = btn.getAttribute('data-svc-date');
               popup.classList.add('hidden');
-              await window.ServiceManager?.handleDateChange?.(date);
+              await applyActiveServiceDate(date, { calendarMode: 'day' });
             });
           });
         }
@@ -444,6 +444,7 @@
   // ── TAKVİM MODÜLÜ ────────────────────────────────────────
 
   const calendarState = { mode: 'year', year: null, month: null, day: null, selectedDate: null, daySearch: '' };
+  const dateApplyState = { loading: false, date: '' };
   const TR_MONTHS = ['Ocak','Şubat','Mart','Nisan','Mayıs','Haziran','Temmuz','Ağustos','Eylül','Ekim','Kasım','Aralık'];
   const TR_DAYS_SHORT = ['Pt','Sa','Ça','Pe','Cu','Ct','Pz'];
 
@@ -472,6 +473,60 @@
     const key = normalizeCalendarDateKey(value);
     if (!key) return '';
     return `${key.slice(0, 4)}-${key.slice(4, 6)}-${key.slice(6, 8)}`;
+  }
+
+  function renderDateApplyStatus() {
+    if (!dateApplyState.loading) return '';
+    return `<span class="date-apply-status"><span class="date-apply-spinner"></span><span>Yükleniyor...</span></span>`;
+  }
+
+  function setDateApplyLoading(loading, isoDate = '') {
+    dateApplyState.loading = !!loading;
+    dateApplyState.date = loading ? isoDate : '';
+    document.body?.classList.toggle('date-apply-loading', !!loading);
+  }
+
+  function syncCalendarStateToDate(isoDate, options = {}) {
+    const dateKey = normalizeCalendarDateKey(isoDate);
+    const ymd = gtfsDateToYmd(dateKey);
+    if (!ymd) return false;
+    calendarState.selectedDate = dateKey;
+    calendarState.year = ymd.y;
+    calendarState.month = ymd.m;
+    calendarState.day = ymd.d;
+    calendarState.daySearch = '';
+    if (options.mode) calendarState.mode = options.mode;
+    return true;
+  }
+
+  async function applyActiveServiceDate(isoDate, options = {}) {
+    const ctx = getCtx();
+    if (!ctx || !isoDate) return false;
+    if (dateApplyState.loading) return false;
+    const previousDate = ctx.getActiveServiceDate?.() || '';
+    const syncMode = options.calendarMode === undefined ? 'day' : options.calendarMode;
+    if (syncMode) syncCalendarStateToDate(isoDate, { mode: syncMode });
+    setDateApplyLoading(true, isoDate);
+    renderInfoCalendar();
+    renderInfoInspector();
+    renderInfoServiceSummary();
+    renderInfoWorkspaceOverview();
+    try {
+      const ok = await window.ServiceManager?.handleDateChange?.(isoDate);
+      if (ok === false) {
+        if (previousDate) syncCalendarStateToDate(previousDate, { mode: syncMode || calendarState.mode });
+        return false;
+      }
+      syncCalendarStateToDate(isoDate, { mode: syncMode || calendarState.mode });
+      return true;
+    } finally {
+      setDateApplyLoading(false);
+      updateActiveServiceDateBadge();
+      renderInfoCalendar();
+      renderInfoServiceSummary();
+      renderInfoWorkspaceOverview();
+      renderInfoInspector();
+    }
   }
 
   function getServiceIdsLocal(dateStr, calendarRows, calendarDateRows) {
@@ -708,6 +763,7 @@
         <div class="cal-day-header">
           <span class="cal-day-title">${dateLabel}</span>
           <span class="cal-day-meta">${ids.size} servis · ${totalTrips > 0 ? totalTrips.toLocaleString() + ' sefer' : allRows.length + ' hat'}</span>
+          ${renderDateApplyStatus()}
           <button class="cal-load-service-btn" data-date="${dateStr}">Takvimi Yükle</button>
           <button class="cal-goto-map-btn" data-date="${dateStr}">Haritaya Geç →</button>
         </div>
@@ -814,6 +870,7 @@
           <button class="cal-tab${mode==='month'?' cal-tab-active':''}${!hasMonth?' cal-tab-off':''}" data-cal-tab="month" ${!hasMonth?'disabled':''}>Ay</button>
           <button class="cal-tab${mode==='day'?' cal-tab-active':''}${!hasDay?' cal-tab-off':''}" data-cal-tab="day" ${!hasDay?'disabled':''}>Gün</button>
           <label class="cal-search-wrap" title="Tarihe git"><span class="cal-search-icon">🔍</span><input class="cal-date-input" type="date" value="${searchIsoVal}"></label>
+          ${renderDateApplyStatus()}
         </div>
         ${stepNavHtml}`;
       navEl.querySelectorAll('.cal-tab:not([disabled])').forEach((btn) => {
@@ -822,7 +879,7 @@
           renderInfoCalendar();
         });
       });
-      navEl.querySelector('.cal-date-input')?.addEventListener('change', (e) => {
+      navEl.querySelector('.cal-date-input')?.addEventListener('change', async (e) => {
         const iso = e.target.value; // YYYY-MM-DD
         if (!iso) return;
         const dateKey = iso.replace(/-/g, '');
@@ -835,6 +892,7 @@
         calendarState.mode = 'day';
         calendarState.daySearch = '';
         renderInfoCalendar();
+        await applyActiveServiceDate(iso, { calendarMode: 'day' });
       });
       navEl.querySelectorAll('.cal-nav-btn[data-cal-year]').forEach((btn) => {
         btn.addEventListener('click', () => {
@@ -857,7 +915,7 @@
     if (mode === 'year') {
       bodyEl.innerHTML = renderCalendarYear(density, minDate, maxDate);
       bodyEl.querySelectorAll('.cgrid-cell.cgrid-active').forEach((cell) => {
-        cell.addEventListener('click', () => {
+        cell.addEventListener('click', async () => {
           const ymd = gtfsDateToYmd(cell.dataset.date);
           if (!ymd) return;
           calendarState.year = ymd.y;
@@ -867,6 +925,8 @@
           calendarState.mode = 'day';
           calendarState.daySearch = '';
           renderInfoCalendar();
+          const isoDate = calendarKeyToIso(cell.dataset.date);
+          if (isoDate) await applyActiveServiceDate(isoDate, { calendarMode: 'day' });
         });
       });
 
@@ -877,7 +937,7 @@
       bodyEl.innerHTML = renderCalendarMonthSet(density, y, m, maxCount);
       bodyEl.querySelectorAll('.cal-cell-lg[data-date]').forEach((cell) => {
         if (cell.classList.contains('cal-cell-outside')) return;
-        cell.addEventListener('click', () => {
+        cell.addEventListener('click', async () => {
           const ymd = gtfsDateToYmd(cell.dataset.date);
           if (!ymd) return;
           calendarState.year = ymd.y;
@@ -887,6 +947,8 @@
           calendarState.mode = 'day';
           calendarState.daySearch = '';
           renderInfoCalendar();
+          const isoDate = calendarKeyToIso(cell.dataset.date);
+          if (isoDate) await applyActiveServiceDate(isoDate, { calendarMode: 'day' });
         });
       });
       bindCalDayRowClicks(bodyEl, ctx);
@@ -908,12 +970,12 @@
       bodyEl.querySelector('.cal-load-service-btn')?.addEventListener('click', async (event) => {
         const dateStr = event.currentTarget?.dataset?.date || calendarState.selectedDate || '';
         const isoDate = calendarKeyToIso(dateStr);
-        if (isoDate) await window.ServiceManager?.handleDateChange?.(isoDate);
+        if (isoDate) await applyActiveServiceDate(isoDate, { calendarMode: 'day' });
       });
       bodyEl.querySelector('.cal-goto-map-btn')?.addEventListener('click', async (event) => {
         const dateStr = event.currentTarget?.dataset?.date || calendarState.selectedDate || '';
         const isoDate = calendarKeyToIso(dateStr);
-        if (isoDate) await window.ServiceManager?.handleDateChange?.(isoDate);
+        if (isoDate) await applyActiveServiceDate(isoDate, { calendarMode: 'day' });
         ctx?.setActiveWorkspace?.('harita');
       });
     }
@@ -1683,6 +1745,7 @@
       <div class="insp-date-wrap">
         <input type="date" class="insp-date-input" id="insp-date-input" value="${escapeHtml(dateValue || '')}">
         ${calBtn}
+        ${renderDateApplyStatus()}
       </div>
     </div>`;
   }
@@ -2258,23 +2321,23 @@
     });
     window.addEventListener('app-runtime-data-change', renderInfoWorkspaceOverview);
     window.addEventListener('app-runtime-data-change', renderInfoServiceSummary);
-    window.addEventListener('app-runtime-data-change', () => { calendarState.year = null; calendarState.mode = 'year'; calendarState.day = null; renderInfoCalendar(); });
+    window.addEventListener('app-runtime-data-change', () => {
+      const activeDate = getCtx()?.getActiveServiceDate?.() || '';
+      if (activeDate) syncCalendarStateToDate(activeDate, { mode: 'day' });
+      else {
+        calendarState.year = null;
+        calendarState.month = null;
+        calendarState.day = null;
+        calendarState.selectedDate = null;
+        calendarState.mode = 'year';
+      }
+      renderInfoCalendar();
+    });
     window.addEventListener('app-service-date-change', (ev) => {
       updateActiveServiceDateBadge();
       const newDate = ev?.detail?.activeServiceDate || getCtx()?.getActiveServiceDate?.() || '';
       if (newDate) {
-        const ymd = newDate.length === 10
-          ? { y: parseInt(newDate.slice(0,4)), m: parseInt(newDate.slice(5,7)), d: parseInt(newDate.slice(8,10)) }
-          : gtfsDateToYmd(newDate);
-        const dateKey = ymd ? ymdToDateStr(ymd.y, ymd.m, ymd.d) : '';
-        if (dateKey && dateKey !== calendarState.selectedDate) {
-          calendarState.selectedDate = dateKey;
-          if (ymd) {
-            calendarState.year = ymd.y;
-            calendarState.month = ymd.m;
-            calendarState.day = ymd.d;
-          }
-        }
+        syncCalendarStateToDate(newDate, { mode: 'day' });
       }
       renderInfoCalendar();
       renderInfoServiceSummary();
