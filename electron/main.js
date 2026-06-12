@@ -11,6 +11,13 @@ const https = require('https');
 const isDev = process.env.NODE_ENV === 'development' || !app.isPackaged;
 const isMac = process.platform === 'darwin';
 
+if (isDev) {
+  const devUserDataPath = path.join(__dirname, '..', '.electron-dev-user-data');
+  fs.mkdirSync(devUserDataPath, { recursive: true });
+  app.setPath('userData', devUserDataPath);
+  app.setPath('sessionData', path.join(devUserDataPath, 'session'));
+}
+
 // D3D11 device removed (DXGI_ERROR_DEVICE_HUNG 0x887A0006) — use OpenGL backend via ANGLE
 app.commandLine.appendSwitch('disable-gpu-sandbox');
 app.commandLine.appendSwitch('use-angle', 'gl');

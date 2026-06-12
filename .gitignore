@@ -9,6 +9,8 @@ Ydek/
 !docs/data/*.zip
 *.docx
 Data/*.zip
+Data/
+.electron-dev-user-data/
 *.tmp
 *.log
 .env
