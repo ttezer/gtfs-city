@@ -48,7 +48,8 @@
     return Math.abs(h);
   }
 
-  function getRouteColorRgb(routeShort, routeType) {
+  function getRouteColorRgb(routeShort, routeType, fallbackColor) {
+    if (Array.isArray(fallbackColor) && fallbackColor.length >= 3) return fallbackColor;
     const palette = [
       [231, 76, 60], [52, 152, 219], [155, 89, 182], [46, 204, 113], [241, 196, 15],
       [230, 126, 34], [26, 188, 156], [211, 84, 0], [52, 73, 94], [192, 57, 43],

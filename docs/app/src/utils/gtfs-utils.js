@@ -128,12 +128,16 @@
       const type = normalizeGtfsRouteType(r.route_type);
       const short = (r.route_short_name || r.route_long_name || rid).trim();
       const longName = (r.route_long_name || '').trim();
+      const gtfsHex = (r.route_color || '').replace('#', '').trim();
+      const gtfsRgb = /^[0-9A-Fa-f]{6}$/.test(gtfsHex)
+        ? [parseInt(gtfsHex.slice(0, 2), 16), parseInt(gtfsHex.slice(2, 4), 16), parseInt(gtfsHex.slice(4, 6), 16)]
+        : null;
       routeMap[rid] = {
         routeId: rid,
         agencyId: (r.agency_id || '').trim(),
         short,
         type,
-        color: getRouteColorRgb(short, type, typeMeta[type]?.rgb || fallback),
+        color: gtfsRgb || getRouteColorRgb(short, type, typeMeta[type]?.rgb || fallback),
         longName,
       };
     });
@@ -282,7 +286,7 @@
     return {
       routeIds,
       tripCap: Number.isFinite(options?.tripCap) ? Math.max(1, options.tripCap) : defaultTripCap,
-      includeStops: typeof options?.includeStops === 'boolean' ? options.includeStops : effectiveTotal <= 10000,
+      includeStops: typeof options?.includeStops === 'boolean' ? options.includeStops : true,
       includeHourlyStats: typeof options?.includeHourlyStats === 'boolean' ? options.includeHourlyStats : true,
       maxDepsPerStop: Number.isFinite(options?.maxDepsPerStop) ? Math.max(1, options.maxDepsPerStop) : (effectiveTotal <= 10000 ? 120 : effectiveTotal <= 30000 ? 20 : 12),
       pathPts: Number.isFinite(options?.pathPts) ? Math.max(2, options.pathPts) : (effectiveTotal <= 10000 ? 500 : effectiveTotal <= 30000 ? 180 : 120),
