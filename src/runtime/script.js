@@ -73,6 +73,38 @@ const QUALITY = {
 // ── EKSİK FONKSİYONLAR ─────────────────────────────────────
 let build3DVehicleLayer, updateVehiclePanel, showStopArrivals;
 let _activeStopData = null; // Açık durak paneli için
+let _highlightedStopPos = null;
+let _stopBlinkVisible = false;
+let _stopBlinkStep = 0;
+let _stopBlinkTimer = null;
+const _BLINK_COLORS = [
+  [255, 220, 50, 230],
+  [255, 140, 0, 230],
+  [255, 60, 60, 230],
+  [200, 80, 255, 230],
+];
+
+function triggerStopBlink(pos) {
+  if (_stopBlinkTimer) clearInterval(_stopBlinkTimer);
+  _highlightedStopPos = pos;
+  _stopBlinkVisible = true;
+  _stopBlinkStep = 0;
+  let count = 0;
+  refreshLayersNow();
+  _stopBlinkTimer = setInterval(() => {
+    _stopBlinkVisible = !_stopBlinkVisible;
+    if (_stopBlinkVisible) _stopBlinkStep = (_stopBlinkStep + 1) % _BLINK_COLORS.length;
+    refreshLayersNow();
+    count++;
+    if (count >= 10) {
+      clearInterval(_stopBlinkTimer);
+      _stopBlinkTimer = null;
+      _highlightedStopPos = null;
+      _stopBlinkVisible = false;
+      refreshLayersNow();
+    }
+  }, 280);
+}
 
 function captureRuntimeDataSnapshot(existing) {
   if (existing) return existing;
@@ -1713,6 +1745,10 @@ window.LegacyUIBridge = createLegacyBridge(() => ({
     refreshLayersNow,
     secsToHHMM,
     setActiveStopData: (stop) => { setActiveStopDataState(stop); },
+    triggerStopBlink: (pos) => { triggerStopBlink(pos); },
+    getHighlightedStopPos: () => _highlightedStopPos,
+    getStopBlinkVisible: () => _stopBlinkVisible,
+    getStopBlinkColor: () => _BLINK_COLORS[_stopBlinkStep % _BLINK_COLORS.length],
     setSelectedTripIdx: (idx) => { setSelectedTripIdxState(idx); },
     getSelectedTripIdx,
     getSelectedEntity,
@@ -2445,11 +2481,13 @@ function buildRoutePanelStats(routeShort) {
     return b.count - a.count;
   });
 
-  // Hat uzunluğu hesaplama: en uzun güzergahı (shape) bul
+  // Hat uzunluğu hesaplama: seçili varyanta en iyi uyan shape'i bul
   let maxM = 0;
   const routeShapes = AppState.shapes.filter((shape) =>
     (routeId ? shape.rid === routeId : shape.s === routeShort) &&
-    (selectedPatternKey === null || shape.dir === selectedPatternKey.dir)
+    (selectedPatternKey === null ||
+      (shape.dir === selectedPatternKey.dir &&
+        (!selectedPatternKey.h || !shape.h || shape.h === selectedPatternKey.h)))
   );
   routeShapes.forEach(rs => {
     if (rs.p && rs.p.length >= 2) {
@@ -2624,7 +2662,16 @@ document.getElementById('vp-follow-btn').onclick = () => {
 };
 document.getElementById('vp-route-btn').onclick = () => {
   if (selectedTripIdx === null) return;
-  focusRoute(AppState.trips[selectedTripIdx]?.s);
+  const trip = AppState.trips[selectedTripIdx];
+  if (!trip) return;
+  focusRoute({
+    rid: trip.rid || '',
+    aid: trip.aid || '',
+    s: trip.s || '',
+    t: trip.t,
+    c: trip.c,
+    ln: trip.ln || trip.h || '',
+  });
 };
 
 // ── FOLLOW MODE ───────────────────────────────────────────
@@ -2652,8 +2699,8 @@ function focusRoute(shortName) {
 document.getElementById('route-filter-inp').oninput = function () {
   const q = this.value.toLowerCase();
   document.querySelectorAll('.route-item').forEach(d => {
-    const longName = (d.querySelector('.ri-long')?.textContent || '').toLowerCase();
-    d.style.display = (!q || d.dataset.short.toLowerCase().includes(q) || longName.includes(q)) ? 'flex' : 'none';
+    const searchText = d.dataset.search || `${d.dataset.short || ''} ${d.querySelector('.ri-long')?.textContent || ''}`.toLowerCase();
+    d.style.display = (!q || searchText.includes(q)) ? 'flex' : 'none';
   });
 };
 document.getElementById('stop-list-filter')?.addEventListener('input', function () {

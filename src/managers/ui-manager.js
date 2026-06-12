@@ -111,19 +111,19 @@ window.UIManager = (function () {
       : (Array.isArray(ctx.getFocusedStopsData?.()) ? ctx.getFocusedStopsData() : []);
     const stopListHtml = focusedStops.length
       ? `<div class="route-panel-box">
-          <div class="route-panel-box-title">Duraklar <span class="route-panel-stop-count">(${focusedStops.length})</span></div>
+          <div class="route-panel-box-title">${translate('routePanelStopsTitle', 'Stops')} <span class="route-panel-stop-count">(${focusedStops.length})</span></div>
           <div class="route-panel-stops">
             ${focusedStops.map((stop, index) => `
               <div class="route-panel-stop-row" data-rp-stop-sid="${String(stop.sid || '').replace(/"/g, '&quot;')}">
                 <span class="route-panel-stop-index">${index + 1}</span>
-                <span class="route-panel-stop-name">${ctx.displayText(stop.name || stop.sid || 'Durak').replace(/</g, '&lt;')}</span>
+                <span class="route-panel-stop-name">${ctx.displayText(stop.name || stop.sid || translate('stopItem', 'Stop')).replace(/</g, '&lt;')}</span>
               </div>
             `).join('')}
           </div>
         </div>`
       : `<div class="route-panel-box">
-          <div class="route-panel-box-title">Duraklar</div>
-          <div class="route-panel-empty">Bu seçim için durak bulunamadı.</div>
+          <div class="route-panel-box-title">${translate('routePanelStopsTitle', 'Stops')}</div>
+          <div class="route-panel-empty">${translate('routePanelNoStopsFound', 'No stops found for this selection.')}</div>
         </div>`;
     const allPatterns = stats.patternList || [];
     const hasDir0 = allPatterns.some((p) => p.dir === 0);
@@ -140,14 +140,14 @@ window.UIManager = (function () {
       : '';
     const patternListHtml = allPatterns.length > 0
       ? `<div class="route-panel-box">
-          <div class="route-panel-box-title">Varyantlar</div>
+          <div class="route-panel-box-title">${translate('routePanelVariantsTitle', 'Variants')}</div>
           ${dirPillsHtml}
           <div class="insp-pattern-list">
             ${filteredPatterns.map((p) => {
               const isSel = selectedPat && selectedPat.dir === p.dir && selectedPat.h === p.h;
-              return `<div class="insp-pattern-row${isSel ? ' insp-pattern-row--selected' : ''}" data-rp-pattern-dir="${p.dir ?? ''}" data-rp-pattern-head="${p.h.replace(/"/g, '&quot;')}" title="${isSel ? 'Seçimi kaldır' : 'Bu varyanta odaklan'}">
+              return `<div class="insp-pattern-row${isSel ? ' insp-pattern-row--selected' : ''}" data-rp-pattern-dir="${p.dir ?? ''}" data-rp-pattern-head="${p.h.replace(/"/g, '&quot;')}" title="${isSel ? translate('routePanelDeselectVariant', 'Deselect') : translate('routePanelSelectVariant', 'Focus this variant')}">
                 <span class="insp-pattern-label">${p.label.replace(/</g, '&lt;')}</span>
-                <span class="insp-pattern-count">${p.count.toLocaleString()} sefer</span>
+                <span class="insp-pattern-count">${p.count.toLocaleString()} ${translate('routePanelTripsSuffix', 'trips')}</span>
               </div>`;
             }).join('')}
           </div>
@@ -383,7 +383,7 @@ window.UIManager = (function () {
     els['vp-follow-btn'].textContent = panelState.followLabel;
   }
 
-  function showStopArrivals(stop) {
+  function showStopArrivals(stop, { flyTo: doFlyTo = false } = {}) {
     const ctx = getCtx();
     if (!ctx) return;
     closeVehiclePanel();
@@ -391,6 +391,11 @@ window.UIManager = (function () {
     ctx.setActiveStopData(stop);
     const stopMeta = ctx.getStopMetaByArray(stop);
     ctx.setSelectedEntity(stopMeta?.sid ? { type: 'stop', sid: stopMeta.sid } : { type: 'stop' });
+    if (doFlyTo) {
+      const map = ctx.getMap ? ctx.getMap() : ctx.mapgl;
+      map?.flyTo({ center: [stop[0], stop[1]], zoom: 16, duration: 800 });
+    }
+    ctx.triggerStopBlink?.([stop[0], stop[1]]);
     renderStopPanel(stop);
     makeDraggable(document.getElementById('stop-panel'));
     ctx.refreshLayersNow();
@@ -625,6 +630,16 @@ window.UIManager = (function () {
         div.dataset.routeKey = route.k || route.s;
         div.dataset.short = route.s;
         div.dataset.type = normalizeRouteType(type);
+        div.dataset.search = [
+          route.s,
+          route.ln,
+          route.rid,
+          route.aid,
+          route.an,
+          ctx.getLocalizedRouteTypeName
+            ? ctx.getLocalizedRouteTypeName(type, ctx.TYPE_META[type]?.n || translate('routeTypeUnknown', 'Hat'))
+            : (ctx.TYPE_META[type]?.n || translate('routeTypeUnknown', 'Hat')),
+        ].filter(Boolean).join(' ').toLowerCase();
         div.innerHTML = `<div class="ri-bar" style="background:${ctx.colorToCss(routeMeta.color)}"></div>
           <div class="ri-info"><div class="ri-name"></div><div class="ri-type"></div><div class="ri-long"></div></div>
           <input type="checkbox" class="ri-check" ${ctx.isRouteHidden?.(route) ? '' : 'checked'} data-short="${route.s}">`;
@@ -729,10 +744,10 @@ window.UIManager = (function () {
     document.querySelectorAll('.route-item').forEach((el) => el.classList.toggle('focused', el.dataset.routeKey === routeKey));
     let shape = getShapes(ctx).find((s) => {
       if (typeof routeRef !== 'object') return s.s === shortName;
-      if (routeRef.rid && s.rid && s.rid === routeRef.rid) return true;
+      if (routeRef.rid) return s.rid && s.rid === routeRef.rid;
       if (routeRef.aid && s.aid && String(s.aid) !== String(routeRef.aid)) return false;
       return s.s === shortName && normalizeRouteType(s.t) === normalizeRouteType(routeRef.t);
-    }) || getShapes(ctx).find((s) => s.s === shortName);
+    }) || (typeof routeRef === 'object' && routeRef.rid ? null : getShapes(ctx).find((s) => s.s === shortName));
     if (shape?.p?.length) {
       const lons = shape.p.map((p) => p[0]);
       const lats = shape.p.map((p) => p[1]);
@@ -741,19 +756,15 @@ window.UIManager = (function () {
     }
     let trip = getTrips(ctx).find((t) => {
       if (typeof routeRef !== 'object') return t.s === shortName;
-      if (routeRef.rid && t.rid && t.rid === routeRef.rid) return true;
+      if (routeRef.rid) return t.rid && t.rid === routeRef.rid;
       if (routeRef.aid && t.aid && String(t.aid) !== String(routeRef.aid)) return false;
       return t.s === shortName && normalizeRouteType(t.t) === normalizeRouteType(routeRef.t);
-    }) || getTrips(ctx).find((t) => t.s === shortName);
+    }) || (typeof routeRef === 'object' && routeRef.rid ? null : getTrips(ctx).find((t) => t.s === shortName));
     if (!trip && ctx.AppState?.capped && typeof routeRef === 'object' && routeRef.rid && ctx.loadRouteRuntimeSubset) {
       const loaded = await ctx.loadRouteRuntimeSubset(routeRef.rid);
       if (loaded) {
-        shape = getShapes(ctx).find((s) => s.rid === routeRef.rid)
-          || getShapes(ctx).find((s) => s.s === shortName && normalizeRouteType(s.t) === normalizeRouteType(routeRef.t))
-          || getShapes(ctx).find((s) => s.s === shortName);
-        trip = getTrips(ctx).find((t) => t.rid === routeRef.rid)
-          || getTrips(ctx).find((t) => t.s === shortName && normalizeRouteType(t.t) === normalizeRouteType(routeRef.t))
-          || getTrips(ctx).find((t) => t.s === shortName);
+        shape = getShapes(ctx).find((s) => s.rid === routeRef.rid) || null;
+        trip = getTrips(ctx).find((t) => t.rid === routeRef.rid) || null;
       }
     }
     if (!trip && !shape) {

@@ -43,7 +43,7 @@
     const stopInfo = ctx?.getStopInfo?.() || {};
     const stop = stopInfo[stopId];
     if (!Array.isArray(stop)) return false;
-    window.UIManager?.showStopArrivals?.([stop[0], stop[1], stop[2], stopId, stop[2]]);
+    window.UIManager?.showStopArrivals?.([stop[0], stop[1], stop[2], stopId, stop[2]], { flyTo: true });
     return true;
   }
 
@@ -249,18 +249,20 @@
       const routeDisplayName = isFamilySelection
         ? (familyRoutes.find((entry) => entry?.ln)?.ln || patterns[0]?.h || '—')
         : (route?.ln || patterns[0]?.h || '—');
+      const routeServiceIds = new Set(allRouteTariffs.map(([, e]) => String(e.sid || '')).filter(Boolean));
+      const routeServiceDates = getActiveDatesForRoute(routeServiceIds, calendarRows, calendarDateRows);
       bodyEl.innerHTML = [
-        buildTemporalControlHtml(activeServiceDate),
+        buildTemporalControlHtml(activeServiceDate, routeServiceDates),
         buildInspectorBlock('Hat', escapeHtml(routeDisplayName)),
         buildInspectorStats([
           { value: routeTariffs.length.toLocaleString(getLocale()), label: activeServiceDate ? 'Seçili gün seferi' : 'Tarife seferi' },
           { value: runtimeTripsForRoute.toLocaleString(getLocale()), label: 'Yüklü sefer' },
           { value: patterns.length.toLocaleString(getLocale()), label: 'Varyant' },
         ]),
-        buildInspectorBlock('Servis aralığı', `${formatSecsToHHMM(firstDep(routeTariffs))} / ${formatSecsToHHMM(lastDep(routeTariffs))}`),
-        runtimeTripsForRoute === 0 && routeTariffs.length > 0 && route?.rid
-          ? `<div class="insp-load-anim-wrap"><button type="button" class="insp-load-anim-btn" data-info-action="load-animation" data-rid="${escapeHtml(route.rid)}"><span class="insp-load-anim-label">Animasyonu Yükle</span><span class="insp-load-anim-pct">0%</span></button></div>`
+        routeTariffs.length > 0 && runtimeTripsForRoute === 0 && route?.rid
+          ? `<div class="insp-load-route-wrap"><button type="button" class="insp-load-route-btn" data-info-action="load-route" data-rid="${escapeHtml(route.rid)}">Animasyonu Yükle</button></div>`
           : '',
+        buildInspectorBlock('Servis aralığı', `${formatSecsToHHMM(firstDep(routeTariffs))} / ${formatSecsToHHMM(lastDep(routeTariffs))}`),
         isFamilySelection ? buildRouteIdentitySummaryHtml(familyRoutes, familyTariffCounts, familyRuntimeCounts) : '',
         buildPatternSummaryHtml(patterns, ctx?.getSelectedPatternKey?.() ?? null, inspectorState.dirFilter ?? null),
         stopsTrayHtml,
@@ -293,51 +295,61 @@
         window.UIManager?.focusRoute(route || selectedEntity.routeShort);
         renderInfoInspector();
       });
-      const loadAnimBtn = bodyEl.querySelector('[data-info-action="load-animation"]');
-      if (loadAnimBtn) {
-        loadAnimBtn.addEventListener('click', async () => {
-          const rid = loadAnimBtn.getAttribute('data-rid') || '';
+      const loadRouteBtn = bodyEl.querySelector('[data-info-action="load-route"]');
+      if (loadRouteBtn) {
+        loadRouteBtn.addEventListener('click', async () => {
+          const rid = loadRouteBtn.getAttribute('data-rid') || '';
           if (!rid) return;
-          loadAnimBtn.disabled = true;
-          loadAnimBtn.classList.add('loading');
-          const pctEl = loadAnimBtn.querySelector('.insp-load-anim-pct');
-          const labelEl = loadAnimBtn.querySelector('.insp-load-anim-label');
-          let fakeProgress = 0;
-          const ticker = setInterval(() => {
-            fakeProgress = Math.min(fakeProgress + Math.random() * 12, 88);
-            if (pctEl) pctEl.textContent = `${Math.round(fakeProgress)}%`;
-            loadAnimBtn.style.setProperty('--fill-pct', `${fakeProgress}%`);
-          }, 200);
+          loadRouteBtn.disabled = true;
+          loadRouteBtn.textContent = 'Yükleniyor...';
           const ok = await ctx?.loadRouteRuntimeSubset?.(rid);
-          clearInterval(ticker);
-          loadAnimBtn.style.setProperty('--fill-pct', '100%');
-          if (pctEl) pctEl.textContent = '100%';
-          if (labelEl) labelEl.textContent = ok ? 'Yüklendi' : 'Yükleme başarısız';
-          await new Promise((r) => setTimeout(r, 600));
-          renderInfoInspector();
+          if (ok) { renderInfoInspector(); } else { loadRouteBtn.textContent = 'Yükleme başarısız'; }
         });
       }
+      bodyEl.querySelector('[data-info-action="show-service-dates"]')?.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const popup = bodyEl.querySelector('#insp-service-dates-popup');
+        if (!popup) return;
+        popup.classList.toggle('hidden');
+        if (!popup.classList.contains('hidden') && !popup.dataset.built) {
+          const dates = [...routeServiceDates].sort();
+          const byMonth = {};
+          dates.forEach((d) => {
+            const key = d.slice(0, 7);
+            if (!byMonth[key]) byMonth[key] = [];
+            byMonth[key].push(d);
+          });
+          const TR_MONTHS = ['Oca','Şub','Mar','Nis','May','Haz','Tem','Ağu','Eyl','Eki','Kas','Ara'];
+          popup.innerHTML = Object.entries(byMonth).map(([ym, ds]) => {
+            const [y, m] = ym.split('-');
+            const label = `${TR_MONTHS[+m - 1]} ${y}`;
+            const dayBtns = ds.map((d) => `<button class="insp-svc-day${d === activeServiceDate ? ' active' : ''}" data-svc-date="${d}">${+d.slice(8)}</button>`).join('');
+            return `<div class="insp-svc-month-label">${label}</div><div class="insp-svc-days">${dayBtns}</div>`;
+          }).join('') || '<div class="insp-svc-empty">Sefer tarihi bulunamadı</div>';
+          popup.dataset.built = '1';
+          popup.querySelectorAll('[data-svc-date]').forEach((btn) => {
+            btn.addEventListener('click', async () => {
+              const date = btn.getAttribute('data-svc-date');
+              popup.classList.add('hidden');
+              await window.ServiceManager?.handleDateChange?.(date);
+            });
+          });
+        }
+      });
+      document.addEventListener('click', function closeSvcPopup(e) {
+        const popup = bodyEl.querySelector('#insp-service-dates-popup');
+        if (popup && !popup.classList.contains('hidden') && !popup.contains(e.target) && !e.target.closest('[data-info-action="show-service-dates"]')) {
+          popup.classList.add('hidden');
+          document.removeEventListener('click', closeSvcPopup);
+        }
+      });
       bodyEl.querySelectorAll('[data-route-member-id]').forEach((row) => {
-        row.addEventListener('click', (e) => {
-          if (e.target.closest('[data-load-rid]')) return;
+        row.addEventListener('click', () => {
           const routeId = row.getAttribute('data-route-member-id') || '';
           const routeMember = familyRoutes.find((entry) => String(entry?.rid || '').trim() === routeId) || null;
           if (!routeMember) return;
           ctx?.setSelectedEntity?.({ type: 'route', routeId, routeShort: routeMember.s || selectedEntity.routeShort || '' });
           renderInfoInspector();
-        });
-      });
-      bodyEl.querySelectorAll('[data-load-rid]').forEach((btn) => {
-        btn.addEventListener('click', async (e) => {
-          e.stopPropagation();
-          const rid = btn.getAttribute('data-load-rid') || '';
-          if (!rid) return;
-          btn.disabled = true;
-          btn.textContent = '...';
-          const ok = await ctx?.loadRouteRuntimeSubset?.(rid);
-          btn.textContent = ok ? '✓' : '✗';
-          if (ok) setTimeout(() => renderInfoInspector(), 600);
-          else btn.title = 'Yükleme başarısız — bu tarihte sefer yok olabilir';
         });
       });
       bodyEl.querySelectorAll('[data-pattern-dir]').forEach((row) => {
@@ -663,7 +675,7 @@
     </div>`;
   }
 
-  function renderCalendarDayDetail(dateStr, calendarRows, calendarDateRows, tariffIndex, routeCatalog, searchFilter) {
+  function renderCalendarDayDetail(dateStr, calendarRows, calendarDateRows, tariffIndex, routeCatalog, searchFilter, tripCountBySid) {
     const ids = getServiceIdsLocal(dateStr, calendarRows, calendarDateRows);
     const ymd = gtfsDateToYmd(dateStr);
     const dateLabel = ymd ? `${ymd.d} ${TR_MONTHS[ymd.m-1]} ${ymd.y}` : dateStr;
@@ -689,11 +701,13 @@
     const filter = String(searchFilter || '').trim().toLowerCase();
     const allRows = Array.from(byFamily.values()).sort((a,b) => b.count - a.count);
     const rows = filter ? allRows.filter((r) => `${r.short} ${r.ln}`.toLowerCase().includes(filter)) : allRows;
+    const tcBySid = tripCountBySid || {};
+    const totalTrips = [...ids].reduce((sum, sid) => sum + (tcBySid[sid] || 0), 0);
     return `
       <div class="cal-day-shell">
         <div class="cal-day-header">
           <span class="cal-day-title">${dateLabel}</span>
-          <span class="cal-day-meta">${ids.size} servis · ${allRows.length} hat</span>
+          <span class="cal-day-meta">${ids.size} servis · ${totalTrips > 0 ? totalTrips.toLocaleString() + ' sefer' : allRows.length + ' hat'}</span>
           <button class="cal-load-service-btn" data-date="${dateStr}">Takvimi Yükle</button>
           <button class="cal-goto-map-btn" data-date="${dateStr}">Haritaya Geç →</button>
         </div>
@@ -725,7 +739,7 @@
       return;
     }
     const activeServiceDate = normalizeCalendarDateKey(ctx?.getActiveServiceDate?.() || '');
-    if (activeServiceDate && calendarState.selectedDate !== activeServiceDate) {
+    if (activeServiceDate && !calendarState.selectedDate) {
       calendarState.selectedDate = activeServiceDate;
       const ymd = gtfsDateToYmd(activeServiceDate);
       if (ymd) {
@@ -791,11 +805,15 @@
             ${year < maxY ? `<button class="cal-nav-btn" data-cal-year="${year+1}">▶</button>` : '<span class="cal-nav-spacer"></span>'}
           </div>`;
       }
+      const searchIsoVal = calendarState.selectedDate
+        ? `${calendarState.selectedDate.slice(0,4)}-${calendarState.selectedDate.slice(4,6)}-${calendarState.selectedDate.slice(6,8)}`
+        : '';
       navEl.innerHTML = `
         <div class="cal-tabs">
           <button class="cal-tab${mode==='year'?' cal-tab-active':''}" data-cal-tab="year">Yıl</button>
           <button class="cal-tab${mode==='month'?' cal-tab-active':''}${!hasMonth?' cal-tab-off':''}" data-cal-tab="month" ${!hasMonth?'disabled':''}>Ay</button>
           <button class="cal-tab${mode==='day'?' cal-tab-active':''}${!hasDay?' cal-tab-off':''}" data-cal-tab="day" ${!hasDay?'disabled':''}>Gün</button>
+          <label class="cal-search-wrap" title="Tarihe git"><span class="cal-search-icon">🔍</span><input class="cal-date-input" type="date" value="${searchIsoVal}"></label>
         </div>
         ${stepNavHtml}`;
       navEl.querySelectorAll('.cal-tab:not([disabled])').forEach((btn) => {
@@ -803,6 +821,20 @@
           calendarState.mode = btn.dataset.calTab;
           renderInfoCalendar();
         });
+      });
+      navEl.querySelector('.cal-date-input')?.addEventListener('change', (e) => {
+        const iso = e.target.value; // YYYY-MM-DD
+        if (!iso) return;
+        const dateKey = iso.replace(/-/g, '');
+        const ymd = gtfsDateToYmd(dateKey);
+        if (!ymd) return;
+        calendarState.selectedDate = dateKey;
+        calendarState.year = ymd.y;
+        calendarState.month = ymd.m;
+        calendarState.day = ymd.d;
+        calendarState.mode = 'day';
+        calendarState.daySearch = '';
+        renderInfoCalendar();
       });
       navEl.querySelectorAll('.cal-nav-btn[data-cal-year]').forEach((btn) => {
         btn.addEventListener('click', () => {
@@ -862,7 +894,7 @@
     } else if (mode === 'day') {
       if (!calendarState.selectedDate) { calendarState.mode = 'year'; renderInfoCalendar(); return; }
       if (!calendarState.daySearch) calendarState.daySearch = '';
-      bodyEl.innerHTML = renderCalendarDayDetail(calendarState.selectedDate, calendarRows, calendarDateRows, tariffIndex, routeCatalog, calendarState.daySearch);
+      bodyEl.innerHTML = renderCalendarDayDetail(calendarState.selectedDate, calendarRows, calendarDateRows, tariffIndex, routeCatalog, calendarState.daySearch, tripCountBySid);
       bindCalDayRowClicks(bodyEl, ctx);
       bodyEl.querySelector('.cal-day-search')?.addEventListener('input', (e) => {
         calendarState.daySearch = e.target.value || '';
@@ -1108,9 +1140,18 @@
     const { col, dir } = tableSort.route;
     const routeFamilies = buildRouteFamilies(routeCatalog, runtimeCounts, tariffCounts, dirSets, routeNameFallbacks);
     const filteredRoutes = routeFamilies
+      .map((routeFamily) => {
+        if (!filter) return { ...routeFamily, matchedRouteId: routeFamily.memberCount === 1 ? routeFamily.members[0]?.rid || '' : '' };
+        const matchedMembers = (routeFamily.members || []).filter((member) => routeMemberSearchText(member, routeNameFallbacks).includes(filter));
+        return {
+          ...routeFamily,
+          matchedRouteId: matchedMembers.length === 1 ? String(matchedMembers[0]?.rid || '').trim() : '',
+          matchedMemberCount: matchedMembers.length,
+        };
+      })
       .filter((r) => {
         if (!filter) return true;
-        return `${r?.short || ''} ${r?.displayName || ''}`.toLowerCase().includes(filter);
+        return r.searchText.includes(filter) || (r.matchedMemberCount || 0) > 0;
       })
       .sort((a, b) => {
         let v = 0;
@@ -1143,17 +1184,20 @@
         <tbody>
           ${rows.map((r) => {
             const active = selectedEntity?.type === 'route'
-              && ((selectedEntity?.routeFamily && selectedEntity?.routeShort === r.short) || selectedEntity?.routeShort === r.short);
+              && ((r.matchedRouteId && selectedEntity?.routeId === r.matchedRouteId)
+                || (selectedEntity?.routeFamily && selectedEntity?.routeShort === r.short)
+                || (!selectedEntity?.routeId && selectedEntity?.routeShort === r.short));
             const displayName = r.displayName || '—';
             const inactiveToday = activeIds && (r.tariff || 0) === 0;
-            return `<tr class="info-tbl-row${active ? ' active' : ''}${inactiveToday ? ' tbl-row-inactive' : ''}" data-route-short="${escapeHtml(r.short || '')}">
+            const routeId = r.matchedRouteId || (r.memberCount === 1 ? r.members[0]?.rid || '' : '');
+            return `<tr class="info-tbl-row${active ? ' active' : ''}${inactiveToday ? ' tbl-row-inactive' : ''}" data-route-short="${escapeHtml(r.short || '')}" data-route-id="${escapeHtml(routeId)}" data-route-family="${routeId ? '0' : '1'}">
               <td><span class="info-route-badge">${escapeHtml(r.short || '—')}</span></td>
               <td class="tbl-td-name">${escapeHtml(displayName)}</td>
               <td class="tbl-td-muted">${escapeHtml(r.typeLabel || '—')}</td>
               <td class="tbl-td-num">${r.dirs || '—'}</td>
               <td class="tbl-td-num">${activeIds && (r.tariff || 0) === 0 ? '<span class="tbl-inactive-marker">—</span>' : (r.tariff || 0).toLocaleString(getLocale())}</td>
               <td class="tbl-td-num">${(r.runtime || 0).toLocaleString(getLocale())}</td>
-              <td><button class="tbl-map-btn" data-map-route-short="${escapeHtml(r.short || '')}" title="Ayrıntıyı aç">↗</button></td>
+              <td><button class="tbl-map-btn" data-map-route-short="${escapeHtml(r.short || '')}" data-map-route-id="${escapeHtml(routeId)}" data-map-route-family="${routeId ? '0' : '1'}" title="Ayrıntıyı aç">↗</button></td>
             </tr>`;
           }).join('')}
           ${capNote}
@@ -1163,14 +1207,26 @@
     listEl.querySelectorAll('.info-tbl-row').forEach((row) => {
       row.addEventListener('click', (e) => {
         if (e.target instanceof HTMLElement && e.target.closest('.tbl-map-btn')) return;
-        ctx?.setSelectedEntity?.({ type: 'route', routeId: null, routeShort: row.dataset.routeShort || '', routeFamily: true });
+        const routeId = row.dataset.routeId || null;
+        ctx?.setSelectedEntity?.({
+          type: 'route',
+          routeId,
+          routeShort: row.dataset.routeShort || '',
+          routeFamily: !routeId && row.dataset.routeFamily !== '0',
+        });
         renderInfoRouteList(getElement('info-route-filter')?.value || '');
       });
     });
     listEl.querySelectorAll('.tbl-map-btn').forEach((btn) => {
       btn.addEventListener('click', (e) => {
         e.stopPropagation();
-        ctx?.setSelectedEntity?.({ type: 'route', routeId: null, routeShort: btn.dataset.mapRouteShort || '', routeFamily: true });
+        const routeId = btn.dataset.mapRouteId || null;
+        ctx?.setSelectedEntity?.({
+          type: 'route',
+          routeId,
+          routeShort: btn.dataset.mapRouteShort || '',
+          routeFamily: !routeId && btn.dataset.mapRouteFamily !== '0',
+        });
         renderInfoInspector();
       });
     });
@@ -1457,11 +1513,18 @@
           dirs: new Set(),
           tariff: 0,
           runtime: 0,
+          agencies: new Set(),
+          routeIds: new Set(),
         });
       }
       const family = families.get(short);
       family.members.push(route);
-      if (route?.rid) family.memberIds.add(String(route.rid));
+      if (route?.rid) {
+        family.memberIds.add(String(route.rid));
+        family.routeIds.add(String(route.rid));
+      }
+      if (route?.aid) family.agencies.add(String(route.aid));
+      if (route?.an) family.agencies.add(String(route.an));
       const displayName = String(route?.ln || routeNameFallbacks.get(String(route?.rid || '').trim()) || '').trim();
       if (displayName) family.names.add(displayName);
       family.typeLabels.add(localizedRouteTypeLabel(route?.t) || String(route?.t ?? '—'));
@@ -1482,8 +1545,30 @@
         dirs: family.dirs.size,
         tariff: family.tariff,
         runtime: family.runtime,
+        searchText: [
+          family.short,
+          ...nameArray,
+          ...typeArray,
+          ...family.routeIds,
+          ...family.agencies,
+        ].filter(Boolean).join(' ').toLowerCase(),
       };
     });
+  }
+
+  function routeMemberSearchText(route, routeNameFallbacks) {
+    if (!route) return '';
+    const rid = String(route.rid || '').trim();
+    return [
+      route.s,
+      route.ln,
+      route.an,
+      route.aid,
+      route.t,
+      rid,
+      routeNameFallbacks?.get?.(rid),
+      localizedRouteTypeLabel(route.t),
+    ].filter(Boolean).join(' ').toLowerCase();
   }
 
   function buildTripStops(tripId, stopTariffIndex, stopInfo) {
@@ -1559,15 +1644,11 @@
       const displayName = route?.ln || route?.an || rid || '—';
       const tariffCount = tariffCounts.get(rid) || 0;
       const runtimeCount = runtimeCounts.get(rid) || 0;
-      const loadBtn = runtimeCount === 0 && tariffCount > 0 && rid
-        ? `<button type="button" class="insp-load-row-btn" data-load-rid="${escapeHtml(rid)}" title="Animasyonu yükle">Yükle</button>`
-        : '';
       return `
         <div class="insp-pattern-row" data-route-member-id="${escapeHtml(rid)}" title="Bu kaydı aç">
           <span class="route-code-badge">${escapeHtml(route?.s || rid || '—')}</span>
           <span class="insp-pattern-head">${escapeHtml(displayName)}</span>
           <span class="insp-pattern-count">${escapeHtml(typeLabel)} · ${tariffCount.toLocaleString(getLocale())}/${runtimeCount.toLocaleString(getLocale())}</span>
-          ${loadBtn}
         </div>`;
     }).join('');
     return `<div class="info-inspector-block">
@@ -1592,11 +1673,45 @@
     </div>`;
   }
 
-  function buildTemporalControlHtml(dateValue) {
+  function buildTemporalControlHtml(dateValue, servicesDates) {
+    const calBtn = servicesDates?.size
+      ? `<button type="button" class="insp-svc-cal-btn" data-info-action="show-service-dates" title="Sefer olan günleri göster">📅</button>
+         <div class="insp-service-dates-popup hidden" id="insp-service-dates-popup"></div>`
+      : '';
     return `<div class="insp-temporal-ctrl">
       <label class="insp-temporal-label">Çalışma günü</label>
-      <input type="date" class="insp-date-input" id="insp-date-input" value="${escapeHtml(dateValue || '')}">
+      <div class="insp-date-wrap">
+        <input type="date" class="insp-date-input" id="insp-date-input" value="${escapeHtml(dateValue || '')}">
+        ${calBtn}
+      </div>
     </div>`;
+  }
+
+  function getActiveDatesForRoute(serviceIds, calendarRows, calendarDateRows) {
+    const dates = new Set();
+    const DOW = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+    for (const row of (calendarRows || [])) {
+      if (!serviceIds.has(String(row.service_id || ''))) continue;
+      const s = String(row.start_date || ''), e = String(row.end_date || '');
+      if (s.length !== 8 || e.length !== 8) continue;
+      const startMs = Date.UTC(+s.slice(0, 4), +s.slice(4, 6) - 1, +s.slice(6, 8));
+      const endMs = Date.UTC(+e.slice(0, 4), +e.slice(4, 6) - 1, +e.slice(6, 8));
+      for (let ms = startMs; ms <= endMs; ms += 86400000) {
+        const dt = new Date(ms);
+        if (String(row[DOW[dt.getUTCDay()]]) !== '1') continue;
+        const y = dt.getUTCFullYear(), mo = String(dt.getUTCMonth() + 1).padStart(2, '0'), d = String(dt.getUTCDate()).padStart(2, '0');
+        dates.add(`${y}-${mo}-${d}`);
+      }
+    }
+    for (const row of (calendarDateRows || [])) {
+      if (!serviceIds.has(String(row.service_id || ''))) continue;
+      const s = String(row.date || '');
+      if (s.length !== 8) continue;
+      const fmt = `${s.slice(0, 4)}-${s.slice(4, 6)}-${s.slice(6, 8)}`;
+      if (String(row.exception_type) === '1') dates.add(fmt);
+      else if (String(row.exception_type) === '2') dates.delete(fmt);
+    }
+    return dates;
   }
 
   function getRuntimeMode() {

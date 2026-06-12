@@ -43,7 +43,7 @@
     const stopInfo = ctx?.getStopInfo?.() || {};
     const stop = stopInfo[stopId];
     if (!Array.isArray(stop)) return false;
-    window.UIManager?.showStopArrivals?.([stop[0], stop[1], stop[2], stopId, stop[2]]);
+    window.UIManager?.showStopArrivals?.([stop[0], stop[1], stop[2], stopId, stop[2]], { flyTo: true });
     return true;
   }
 
@@ -675,7 +675,7 @@
     </div>`;
   }
 
-  function renderCalendarDayDetail(dateStr, calendarRows, calendarDateRows, tariffIndex, routeCatalog, searchFilter) {
+  function renderCalendarDayDetail(dateStr, calendarRows, calendarDateRows, tariffIndex, routeCatalog, searchFilter, tripCountBySid) {
     const ids = getServiceIdsLocal(dateStr, calendarRows, calendarDateRows);
     const ymd = gtfsDateToYmd(dateStr);
     const dateLabel = ymd ? `${ymd.d} ${TR_MONTHS[ymd.m-1]} ${ymd.y}` : dateStr;
@@ -701,11 +701,13 @@
     const filter = String(searchFilter || '').trim().toLowerCase();
     const allRows = Array.from(byFamily.values()).sort((a,b) => b.count - a.count);
     const rows = filter ? allRows.filter((r) => `${r.short} ${r.ln}`.toLowerCase().includes(filter)) : allRows;
+    const tcBySid = tripCountBySid || {};
+    const totalTrips = [...ids].reduce((sum, sid) => sum + (tcBySid[sid] || 0), 0);
     return `
       <div class="cal-day-shell">
         <div class="cal-day-header">
           <span class="cal-day-title">${dateLabel}</span>
-          <span class="cal-day-meta">${ids.size} servis · ${allRows.length} hat</span>
+          <span class="cal-day-meta">${ids.size} servis · ${totalTrips > 0 ? totalTrips.toLocaleString() + ' sefer' : allRows.length + ' hat'}</span>
           <button class="cal-load-service-btn" data-date="${dateStr}">Takvimi Yükle</button>
           <button class="cal-goto-map-btn" data-date="${dateStr}">Haritaya Geç →</button>
         </div>
@@ -737,7 +739,7 @@
       return;
     }
     const activeServiceDate = normalizeCalendarDateKey(ctx?.getActiveServiceDate?.() || '');
-    if (activeServiceDate && calendarState.selectedDate !== activeServiceDate) {
+    if (activeServiceDate && !calendarState.selectedDate) {
       calendarState.selectedDate = activeServiceDate;
       const ymd = gtfsDateToYmd(activeServiceDate);
       if (ymd) {
@@ -803,11 +805,15 @@
             ${year < maxY ? `<button class="cal-nav-btn" data-cal-year="${year+1}">▶</button>` : '<span class="cal-nav-spacer"></span>'}
           </div>`;
       }
+      const searchIsoVal = calendarState.selectedDate
+        ? `${calendarState.selectedDate.slice(0,4)}-${calendarState.selectedDate.slice(4,6)}-${calendarState.selectedDate.slice(6,8)}`
+        : '';
       navEl.innerHTML = `
         <div class="cal-tabs">
           <button class="cal-tab${mode==='year'?' cal-tab-active':''}" data-cal-tab="year">Yıl</button>
           <button class="cal-tab${mode==='month'?' cal-tab-active':''}${!hasMonth?' cal-tab-off':''}" data-cal-tab="month" ${!hasMonth?'disabled':''}>Ay</button>
           <button class="cal-tab${mode==='day'?' cal-tab-active':''}${!hasDay?' cal-tab-off':''}" data-cal-tab="day" ${!hasDay?'disabled':''}>Gün</button>
+          <label class="cal-search-wrap" title="Tarihe git"><span class="cal-search-icon">🔍</span><input class="cal-date-input" type="date" value="${searchIsoVal}"></label>
         </div>
         ${stepNavHtml}`;
       navEl.querySelectorAll('.cal-tab:not([disabled])').forEach((btn) => {
@@ -815,6 +821,20 @@
           calendarState.mode = btn.dataset.calTab;
           renderInfoCalendar();
         });
+      });
+      navEl.querySelector('.cal-date-input')?.addEventListener('change', (e) => {
+        const iso = e.target.value; // YYYY-MM-DD
+        if (!iso) return;
+        const dateKey = iso.replace(/-/g, '');
+        const ymd = gtfsDateToYmd(dateKey);
+        if (!ymd) return;
+        calendarState.selectedDate = dateKey;
+        calendarState.year = ymd.y;
+        calendarState.month = ymd.m;
+        calendarState.day = ymd.d;
+        calendarState.mode = 'day';
+        calendarState.daySearch = '';
+        renderInfoCalendar();
       });
       navEl.querySelectorAll('.cal-nav-btn[data-cal-year]').forEach((btn) => {
         btn.addEventListener('click', () => {
@@ -874,7 +894,7 @@
     } else if (mode === 'day') {
       if (!calendarState.selectedDate) { calendarState.mode = 'year'; renderInfoCalendar(); return; }
       if (!calendarState.daySearch) calendarState.daySearch = '';
-      bodyEl.innerHTML = renderCalendarDayDetail(calendarState.selectedDate, calendarRows, calendarDateRows, tariffIndex, routeCatalog, calendarState.daySearch);
+      bodyEl.innerHTML = renderCalendarDayDetail(calendarState.selectedDate, calendarRows, calendarDateRows, tariffIndex, routeCatalog, calendarState.daySearch, tripCountBySid);
       bindCalDayRowClicks(bodyEl, ctx);
       bodyEl.querySelector('.cal-day-search')?.addEventListener('input', (e) => {
         calendarState.daySearch = e.target.value || '';
@@ -1120,9 +1140,18 @@
     const { col, dir } = tableSort.route;
     const routeFamilies = buildRouteFamilies(routeCatalog, runtimeCounts, tariffCounts, dirSets, routeNameFallbacks);
     const filteredRoutes = routeFamilies
+      .map((routeFamily) => {
+        if (!filter) return { ...routeFamily, matchedRouteId: routeFamily.memberCount === 1 ? routeFamily.members[0]?.rid || '' : '' };
+        const matchedMembers = (routeFamily.members || []).filter((member) => routeMemberSearchText(member, routeNameFallbacks).includes(filter));
+        return {
+          ...routeFamily,
+          matchedRouteId: matchedMembers.length === 1 ? String(matchedMembers[0]?.rid || '').trim() : '',
+          matchedMemberCount: matchedMembers.length,
+        };
+      })
       .filter((r) => {
         if (!filter) return true;
-        return `${r?.short || ''} ${r?.displayName || ''}`.toLowerCase().includes(filter);
+        return r.searchText.includes(filter) || (r.matchedMemberCount || 0) > 0;
       })
       .sort((a, b) => {
         let v = 0;
@@ -1155,17 +1184,20 @@
         <tbody>
           ${rows.map((r) => {
             const active = selectedEntity?.type === 'route'
-              && ((selectedEntity?.routeFamily && selectedEntity?.routeShort === r.short) || selectedEntity?.routeShort === r.short);
+              && ((r.matchedRouteId && selectedEntity?.routeId === r.matchedRouteId)
+                || (selectedEntity?.routeFamily && selectedEntity?.routeShort === r.short)
+                || (!selectedEntity?.routeId && selectedEntity?.routeShort === r.short));
             const displayName = r.displayName || '—';
             const inactiveToday = activeIds && (r.tariff || 0) === 0;
-            return `<tr class="info-tbl-row${active ? ' active' : ''}${inactiveToday ? ' tbl-row-inactive' : ''}" data-route-short="${escapeHtml(r.short || '')}">
+            const routeId = r.matchedRouteId || (r.memberCount === 1 ? r.members[0]?.rid || '' : '');
+            return `<tr class="info-tbl-row${active ? ' active' : ''}${inactiveToday ? ' tbl-row-inactive' : ''}" data-route-short="${escapeHtml(r.short || '')}" data-route-id="${escapeHtml(routeId)}" data-route-family="${routeId ? '0' : '1'}">
               <td><span class="info-route-badge">${escapeHtml(r.short || '—')}</span></td>
               <td class="tbl-td-name">${escapeHtml(displayName)}</td>
               <td class="tbl-td-muted">${escapeHtml(r.typeLabel || '—')}</td>
               <td class="tbl-td-num">${r.dirs || '—'}</td>
               <td class="tbl-td-num">${activeIds && (r.tariff || 0) === 0 ? '<span class="tbl-inactive-marker">—</span>' : (r.tariff || 0).toLocaleString(getLocale())}</td>
               <td class="tbl-td-num">${(r.runtime || 0).toLocaleString(getLocale())}</td>
-              <td><button class="tbl-map-btn" data-map-route-short="${escapeHtml(r.short || '')}" title="Ayrıntıyı aç">↗</button></td>
+              <td><button class="tbl-map-btn" data-map-route-short="${escapeHtml(r.short || '')}" data-map-route-id="${escapeHtml(routeId)}" data-map-route-family="${routeId ? '0' : '1'}" title="Ayrıntıyı aç">↗</button></td>
             </tr>`;
           }).join('')}
           ${capNote}
@@ -1175,14 +1207,26 @@
     listEl.querySelectorAll('.info-tbl-row').forEach((row) => {
       row.addEventListener('click', (e) => {
         if (e.target instanceof HTMLElement && e.target.closest('.tbl-map-btn')) return;
-        ctx?.setSelectedEntity?.({ type: 'route', routeId: null, routeShort: row.dataset.routeShort || '', routeFamily: true });
+        const routeId = row.dataset.routeId || null;
+        ctx?.setSelectedEntity?.({
+          type: 'route',
+          routeId,
+          routeShort: row.dataset.routeShort || '',
+          routeFamily: !routeId && row.dataset.routeFamily !== '0',
+        });
         renderInfoRouteList(getElement('info-route-filter')?.value || '');
       });
     });
     listEl.querySelectorAll('.tbl-map-btn').forEach((btn) => {
       btn.addEventListener('click', (e) => {
         e.stopPropagation();
-        ctx?.setSelectedEntity?.({ type: 'route', routeId: null, routeShort: btn.dataset.mapRouteShort || '', routeFamily: true });
+        const routeId = btn.dataset.mapRouteId || null;
+        ctx?.setSelectedEntity?.({
+          type: 'route',
+          routeId,
+          routeShort: btn.dataset.mapRouteShort || '',
+          routeFamily: !routeId && btn.dataset.mapRouteFamily !== '0',
+        });
         renderInfoInspector();
       });
     });
@@ -1469,11 +1513,18 @@
           dirs: new Set(),
           tariff: 0,
           runtime: 0,
+          agencies: new Set(),
+          routeIds: new Set(),
         });
       }
       const family = families.get(short);
       family.members.push(route);
-      if (route?.rid) family.memberIds.add(String(route.rid));
+      if (route?.rid) {
+        family.memberIds.add(String(route.rid));
+        family.routeIds.add(String(route.rid));
+      }
+      if (route?.aid) family.agencies.add(String(route.aid));
+      if (route?.an) family.agencies.add(String(route.an));
       const displayName = String(route?.ln || routeNameFallbacks.get(String(route?.rid || '').trim()) || '').trim();
       if (displayName) family.names.add(displayName);
       family.typeLabels.add(localizedRouteTypeLabel(route?.t) || String(route?.t ?? '—'));
@@ -1494,8 +1545,30 @@
         dirs: family.dirs.size,
         tariff: family.tariff,
         runtime: family.runtime,
+        searchText: [
+          family.short,
+          ...nameArray,
+          ...typeArray,
+          ...family.routeIds,
+          ...family.agencies,
+        ].filter(Boolean).join(' ').toLowerCase(),
       };
     });
+  }
+
+  function routeMemberSearchText(route, routeNameFallbacks) {
+    if (!route) return '';
+    const rid = String(route.rid || '').trim();
+    return [
+      route.s,
+      route.ln,
+      route.an,
+      route.aid,
+      route.t,
+      rid,
+      routeNameFallbacks?.get?.(rid),
+      localizedRouteTypeLabel(route.t),
+    ].filter(Boolean).join(' ').toLowerCase();
   }
 
   function buildTripStops(tripId, stopTariffIndex, stopInfo) {

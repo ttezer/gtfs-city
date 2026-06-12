@@ -180,8 +180,8 @@ window.MapManager = (function () {
   }
 
   function getDirectionColor(baseColor, direction) {
-    if (direction === 0) return toneColor(baseColor, 58);
-    if (direction === 1) return toneColor(baseColor, -72);
+    if (direction === 0) return toneColor(baseColor, 18);
+    if (direction === 1) return toneColor(baseColor, -30);
     return baseColor;
   }
 
@@ -794,7 +794,18 @@ window.MapManager = (function () {
           const to = shape.path[idx + 1];
           if (!from || !to) continue;
           if (from[0] === to[0] && from[1] === to[1]) continue;
-          segments.push({ s: shape.s, t: shape.t, c: shape.c, from, to, noShape: !!shape.noShape });
+          segments.push({
+            s: shape.s,
+            t: shape.t,
+            rid: shape.rid || '',
+            aid: shape.aid || '',
+            c: shape.c,
+            dir: shape.dir,
+            h: shape.h || '',
+            from,
+            to,
+            noShape: !!shape.noShape,
+          });
         }
       }
       return segments;
@@ -812,9 +823,9 @@ window.MapManager = (function () {
         getTargetPosition: (d) => d.to,
         getColor: (d) => {
           const color = getShapeColor(ctx, d);
-          return focusedRoute && !routeMatchesFocus(ctx, d) ? [...color, 18] : [...color, 138];
+          return focusedRoute && !routeMatchesFocus(ctx, d) ? [...color, 18] : [...color, 245];
         },
-        getWidth: (d) => ctx.TYPE_META[d.t]?.w || 2,
+        getWidth: (d) => routeMatchesFocus(ctx, d) && focusedRoute ? Math.max((ctx.TYPE_META[d.t]?.w || 2) + 3, 5) : (ctx.TYPE_META[d.t]?.w || 2),
         widthUnits: 'pixels',
         widthMinPixels: 1,
         pickable: true,
@@ -829,9 +840,9 @@ window.MapManager = (function () {
         getTargetPosition: (d) => d.to,
         getColor: (d) => {
           const color = getShapeColor(ctx, d);
-          return focusedRoute && !routeMatchesFocus(ctx, d) ? [...color, 10] : [...color, 70];
+          return focusedRoute && !routeMatchesFocus(ctx, d) ? [...color, 10] : [...color, 220];
         },
-        getWidth: (d) => ctx.TYPE_META[d.t]?.w || 2,
+        getWidth: (d) => routeMatchesFocus(ctx, d) && focusedRoute ? Math.max((ctx.TYPE_META[d.t]?.w || 2) + 3, 5) : (ctx.TYPE_META[d.t]?.w || 2),
         widthUnits: 'pixels',
         widthMinPixels: 1,
         pickable: true,
@@ -846,9 +857,9 @@ window.MapManager = (function () {
         getTargetPosition: (d) => d.to,
         getColor: (d) => {
           const color = getShapeColor(ctx, d);
-          return focusedRoute && !routeMatchesFocus(ctx, d) ? [...color, 18] : [...color, 165];
+          return focusedRoute && !routeMatchesFocus(ctx, d) ? [...color, 18] : [...color, 250];
         },
-        getWidth: 5,
+        getWidth: (d) => routeMatchesFocus(ctx, d) && focusedRoute ? 8 : 5,
         widthUnits: 'pixels',
         widthMinPixels: 2,
         pickable: true,
@@ -979,6 +990,25 @@ window.MapManager = (function () {
           }));
         }
       }
+    }
+
+    const highlightedStopPos = ctx.getHighlightedStopPos?.();
+    const stopBlinkVisible = ctx.getStopBlinkVisible?.();
+    if (highlightedStopPos && stopBlinkVisible) {
+      const blinkColor = ctx.getStopBlinkColor?.() || [255, 220, 50, 230];
+      layers.push(new ScatterplotLayer({
+        id: 'stop-highlight-pulse',
+        data: [highlightedStopPos],
+        getPosition: (d) => d,
+        getRadius: 140,
+        getFillColor: blinkColor,
+        stroked: true,
+        getLineColor: [255, 255, 255, 255],
+        lineWidthMinPixels: 2.5,
+        radiusMinPixels: 14,
+        radiusMaxPixels: 32,
+        pickable: false,
+      }));
     }
 
     if (showStops && !showIsochron) {
